@@ -53,6 +53,12 @@ public class Place
             Passable = false 
         };
         
+        // Try to assign sprites if available.
+        AssignSpriteToTerrain(grass, "grass");
+        AssignSpriteToTerrain(tree, "tree");
+        AssignSpriteToTerrain(water, "water");
+        AssignSpriteToTerrain(mountain, "mountain");
+        
         // Fill with grass.
         for (int y = 0; y < Height; y++)
         {
@@ -84,6 +90,20 @@ public class Place
         TerrainGrid[19, 2] = mountain;
         TerrainGrid[18, 3] = mountain;
         TerrainGrid[19, 3] = mountain;
+    }
+    
+    private void AssignSpriteToTerrain(Terrain terrain, string spriteTag)
+    {
+        var sprite = SpriteManager.GetSprite(spriteTag);
+        if (sprite != null)
+        {
+            terrain.Sprite = sprite;
+            System.Console.WriteLine($"Assigned sprite '{spriteTag}' to terrain '{terrain.Name}'.");
+        }
+        else
+        {
+            System.Console.WriteLine($"No sprite found for '{spriteTag}'; will use colored tile.");
+        }
     }
 
     public Terrain GetTerrainAt(int x, int y)

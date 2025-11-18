@@ -5,12 +5,14 @@ using Avalonia.Media;
 using Avalonia.Threading;
 
 using Phantasma.Models;
+using Phantasma.Binders;
 
 namespace Phantasma.Views;
 
 public class GameView : Control
 {
     private Session gameSession;  //Maybe Phantasma, instead?
+    private Screen screen;
 
     public Session GameSession
     {
@@ -24,9 +26,15 @@ public class GameView : Control
 
     public GameView()
     {
+        // Initialize screen renderer.
+        screen = new Screen();
+        screen.Initialize();
+        
         // Set control size based on map.
         Width = 20 * Dimensions.TILE_W;  // 20 tiles wide
         Height = 20 * Dimensions.TILE_H; // 20 tiles high
+            
+        screen.SetScreenSize((int)Width, (int)Height);
         
         // Set up render timer.
         var timer = new DispatcherTimer();
@@ -45,23 +53,14 @@ public class GameView : Control
         if (gameSession?.CurrentPlace == null)
             return;
             
-        var place = gameSession.CurrentPlace;
-        
-        // Draw terrain grid.
-        for (int y = 0; y < place.Height; y++)
-        {
-            for (int x = 0; x < place.Width; x++)
-            {
-                var terrain = place.GetTerrainAt(x, y);
-                if (terrain != null)
-                {
-                    DrawTile(context, x, y, terrain);
-                }
-            }
-        }
-        
+        // Use the Screen class to render.
+        screen.DrawMap(context, gameSession.CurrentPlace);
+            
         // Draw grid lines (optional, helps visualize tiles).
-        DrawGrid(context, place.Width, place.Height);
+        if (screen.CurrentRenderMode == Screen.RenderMode.ColoredSquares)
+        {
+            DrawGrid(context, gameSession.CurrentPlace.Width, gameSession.CurrentPlace.Height);
+        }
     }
 
     private void DrawTile(DrawingContext context, int x, int y, Terrain terrain)

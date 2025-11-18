@@ -1,0 +1,43 @@
+using Avalonia.Media.Imaging;
+
+namespace Phantasma.Models;
+
+/// <summary>
+/// Sprite - animation sequence with different facings (from Nazghul)
+/// </summary>
+public class Sprite
+{
+    public string Tag { get; set; }          // Script variable name for the sprite
+    public int NFrames { get; set; }         // per sequence (1 for static)
+    public int NTotalFrames { get; set; }    // n_frames x # facings
+    public int Facing { get; set; }          // current facing sequence
+    public int Facings { get; set; }         // bitmap of supported facing sequences
+    public int Sequence { get; set; }        // current animation sequence
+    public string Decor { get; set; }        // decoration sprites
+    public int WPix { get; set; }            // frame width in pixels
+    public int HPix { get; set; }            // frame height in pixels
+    public int Faded { get; set; }           // render sprite semi-transparent
+    public int Wave { get; set; }            // vertical roll effect
+    
+    public Bitmap SourceImage { get; set; }  // The loaded image
+    public int SourceX { get; set; }         // X position in sprite sheet
+    public int SourceY { get; set; }         // Y position in sprite sheet
+        
+    /// <summary>
+    /// Create a simple static sprite.
+    /// </summary>
+    public static Sprite CreateStatic(string tag, Bitmap image, int x, int y, int width, int height)
+    {
+        return new Sprite
+        {
+            Tag = tag,
+            NFrames = 1,
+            NTotalFrames = 1,
+            WPix = width,
+            HPix = height,
+            SourceImage = image,
+            SourceX = x,
+            SourceY = y
+        };
+    }
+}

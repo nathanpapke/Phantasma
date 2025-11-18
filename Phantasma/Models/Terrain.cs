@@ -10,7 +10,7 @@ public class Terrain
     public string Effect { get; set; }     // Special effect (poison, etc.)
         
     // For sprite-based rendering.
-    //public Sprite Sprite { get; set; }
+    public Sprite Sprite { get; set; }
         
     public Terrain()
     {
