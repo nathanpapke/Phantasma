@@ -11,9 +11,6 @@ public class Session
     private Place currentPlace;
     private DispatcherTimer gameTimer;
         
-    // Game Timing
-    private const int TICKS_PER_SECOND = 10;
-        
     public Place CurrentPlace => currentPlace;
     public bool IsRunning => isRunning;
         
@@ -32,7 +29,7 @@ public class Session
             
         // Set up game timer for updates.
         gameTimer = new DispatcherTimer();
-        gameTimer.Interval = TimeSpan.FromMilliseconds(1000 / TICKS_PER_SECOND);
+        gameTimer.Interval = TimeSpan.FromMilliseconds(Common.MS_PER_TICK);
         gameTimer.Tick += GameTick;
         gameTimer.Start();
             

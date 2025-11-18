@@ -11,7 +11,6 @@ namespace Phantasma.Views;
 public class GameView : Control
 {
     private Session gameSession;  //Maybe Phantasma, instead?
-    private const int TILE_SIZE = 32;  // Size of each tile in pixels
 
     public Session GameSession
     {
@@ -26,8 +25,8 @@ public class GameView : Control
     public GameView()
     {
         // Set control size based on map.
-        Width = 20 * TILE_SIZE;  // 20 tiles wide
-        Height = 20 * TILE_SIZE; // 20 tiles high
+        Width = 20 * Dimensions.TILE_W;  // 20 tiles wide
+        Height = 20 * Dimensions.TILE_H; // 20 tiles high
         
         // Set up render timer.
         var timer = new DispatcherTimer();
@@ -68,7 +67,8 @@ public class GameView : Control
     private void DrawTile(DrawingContext context, int x, int y, Terrain terrain)
     {
         // Calculate pixel position.
-        var rect = new Rect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        var rect = new Rect(x * Dimensions.TILE_W, y * Dimensions.TILE_H,
+            Dimensions.TILE_W, Dimensions.TILE_H);
         
         // Parse color and create brush.
         var color = Color.Parse(terrain.Color);
@@ -86,8 +86,8 @@ public class GameView : Control
             20,
             Brushes.White);
             
-        var textX = x * TILE_SIZE + (TILE_SIZE - text.Width) / 2;
-        var textY = y * TILE_SIZE + (TILE_SIZE - text.Height) / 2;
+        var textX = x * Dimensions.TILE_W + (Dimensions.TILE_W - text.Width) / 2;
+        var textY = y * Dimensions.TILE_H + (Dimensions.TILE_H - text.Height) / 2;
         
         context.DrawText(text, new Point(textX, textY));
     }
@@ -100,16 +100,16 @@ public class GameView : Control
         for (int x = 0; x <= width; x++)
         {
             context.DrawLine(pen, 
-                new Point(x * TILE_SIZE, 0), 
-                new Point(x * TILE_SIZE, height * TILE_SIZE));
+                new Point(x * Dimensions.TILE_W, 0), 
+                new Point(x * Dimensions.TILE_W, height * Dimensions.TILE_H));
         }
         
         // Draw horizontal lines.
         for (int y = 0; y <= height; y++)
         {
             context.DrawLine(pen, 
-                new Point(0, y * TILE_SIZE), 
-                new Point(width * TILE_SIZE, y * TILE_SIZE));
+                new Point(0, y * Dimensions.TILE_H), 
+                new Point(width * Dimensions.TILE_W, y * Dimensions.TILE_H));
         }
     }
 }

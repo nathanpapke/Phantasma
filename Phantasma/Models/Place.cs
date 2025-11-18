@@ -12,8 +12,8 @@ public class Place
 
     public Place()
     {
-        Width = 20;
-        Height = 20;
+        Width = 20;  // TODO: Change to Dimensions.MAP_TILE_W after making Dimensions static.
+        Height = 20; // TODO: Chamge to Dimensions.MAP_TILE_H after making Dimensions static.
         Name = "Test Map";
         TerrainGrid = new Terrain[Width, Height];
     }

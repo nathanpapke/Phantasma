@@ -24,7 +24,7 @@ public partial class MainWindow : Window
         gameSession = new Session();
             
         // Find the GameView control and set its session.
-        gameView = this.FindControl<GameView>("GameViewControl");
+        gameView = this.GetControl<GameView>("GameViewControl");
         if (gameView != null)
         {
             gameView.GameSession = gameSession;
