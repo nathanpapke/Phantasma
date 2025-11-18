@@ -11,26 +11,39 @@ public class Session
     private bool isRunning;
     private Place currentPlace;
     private Character playerCharacter;
+    private Map map;
     private DispatcherTimer gameTimer;
         
     public Place CurrentPlace => currentPlace;
     public Character Player => playerCharacter;
+    public Map Map => map;
     public bool IsRunning => isRunning;
         
     // Singleton for Global Access
     private static Session current;
     public static Session Current => current;
         
-    public Session()
+    public Session()//Mode mode = Mode.Normal)
     {
+        //RunMode = mode;
         current = this;
             
         // Create a simple test map.
         currentPlace = new Place();
         currentPlace.GenerateTestMap();
+        
+        // Create map rendering system
+        map = new Map(800, 600, 32);
+        map.SetPlace(currentPlace);
             
         // Create the player character.
         CreatePlayer();
+        
+        // Attach camera to player.
+        if (playerCharacter != null && map != null)
+        {
+            map.AttachCamera(playerCharacter);
+        }
     }
         
     private void CreatePlayer()
@@ -94,8 +107,11 @@ public class Session
         
     private void Update()
     {
+        // Update camera to follow player.
+        map?.UpdateCamera();
+        
         // Game update logic will go here.
-        // For now just ensure player has action points
+        // For now just ensure player has action points.
         if (playerCharacter != null && playerCharacter.IsTurnEnded())
         {
             playerCharacter.StartTurn();
