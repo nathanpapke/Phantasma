@@ -3,6 +3,7 @@
         xmlns:vm="using:Phantasma.Binders"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:Phantasma.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Phantasma.Views.MainWindow"
         x:DataType="vm:MainWindowBinder"
@@ -14,7 +15,41 @@
              to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainWindowBinder/>
     </Design.DataContext>
-
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-
+        
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Title Bar -->
+        <TextBlock Grid.Row="0" 
+                   Text="{Binding Greeting}" 
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"
+                   FontSize="24"
+                   FontWeight="Bold"
+                   Margin="4"/>
+        
+        <!-- Game View Container -->
+        <ScrollViewer Grid.Row="1" 
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      Background="#1a1a1a">
+            <Border BorderBrush="Gray" 
+                    BorderThickness="2"
+                    Margin="4"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <views:GameView x:Name="GameViewControl"/>
+            </Border>
+        </ScrollViewer>
+        
+        <!-- Status Bar -->
+        <Border Grid.Row="2" 
+                Background="#2a2a2a" 
+                BorderBrush="Gray" 
+                BorderThickness="0,1,0,0">
+            <TextBlock x:Name="StatusText"
+                       Text="Press arrow keys to move."
+                       Foreground="LightGray"
+                       Margin="5"
+                       FontFamily="Consolas"/>
+        </Border>
+    </Grid>
 </Window>
