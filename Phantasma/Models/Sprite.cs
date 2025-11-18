@@ -22,6 +22,9 @@ public class Sprite
     public Bitmap SourceImage { get; set; }  // The loaded image
     public int SourceX { get; set; }         // X position in sprite sheet
     public int SourceY { get; set; }         // Y position in sprite sheet
+    
+    // ASCII Fallback Character
+    public char DisplayChar { get; set; }
         
     /// <summary>
     /// Create a simple static sprite.

@@ -80,6 +80,25 @@ public class SpriteManager
         }
     }
 
+    public static void LoadCharacterSprites()
+    {
+        // Try to load character sprites.
+        var spriteSheet = SpriteManager.LoadImage("characters.png");
+        if (spriteSheet != null)
+        {
+            // Register player sprite (assuming it's at position 0,0 in the sheet).
+            SpriteManager.RegisterSprite("player", spriteSheet, 0, 0);
+                
+            // Register NPC sprites.
+            SpriteManager.RegisterSprite("npc", spriteSheet, 32, 0);
+            SpriteManager.RegisterSprite("enemy", spriteSheet, 64, 0);
+        }
+        else
+        {
+            Console.WriteLine("No character sprites found, will use ASCII characters.");
+        }
+    }
+    
     /// <summary>
     /// Register a sprite from a sprite sheet.
     /// </summary>

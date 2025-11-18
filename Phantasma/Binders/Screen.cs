@@ -44,6 +44,9 @@ public class Screen
     {
         // Load terrain sprites.
         SpriteManager.LoadTerrainSprites();
+            
+        // Load character sprites.
+        SpriteManager.LoadCharacterSprites();
         
         // Update render mode based on sprite availability.
         CurrentRenderMode = SpriteManager.HasSprites() ? 
@@ -66,6 +69,23 @@ public class Screen
         else
         {
             DrawColoredTile(context, destRect, terrain);
+        }
+    }
+        
+    /// <summary>
+    /// Draw a being (character, monster, etc.).
+    /// </summary>
+    public void DrawBeing(DrawingContext context, int x, int y, Being being)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+            
+        if (CurrentRenderMode == RenderMode.Sprites && being.CurrentSprite.SourceImage != null)
+        {
+            DrawSprite(context, being.CurrentSprite, destRect);
+        }
+        else
+        {
+            DrawCharacterTile(context, destRect, being);
         }
     }
 
@@ -116,6 +136,56 @@ public class Screen
         
         context.DrawText(text, new Point(textX, textY));
     }
+        
+    /// <summary>
+    /// Draw a character tile (ASCII fallback).
+    /// </summary>
+    private void DrawCharacterTile(DrawingContext context, Rect rect, Being being)
+    {
+        // Determine character and color based on being type.
+        char displayChar = '@';  // Default for player
+        string color = "#FFFF00"; // Yellow for player
+            
+        if (being is Character character)
+        {
+            if (character.IsPlayer)
+            {
+                displayChar = '@';
+                color = "#FFFF00"; // Yellow
+            }
+            else
+            {
+                displayChar = 'h'; // 'h' for human NPC
+                color = "#00FFFF"; // Cyan for NPCs
+            }
+        }
+        else
+        {
+            displayChar = 'm'; // 'm' for monster
+            color = "#FF0000"; // Red for enemies
+        }
+            
+        // If sprite has a display char, use it.
+        if (being.CurrentSprite.Tag != null)
+        {
+            displayChar = being.CurrentSprite.DisplayChar != '\0' ? 
+                being.CurrentSprite.DisplayChar : displayChar;
+        }
+            
+        // Draw the character.
+        var text = new FormattedText(
+            displayChar.ToString(),
+            System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Consolas", FontStyle.Normal, FontWeight.Bold),
+            24,  // Slightly larger for characters
+            new SolidColorBrush(Color.Parse(color)));
+                
+        var textX = rect.X + (rect.Width - text.Width) / 2;
+        var textY = rect.Y + (rect.Height - text.Height) / 2;
+            
+        context.DrawText(text, new Point(textX, textY));
+    }
 
     /// <summary>
     /// Draw the complete map view.
@@ -130,7 +200,7 @@ public class Screen
         int endX = Math.Min(place.Width, viewX + (screenWidth / tileWidth) + 1);
         int endY = Math.Min(place.Height, viewY + (screenHeight / tileHeight) + 1);
         
-        // Draw terrain.
+        // Layer 1: Draw terrain.
         for (int y = startY; y < endY; y++)
         {
             for (int x = startX; x < endX; x++)
@@ -140,6 +210,19 @@ public class Screen
                 {
                     DrawTerrain(context, x - viewX, y - viewY, terrain);
                 }
+            }
+        }
+        
+        // Layer 2: Draw objects (items, containers, etc.).
+        
+        // Layer 3: Draw beings (player, NPCs, monsters).
+        var beings = place.GetAllBeings();
+        foreach (var being in beings)
+        {
+            if (being.GetX() >= startX && being.GetX() < endX &&
+                being.GetY() >= startY && being.GetY() < endY)
+            {
+                DrawBeing(context, being.GetX() - viewX, being.GetY() - viewY, being);
             }
         }
     }
