@@ -60,8 +60,8 @@ public class Session
         {
             for (int x = 0; x < currentPlace.Width; x++)
             {
-                var terrain = currentPlace.GetTerrainAt(x, y);
-                if (terrain != null && terrain.Passable)
+                var terrain = currentPlace.GetTerrain(x, y);
+                if (terrain != null && terrain.IsPassable)
                 {
                     startX = x;
                     startY = y;

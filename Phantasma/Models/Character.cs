@@ -15,6 +15,8 @@ public class Character : Being
     public bool IsPlayer { get; set; }
 
     // Stats
+    public int HitPoints { get; set; }
+    public int MaxHitPoints { get; set; }
     public int HpMod { get; set; }
     public int HpMult { get; set; }
     public int MpMod { get; set; }
@@ -28,11 +30,11 @@ public class Character : Being
     // Vision
     public int VisionRadius { get; set; } = 10;
     
-    // Equipment slots
+    // Equipment Slots
     private List<ArmsType> readiedArms;
     private Container inventory;
     
-    // Turn management
+    // Turn Management
     private bool turnEnded;
     
     public enum ReadyResult
@@ -77,13 +79,13 @@ public class Character : Being
         MP = mp;
         Level = lvl;
         
-        // Calculate max values
+        // Calculate max values.
         MaxHP = HpMod + (HpMult * Level);
         MaxMP = MpMod + (MpMult * Level);
     }
     
     /// <summary>
-    /// Create a simple test player character
+    /// Create a simple test player character.
     /// </summary>
     public static Character CreateTestPlayer()
     {
@@ -103,7 +105,7 @@ public class Character : Being
         }
         else
         {
-            // Create a placeholder sprite
+            // Create a placeholder sprite.
             player.CurrentSprite = new Sprite
             {
                 Tag = "player",
@@ -228,5 +230,164 @@ public class Character : Being
     public Container GetInventoryContainer()
     {
         return inventory;
+    }
+    
+    /// <summary>
+    /// Attempt to move in a direction with collision detection.
+    /// </summary>
+    /// <param name="dx">X offset (-1, 0, or 1)</param>
+    /// <param name="dy">Y offset (-1, 0, or 1)</param>
+    /// <returns>True if movement succeeded, false if blocked.</returns>
+    public override bool Move(int dx, int dy)
+    {
+        if (Position == null)
+        {
+            Console.WriteLine($"{Name} has no location!");
+            return false;
+        }
+        
+        // Calculate destination.
+        int newX = Position.X + dx;
+        int newY = Position.Y + dy;
+        
+        // Check if destination is passable.
+        if (!Position.Place.IsPassable(newX, newY, this, checkBeings: true))
+        {
+            // Movement blocked - get reason for feedback.
+            string reason = Position.Place.GetBlockageReason(newX, newY);
+            Console.WriteLine($"{Name} can't move there: {reason}");
+            return false;
+        }
+        
+        // Check if we have action points.
+        if (ActionPoints <= 0)
+        {
+            Console.WriteLine($"{Name} is out of action points!");
+            return false;
+        }
+        
+        // Get movement cost for destination terrain.
+        float cost = Position.Place.GetMovementCost(newX, newY, this);
+        int apCost = (int)Math.Ceiling(cost); // Round up
+        
+        // Check if we can afford the movement.
+        if (ActionPoints < apCost)
+        {
+            Console.WriteLine($"{Name} needs {apCost} AP but only has {ActionPoints} AP!");
+            return false;
+        }
+        
+        // For diagonal movement, check if path is clear.
+        if (dx != 0 && dy != 0)
+        {
+            if (!Position.Place.CanMoveTo(Position.X, Position.Y, newX, newY, this))
+            {
+                Console.WriteLine($"{Name} can't squeeze through diagonally!");
+                return false;
+            }
+        }
+        
+        // Perform the actual move.
+        Position.Place.MoveObject(this, newX, newY);
+        
+        // Consume action points based on terrain cost.
+        DecreaseActionPoints(apCost);
+        
+        // Provide feedback about movement cost.
+        if (apCost > 1)
+        {
+            var terrain = Position.Place.GetTerrain(newX, newY);
+            Console.WriteLine($"{Name} moved to ({newX},{newY}) through {terrain?.Name} (cost: {apCost} AP, {ActionPoints} AP remaining)");
+        }
+        else
+        {
+            Console.WriteLine($"{Name} moved to ({newX},{newY}) ({ActionPoints} AP remaining)");
+        }
+        
+        // Check for hazardous terrain.
+        if (Position.Place.IsHazardous(newX, newY))
+        {
+            var terrain = Position.Place.GetTerrain(newX, newY);
+            Console.WriteLine($"⚠️  {Name} steps onto hazardous {terrain?.Name}!");
+            
+            // Apply hazard damage/effects.
+            ApplyHazardEffects(terrain);
+        }
+        
+        return true;
+    }
+    
+    /// <summary>
+    /// Apply effects from hazardous terrain.
+    /// </summary>
+    private void ApplyHazardEffects(Terrain? terrain)
+    {
+        if (terrain == null || !terrain.IsHazardous)
+            return;
+        
+        // Different hazards cause different effects.
+        // For now, just apply generic damage.
+        int damage = 0;
+        
+        switch (terrain.Name.ToLower())
+        {
+            case "lava":
+            case "fire":
+                damage = Math.Max(1, MaxHitPoints / 10); // 10% of max HP
+                Console.WriteLine($"🔥 {Name} is burned for {damage} damage!");
+                break;
+                
+            case "swamp":
+            case "poison":
+                damage = Math.Max(1, MaxHitPoints / 20); // 5% of max HP
+                Console.WriteLine($"☠️  {Name} is poisoned for {damage} damage!");
+                // Future: Apply poison status .
+                break;
+                
+            case "ice":
+                // Ice doesn't damage, but might cause slipping (future feature).
+                Console.WriteLine($"🧊 {Name} slips on ice!");
+                break;
+                
+            default:
+                damage = Math.Max(1, MaxHitPoints / 20);
+                Console.WriteLine($"💀 {Name} takes {damage} damage from hazardous terrain!");
+                break;
+        }
+        
+        if (damage > 0)
+        {
+            Damage(damage);
+            
+            if (HitPoints <= 0)
+            {
+                Console.WriteLine($"💀 {Name} died from {terrain.Name}!");
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Check if this character can move to a location.
+    /// Useful for AI and pathfinding.
+    /// </summary>
+    public bool CanMoveTo(int x, int y)
+    {
+        if (Position == null)
+            return false;
+        
+        return Position.Place.IsPassable(x, y, this, checkBeings: true);
+    }
+    
+    /// <summary>
+    /// Get the AP cost to move to a location.
+    /// Useful for AI planning.
+    /// </summary>
+    public int GetMoveCost(int x, int y)
+    {
+        if (Position == null)
+            return int.MaxValue;
+        
+        float cost = Position.Place.GetMovementCost(x, y, this);
+        return (int)Math.Ceiling(cost);
     }
 }

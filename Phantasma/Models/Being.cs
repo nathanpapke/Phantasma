@@ -70,8 +70,8 @@ public class Being : Object
             return false;
             
         // Check if terrain is passable.
-        var terrain = Position.Place.GetTerrainAt(newX, newY);
-        if (terrain != null && !terrain.Passable)
+        var terrain = Position.Place.GetTerrain(newX, newY);
+        if (terrain != null && !terrain.IsPassable)
             return false;
             
         // Check if there's another being there

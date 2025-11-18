@@ -205,7 +205,7 @@ public class Screen
         {
             for (int x = startX; x < endX; x++)
             {
-                var terrain = place.GetTerrainAt(x, y);
+                var terrain = place.GetTerrain(x, y);
                 if (terrain != null)
                 {
                     DrawTerrain(context, x - viewX, y - viewY, terrain);
