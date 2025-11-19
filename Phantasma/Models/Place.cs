@@ -112,7 +112,8 @@ public class Place
             Name = "tree", 
             DisplayChar = 'T', 
             Color = "#0F4F0F",  // Dark Green
-            IsPassable = false 
+            IsPassable = false,
+            Transparent = false
         };
         
         var water = new Terrain 
@@ -121,7 +122,7 @@ public class Place
             DisplayChar = '~', 
             Color = "#4682B4",  // Steel Blue
             IsPassable = false,
-            Transparent = false
+            Transparent = true
         };
         
         var mountain = new Terrain 

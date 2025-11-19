@@ -59,17 +59,17 @@ public class Screen
     /// <summary>
     /// Check if a viewport tile is visible.
     /// </summary>
-    private bool IsTileVisible(byte[] vmask, int viewX, int viewY)
+    private bool IsTileVisible(byte[] vmask, int posX, int posY)
     {
-        // The vmask is 39x39, viewport varies by screen size
-        int vmaskX = viewX + 39/2 - (screenWidth/tileWidth)/2;
-        int vmaskY = viewY + 39/2 - (screenHeight/tileHeight)/2;
+        // The vmask is 39x39, viewport varies by screen size.
+        int vmaskX = posX + (39 - screenWidth / tileWidth) / 2;
+        int vmaskY = posY +  (39 - screenHeight / tileHeight) / 2;
     
         if (vmaskX < 0 || vmaskX >= 39 || vmaskY < 0 || vmaskY >= 39)
             return false;
     
         int index = vmaskY * 39 + vmaskX;
-        return index >= 0 && index < vmask.Length && vmask[index] > 0;
+        return index < vmask.Length && vmask[index] > 0; // removed index >= 0 &&
     }
 
     /// <summary>
@@ -92,11 +92,11 @@ public class Screen
     /// <summary>
     /// Draw black fog over invisible tiles.
     /// </summary>
-    private void DrawFog(DrawingContext context, int viewX, int viewY)
+    private void DrawFog(DrawingContext context, int x, int y)
     {
         var rect = new Rect(
-            viewX * tileWidth,
-            viewY * tileHeight,
+            x * tileWidth,
+            y * tileHeight,
             tileWidth,
             tileHeight
         );
@@ -225,33 +225,44 @@ public class Screen
     {
         if (place == null) return;
         
-        // Get visibility mask
+        // Get visibility mask.
         byte[] vmask = visibilityCache.Get(place, centerX, centerY);
+    
+        // Calculate how many tiles fit in the viewport
+        int tilesWide = screenWidth / tileWidth;
+        int tilesHigh = screenHeight / tileHeight;
+    
+        // Calculate the top-left corner of our view in map coordinates
+        int viewStartX = centerX - tilesWide / 2;
+        int viewStartY = centerY - tilesHigh / 2;
         
-        // Calculate view bounds
-        int halfWidth = (screenWidth / tileWidth) / 2;
-        int halfHeight = (screenHeight / tileHeight) / 2;
-        int viewStartX = centerX - halfWidth;
-        int viewStartY = centerY - halfHeight;
-        
-        // Calculate visible area.
-        int startX = Math.Max(0, viewStartX);
-        int startY = Math.Max(0, viewStartY);
-        int endX = Math.Min(place.Width, centerX + (screenWidth / tileWidth) + 1);
-        int endY = Math.Min(place.Height, centerY + (screenHeight / tileHeight) + 1);
-        int viewX;
-        int viewY;
+        int viewX = 0;
+        int viewY = 0;
         
         // Layer 1: Draw terrain.
-        for (int y = startY; y < endY; y++)
+        for (viewY = 0; viewY < tilesHigh; viewY++)
         {
-            for (int x = startX; x < endX; x++)
+            for (viewX = 0; viewX < tilesWide; viewX++)
             {
-                viewX = x - viewStartX;
-                viewY = y - viewStartY;
+                // Calculate map coordinates
+                int mapX = viewStartX + viewX;
+                int mapY = viewStartY + viewY;
                 
-                var terrain = place.GetTerrain(x, y);
-                if (terrain != null && IsTileVisible(vmask, centerX, centerY))
+                var terrain = place.GetTerrain(mapX, mapY);
+            
+                // Calculate screen position (where to draw on screen)
+                int screenX = viewX * tileWidth;
+                int screenY = viewY * tileHeight;
+                
+                // Check if this map position is valid
+                if (mapX < 0 || mapX >= place.Width || mapY < 0 || mapY >= place.Height)
+                {
+                    // Draw fog for out of bounds.
+                    DrawFog(context, screenX, screenY);
+                    continue;
+                }
+                
+                if (terrain != null && IsTileVisible(vmask, viewX, viewY))
                 {
                     DrawTerrain(context, viewX, viewY, terrain);
                 }
