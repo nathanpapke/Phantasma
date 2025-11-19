@@ -5,8 +5,10 @@ namespace Phantasma.Models;
 /// <summary>
 /// Base Class for All Living Entities (NPCs, monsters, player)
 /// </summary>
-public class Being : Object
+public abstract class Being : Object
 {
+    public override ObjectLayer Layer => ObjectLayer.Being;
+    
     public AStarNode CachedPath;
     public Place CachedPathPlace;
     private string name;
@@ -24,18 +26,12 @@ public class Being : Object
     // Visual
     public Sprite CurrentSprite { get; set; }
     
+    
     public Being() : base()
     {
         SetDefaults();
-        ObjectLayer = Layer.Being;
     }
-
-    public Being(ObjectType type) : base(type)
-    {
-        SetDefaults();
-        ObjectLayer = Layer.Being;
-    }
-
+    
     public void SetBaseFaction(int faction)
     {
         baseFaction = faction;

@@ -283,7 +283,7 @@ public class Place
     public Object? GetMechanismAt(int x, int y)
     {
         return objects
-            .FirstOrDefault(o => o.ObjectLayer == Object.Layer.Mechanism && 
+            .FirstOrDefault(o => o.Layer == ObjectLayer.Mechanism && 
                                  o.GetX() == x && o.GetY() == y);
     }
     
@@ -300,7 +300,7 @@ public class Place
         var objectsHere = GetObjectsAt(x, y);
         foreach (var obj in objectsHere)
         {
-            if (obj != forObject && obj.ObjectLayer == Object.Layer.Being)
+            if (obj != forObject && obj.Layer == ObjectLayer.Being)
                 return false;
         }
         
@@ -372,8 +372,8 @@ public class Place
     /// </summary>
     private ObjectLayer DetermineLayer(Object obj)
     {
-        // In Nazghul, objects have getLayer() method
-        // For now, determine by type
+        // In Nazghul, objects have getLayer() method.
+        // For now, determine by type.
         if (obj is Being)
             return ObjectLayer.Being;
         else if (obj is IMechanism)
@@ -385,7 +385,7 @@ public class Place
         else if (obj.GetType().Name.Contains("Field"))
             return ObjectLayer.Field;
         else
-            return ObjectLayer.Object;
+            return ObjectLayer.Item;
     }
     
     /// <summary>

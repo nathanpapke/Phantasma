@@ -8,7 +8,7 @@ public class ObjectType
     public string Tag { get; set; } = "";
     public string Name { get; set; } = "";
     public Sprite? Sprite { get; set; }
-    public Object.Layer Layer { get; set; }  // Reference to Object.Layer enum
+    public ObjectLayer Layer { get; set; }  // Reference to Object.Layer enum
     public bool Passable { get; set; } = true;
     public bool Transparent { get; set; } = true;
     public int Weight { get; set; }
@@ -21,21 +21,21 @@ public class ObjectType
         
     public ObjectType()
     {
-        Layer = Object.Layer.Item;  // Default to item layer
+        Layer = ObjectLayer.Item;  // Default to item layer
     }
         
-    public ObjectType(string tag, string name, Object.Layer layer)
+    public ObjectType(string tag, string name, ObjectLayer layer)
     {
         Tag = tag;
         Name = name;
         Layer = layer;
     }
-        
+    /*
     public virtual Object CreateInstance()
     {
         return new Object(this);
     }
-        
+    */
     // Helper Methods
     public bool IsReadyable()
     {
@@ -44,7 +44,7 @@ public class ObjectType
         
     public bool CanHandle()
     {
-        return Layer == Object.Layer.Mechanism;
+        return Layer == ObjectLayer.Mechanism;
     }
         
     public void Get(Object item, Character getter)

@@ -7,14 +7,19 @@ namespace Phantasma.Models;
 /// </summary>
 public class Container : Object
 {
-    private List<Object> contents;
+    public override ObjectLayer Layer => ObjectLayer.Container;
+    
+    // Container-specific Properties
+    public List<Item> Contents { get; set; } = new List<Item>();
+    public int Capacity { get; set; }
+    public bool IsLocked { get; set; }
+    
     private bool isOpen;
     private bool isTrapped;
         
     public Container() : base()
     {
-        ObjectLayer = Layer.Container;
-        contents = new List<Object>();
+        Contents = new List<Item>();
         isOpen = false;
         isTrapped = false;
     }
@@ -34,20 +39,20 @@ public class Container : Object
         isOpen = true;
     }
         
-    public List<Object> GetContents()
+    public List<Item> GetContents()
     {
-        return contents;
+        return Contents;
     }
         
-    public void AddItem(Object item)
+    public void AddItem(Item item)
     {
         if (item != null)
-            contents.Add(item);
+            Contents.Add(item);
     }
         
-    public void RemoveItem(Object item)
+    public void RemoveItem(Item item)
     {
-        contents.Remove(item);
+        Contents.Remove(item);
     }
         
     // Stub methods for Character.cs

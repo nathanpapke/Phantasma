@@ -5,8 +5,10 @@ namespace Phantasma.Models;
 /// <summary>
 /// Base Class for All Game Objects (items, beings, etc.)
 /// </summary>
-public class Object
+public abstract class Object
 {
+    public abstract ObjectLayer Layer { get; } //removed set;
+    
     private static int nextId = 1;
     
     public int Id { get; protected set; }
@@ -16,32 +18,10 @@ public class Object
     public int Count { get; set; } = 1;
     public Gob Gob { get; set; }  // Scheme object reference
     
-    // Object Layers (Determines draw order and interaction.)
-    public enum Layer
-    {
-        Terrain = 0,
-        Item = 1,
-        Container = 2,
-        Mechanism = 3,
-        Being = 4,
-        Effect = 5
-    }
-    
-    public Layer ObjectLayer { get; set; }
-    
     public Object()
     {
         Id = nextId++;
         Position = new Location(null, 0, 0);
-    }
-    
-    public Object(ObjectType type) : this()
-    {
-        Type = type;
-        if (type != null)
-        {
-            ObjectLayer = type.Layer;
-        }
     }
     
     public virtual bool Use(Being user)
@@ -94,22 +74,22 @@ public class Object
     
     public bool IsItem()
     {
-        return ObjectLayer == Layer.Item;
+        return Layer == ObjectLayer.Item;
     }
     
     public bool IsContainer()
     {
-        return ObjectLayer == Layer.Container;
+        return Layer == ObjectLayer.Container;
     }
     
     public bool IsGettable()
     {
-        return ObjectLayer == Layer.Item;
+        return Layer == ObjectLayer.Item;
     }
     
     public bool CanHandle()
     {
-        return ObjectLayer == Layer.Mechanism;
+        return Layer == ObjectLayer.Mechanism;
     }
     
     public virtual void Handle(Character user)
