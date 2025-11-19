@@ -7,6 +7,7 @@ namespace Phantasma.Models;
 public class Place
 {
     public string Name { get; set; }
+    public bool Wraps { get; set; } = false;
     public int Width { get; set; }
     public int Height { get; set; }
     public Terrain[,] TerrainGrid { get; set; }
@@ -28,6 +29,46 @@ public class Place
         TerrainGrid = new Terrain[Width, Height];
         objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
         objects = new List<Object>(0);
+    }
+    
+    /// <summary>
+    /// Wraps X coordinate for maps that wrap around
+    /// </summary>
+    public int WrapX(int x)
+    {
+        if (!Wraps) return x;
+        
+        while (x < 0) x += Width;
+        while (x >= Width) x -= Width;
+        return x;
+    }
+    
+    /// <summary>
+    /// Wraps Y coordinate for maps that wrap around
+    /// </summary>
+    public int WrapY(int y)
+    {
+        if (!Wraps) return y;
+        
+        while (y < 0) y += Height;
+        while (y >= Height) y -= Height;
+        return y;
+    }
+    
+    /// <summary>
+    /// Gets the visibility/transparency value at a location.
+    /// Returns 0 for opaque (blocks vision), 12 for transparent.
+    /// </summary>
+    public byte GetVisibility(int x, int y)
+    {
+        // TODO: Implement better way to return these values.
+        var terrain = GetTerrain(x, y);
+        if (terrain == null)
+            return 12;
+            
+        return terrain.Transparent
+            ? (byte)12
+            : (byte)0;
     }
     
     /// <summary>
@@ -79,7 +120,8 @@ public class Place
             Name = "water", 
             DisplayChar = '~', 
             Color = "#4682B4",  // Steel Blue
-            IsPassable = false 
+            IsPassable = false,
+            Transparent = false
         };
         
         var mountain = new Terrain 
@@ -87,7 +129,8 @@ public class Place
             Name = "mountain", 
             DisplayChar = '^', 
             Color = "#808080",  // Gray
-            IsPassable = false 
+            IsPassable = false,
+            Transparent = false
         };
         
         // Try to assign sprites if available.

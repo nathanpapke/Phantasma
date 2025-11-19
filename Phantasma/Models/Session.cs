@@ -32,7 +32,7 @@ public class Session
         currentPlace = new Place();
         currentPlace.GenerateTestMap();
         
-        // Create map rendering system
+        // Create map rendering system.
         map = new Map(800, 600, 32);
         map.SetPlace(currentPlace);
             
@@ -124,8 +124,8 @@ public class Session
     }
     
     /// <summary>
-    /// Handle player movement input
-    /// Based on Nazghul's input handling approach
+    /// Handle player movement input.
+    /// Based on Nazghul's input handling approach.
     /// </summary>
     public void HandlePlayerMove(Key key)
     {

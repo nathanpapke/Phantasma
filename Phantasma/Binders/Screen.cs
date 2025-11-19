@@ -17,6 +17,7 @@ public class Screen
     private int screenHeight;
     private int tileWidth;
     private int tileHeight;
+    private VisibilityMask visibilityCache = new VisibilityMask();
 
     // Rendering Mode
     public enum RenderMode
@@ -54,6 +55,22 @@ public class Screen
             
         Console.WriteLine($"Screen initialized in {CurrentRenderMode} mode.");
     }
+    
+    /// <summary>
+    /// Check if a viewport tile is visible.
+    /// </summary>
+    private bool IsTileVisible(byte[] vmask, int viewX, int viewY)
+    {
+        // The vmask is 39x39, viewport varies by screen size
+        int vmaskX = viewX + 39/2 - (screenWidth/tileWidth)/2;
+        int vmaskY = viewY + 39/2 - (screenHeight/tileHeight)/2;
+    
+        if (vmaskX < 0 || vmaskX >= 39 || vmaskY < 0 || vmaskY >= 39)
+            return false;
+    
+        int index = vmaskY * 39 + vmaskX;
+        return index >= 0 && index < vmask.Length && vmask[index] > 0;
+    }
 
     /// <summary>
     /// Draw a terrain tile.
@@ -70,6 +87,20 @@ public class Screen
         {
             DrawColoredTile(context, destRect, terrain);
         }
+    }
+
+    /// <summary>
+    /// Draw black fog over invisible tiles.
+    /// </summary>
+    private void DrawFog(DrawingContext context, int viewX, int viewY)
+    {
+        var rect = new Rect(
+            viewX * tileWidth,
+            viewY * tileHeight,
+            tileWidth,
+            tileHeight
+        );
+        context.FillRectangle(Brushes.Black, rect);
     }
         
     /// <summary>
@@ -190,25 +221,43 @@ public class Screen
     /// <summary>
     /// Draw the complete map view.
     /// </summary>
-    public void DrawMap(DrawingContext context, Place place, int viewX = 0, int viewY = 0)
+    public void DrawMap(DrawingContext context, Place place, int centerX, int centerY)
     {
         if (place == null) return;
         
+        // Get visibility mask
+        byte[] vmask = visibilityCache.Get(place, centerX, centerY);
+        
+        // Calculate view bounds
+        int halfWidth = (screenWidth / tileWidth) / 2;
+        int halfHeight = (screenHeight / tileHeight) / 2;
+        int viewStartX = centerX - halfWidth;
+        int viewStartY = centerY - halfHeight;
+        
         // Calculate visible area.
-        int startX = Math.Max(0, viewX);
-        int startY = Math.Max(0, viewY);
-        int endX = Math.Min(place.Width, viewX + (screenWidth / tileWidth) + 1);
-        int endY = Math.Min(place.Height, viewY + (screenHeight / tileHeight) + 1);
+        int startX = Math.Max(0, viewStartX);
+        int startY = Math.Max(0, viewStartY);
+        int endX = Math.Min(place.Width, centerX + (screenWidth / tileWidth) + 1);
+        int endY = Math.Min(place.Height, centerY + (screenHeight / tileHeight) + 1);
+        int viewX;
+        int viewY;
         
         // Layer 1: Draw terrain.
         for (int y = startY; y < endY; y++)
         {
             for (int x = startX; x < endX; x++)
             {
+                viewX = x - viewStartX;
+                viewY = y - viewStartY;
+                
                 var terrain = place.GetTerrain(x, y);
-                if (terrain != null)
+                if (terrain != null && IsTileVisible(vmask, centerX, centerY))
                 {
-                    DrawTerrain(context, x - viewX, y - viewY, terrain);
+                    DrawTerrain(context, viewX, viewY, terrain);
+                }
+                else
+                {
+                    DrawFog(context, viewX, viewY);
                 }
             }
         }
@@ -219,10 +268,16 @@ public class Screen
         var beings = place.GetAllBeings();
         foreach (var being in beings)
         {
-            if (being.GetX() >= startX && being.GetX() < endX &&
-                being.GetY() >= startY && being.GetY() < endY)
+            viewX = being.GetX() - viewStartX;
+            viewY = being.GetY() - viewStartY;
+        
+            if (viewX >= 0 && viewX < (screenWidth / tileWidth) &&
+                viewY >= 0 && viewY < (screenHeight / tileHeight))
             {
-                DrawBeing(context, being.GetX() - viewX, being.GetY() - viewY, being);
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawBeing(context, viewX, viewY, being);
+                }
             }
         }
     }

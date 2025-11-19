@@ -54,7 +54,8 @@ public class GameView : Control
             return;
             
         // Use the Screen class to render.
-        screen.DrawMap(context, gameSession.CurrentPlace);
+        screen.DrawMap(context, gameSession.CurrentPlace, 
+            gameSession.Player.GetX(), gameSession.Player.GetY());
             
         // Draw grid lines (optional, helps visualize tiles).
         if (screen.CurrentRenderMode == Screen.RenderMode.ColoredSquares)
