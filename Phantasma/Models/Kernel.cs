@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Avalonia.Media.Imaging;
 using IronScheme;
 using IronScheme.Runtime;
 using Microsoft.CSharp.RuntimeBinder;
@@ -168,16 +169,66 @@ public class Kernel
 
         
         var sprite = new Sprite(filename, x, y);
-        Phantasma.Instance.RegisterObject(tag, sprite);
+        Phantasma.RegisterObject(tag, sprite);
         
         Console.WriteLine($"Created sprite: {tag} from {filename}");
         return sprite;
     }
     
     private object MakeSpriteSet(params object[] args) 
-    { 
-        // TODO: Implement
-        return null; 
+    {
+        if (args.Length < 8)
+        {
+            LoadError("kern-mk-sprite-set: insufficient arguments");
+            return null;
+        }
+        
+        string tag = args[0] as string;
+        int tileWidth = Convert.ToInt32(args[1]);
+        int tileHeight = Convert.ToInt32(args[2]);
+        int rows = Convert.ToInt32(args[3]);
+        int cols = Convert.ToInt32(args[4]);
+        int offsetX = Convert.ToInt32(args[5]);
+        int offsetY = Convert.ToInt32(args[6]);
+        string filename = args[7] as string;
+        
+        // Load the sprite sheet image.
+        Bitmap image = Models.SpriteManager.LoadImage(filename);
+        
+        if (image == null)
+        {
+            LoadError($"kern-mk-sprite-set {tag}: could not load {filename}");
+            return null;
+        }
+        
+        // Create array of sprites, one for each tile in the grid.
+        int totalTiles = rows * cols;
+        var sprites = new Models.Sprite[totalTiles];
+        
+        for (int index = 0; index < totalTiles; index++)
+        {
+            int row = index / cols;
+            int col = index % cols;
+            
+            int sourceX = offsetX + (col * tileWidth);
+            int sourceY = offsetY + (row * tileHeight);
+            
+            // Create sprite the same shared SourceImage.
+            sprites[index] = Models.Sprite.CreateStatic(
+                $"{tag}_{index}",  // Temporary tag
+                image,             // Shared SourceImage
+                sourceX,           // SourceX for this tile
+                sourceY,           // SourceY for this tile
+                tileWidth,         // WPix
+                tileHeight         // HPix
+            );
+        }
+        
+        // Register the array so kern-mk-sprite can access it.
+        Phantasma.RegisterObject(tag, sprites);
+        
+        Console.WriteLine($"Created sprite set: {tag} from {filename} ({cols}x{rows} = {totalTiles} tiles of {tileWidth}x{tileHeight})");
+        return sprites;
     }
     
     /// <summary>
@@ -207,7 +258,7 @@ public class Kernel
         // TODO: Handle optional effect closure (args[6]).
         
         // Register with Phantasma (not a specific session).
-        Phantasma.Instance.RegisterObject(tag, terrain);
+        Phantasma.RegisterObject(tag, terrain);
         
         Console.WriteLine($"Created terrain: {tag} ({name})");
         return terrain;
@@ -236,7 +287,7 @@ public class Kernel
         
         // TODO: Handle optional terrain fill (args[6]).
         
-        Phantasma.Instance.RegisterObject(tag, place);
+        Phantasma.RegisterObject(tag, place);
         
         Console.WriteLine($"Created place: {tag} ({name}) {width}x{height}");
         return place;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
@@ -21,6 +22,7 @@ public class Phantasma
     // ===================================================================
     
     private static Phantasma _instance;
+    
     public static Phantasma Instance 
     { 
         get 
@@ -32,7 +34,7 @@ public class Phantasma
             return _instance;
         }
     }
-
+    
     // ===================================================================
     // SHARED RESOURCES (Singleton)
     // ===================================================================
@@ -46,10 +48,29 @@ public class Phantasma
     // This is global so all sessions can access defined types.
     private Dictionary<string, object> registeredObjects;
 
-    public static Dictionary<string, string> Configuration => Instance.configuration;
-    public static Common Common => Instance.common;
-    public static Dimensions Dimensions => Instance.dimensions;
-    public static Kernel Kernel => Instance.kernel;
+    public static Dictionary<string, string> Configuration => _instance.configuration;
+    public static Common Common => _instance.common;
+    public static Dimensions Dimensions => _instance.dimensions;
+    public static Kernel Kernel => _instance.kernel;
+    
+    // ===================================================================
+    // STATIC CONVENIENCE METHODS (Avoid typing .Instance everywhere)
+    // ===================================================================
+    
+    public static void RegisterObject(string tag, object obj) 
+        => _instance.registerObject(tag, obj);
+
+    public static object GetRegisteredObject(string tag) 
+        => _instance.getRegisteredObject(tag);
+
+    public static void LoadSchemeFile(string filename) 
+        => _instance.loadSchemeFile(filename);
+
+    public static Session CreateAgentSession() 
+        => _instance.createAgentSession();
+
+    public static void DestroyAgentSession(Session session) 
+        => _instance.destroyAgentSession(session);
     
     // ===================================================================
     // SESSION MANAGEMENT (Multiple Sessions Allowed)
@@ -58,7 +79,7 @@ public class Phantasma
     private Session mainSession;          // The real game
     private List<Session> agentSessions;  // Temporary simulations
     
-    public static Session MainSession => Instance.mainSession;
+    public static Session MainSession => _instance.mainSession;
     
     // ===================================================================
     // UI & STARTUP
@@ -129,7 +150,7 @@ public class Phantasma
     /// This is for types/templates (terrain types, object types, etc.)
     /// not for instance objects like specific characters.
     /// </summary>
-    public void RegisterObject(string tag, object obj)
+    private void registerObject(string tag, object obj)
     {
         if (string.IsNullOrEmpty(tag))
         {
@@ -149,7 +170,7 @@ public class Phantasma
     /// <summary>
     /// Look up a registered object by its Scheme tag.
     /// </summary>
-    public object GetRegisteredObject(string tag)
+    private object getRegisteredObject(string tag)
     {
         if (registeredObjects.TryGetValue(tag, out object obj))
         {
@@ -190,7 +211,7 @@ public class Phantasma
     /// Create a temporary session for agent simulation.
     /// Agents can use this to explore "what-if" scenarios.
     /// </summary>
-    public Session CreateAgentSession()
+    private Session createAgentSession() 
     {
         var session = new Session();
         agentSessions.Add(session);
@@ -201,7 +222,7 @@ public class Phantasma
     /// <summary>
     /// Destroy an agent session when simulation is complete.
     /// </summary>
-    public void DestroyAgentSession(Session session)
+    private void destroyAgentSession(Session session)
     {
         if (agentSessions.Remove(session))
         {
@@ -232,7 +253,7 @@ public class Phantasma
     /// Load a Scheme file to configure the game world.
     /// This creates game objects (terrains, places, etc.) via kern-* functions.
     /// </summary>
-    public void LoadSchemeFile(string filename)
+    private void loadSchemeFile(string filename)
     {
         if (kernel == null)
         {
@@ -352,7 +373,7 @@ public class Phantasma
             
             // Final initialization.
             progress.Report((95, "Starting Phantasma..."));
-            await Task.Delay(5000); // Small delay for effect
+            await Task.Delay(500); // Small delay for effect
             
             progress.Report((100, "Complete!"));
         }
@@ -366,8 +387,7 @@ public class Phantasma
     // ===================================================================
     // RESOURCE LOADING
     // ===================================================================
-
-
+    
     private void InitializeConfig()
     {
         // Set default configuration values.
@@ -412,7 +432,7 @@ public class Phantasma
     {
         Console.WriteLine("Loading game data...");
     
-        // Get the data directory path
+        // Get the data directory path.
         string dataDir = configuration.GetValueOrDefault("include-dirname", "Data");
         string testWorldPath = Path.Combine(dataDir, "test-world.scm");
     
