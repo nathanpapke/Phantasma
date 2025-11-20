@@ -56,7 +56,7 @@ public class Character : Being
 
     public Character(string tag, string name,
         Sprite sprite,
-        Species species, Occupation occ,
+        Species species, Occupation occupation,
         int str, int intl,
         int dex, int hpmod, int hpmult,
         int mpmod, int mpmult,
@@ -66,7 +66,7 @@ public class Character : Being
         SetName(name);
         CurrentSprite = sprite;
         Species = species;
-        Occ = occ;
+        Occ = occupation;
         Strength = str;
         Intelligence = intl;
         Dexterity = dex;

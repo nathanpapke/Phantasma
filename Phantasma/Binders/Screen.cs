@@ -110,7 +110,7 @@ public class Screen
     {
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
             
-        if (CurrentRenderMode == RenderMode.Sprites && being.CurrentSprite.SourceImage != null)
+        if (CurrentRenderMode == RenderMode.Sprites && being.CurrentSprite?.SourceImage != null)
         {
             DrawSprite(context, being.CurrentSprite, destRect);
         }

@@ -150,6 +150,7 @@ public abstract class Being : Object
         ActionPoints = MaxActionPoints = 10;
         baseFaction = 0;
         currentFaction = 0;
+        CurrentSprite = new Sprite();
     }
 
     protected void SwitchPlaces(Being being)

@@ -9,6 +9,7 @@ public partial class MainWindow : Window
 {
     private Session gameSession;
     private GameView gameView;
+    private Command command;
     
     public MainWindow()
     {
@@ -26,6 +27,9 @@ public partial class MainWindow : Window
     {
         // Create and start game session.
         gameSession = new Session();
+        
+        // Initialize command system.
+        command = new Command(gameSession);
             
         // Find the GameView control and set its session.
         gameView = this.GetControl<GameView>("GameViewControl");
@@ -80,6 +84,37 @@ public partial class MainWindow : Window
             case Key.NumPad5:
                 gameSession.HandlePlayerMove(0, 0); // Wait/Rest
                 break;
+            
+            // Command Keys
+            case Key.G:
+                command.Get(scoopAll: true);
+                break;
+            case Key.O:
+                command.Open();
+                break;
+            case Key.I:
+                command.Inventory();
+                break;
+            /*
+            case Key.A:
+                command.Attack();
+                break;
+            case Key.C:
+                command.CastSpell();
+                break;
+            case Key.U:
+                command.Use();
+                break;
+            case Key.R:
+                command.Ready();
+                break;
+            case Key.Z:
+                command.Ztats();
+                break;
+            case Key.T:
+                command.Talk();
+                break;
+            */
             case Key.Escape:
                 this.Close();
                 break;

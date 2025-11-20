@@ -233,6 +233,52 @@ public class Place
     }
     
     /// <summary>
+    /// Get the first object at (x,y) that matches the filter predicate.
+    /// Returns null if no match found.
+    /// </summary>
+    /// <param name="x">X coordinate</param>
+    /// <param name="y">Y coordinate</param>
+    /// <param name="filter">Predicate to test each object</param>
+    /// <returns>First matching object or null</returns>
+    public Object? GetFilteredObject(int x, int y, Func<Object, bool> filter)
+    {
+        // In Nazghul, this iterates through layers in order looking for match.
+        // The objectsByLayer dictionary should work similarly.
+    
+        // Iterate through layers in rendering order (lowest to highest).
+        var layerOrder = new[] {
+            ObjectLayer.TerrainFeature,
+            ObjectLayer.Mechanism,
+            ObjectLayer.Portal,
+            ObjectLayer.Vehicle,
+            ObjectLayer.Bed,
+            ObjectLayer.Container,
+            ObjectLayer.Item,        // Most common for Get command
+            ObjectLayer.Field,
+            ObjectLayer.Being,
+            ObjectLayer.Missile,
+            ObjectLayer.Cursor
+        };
+    
+        foreach (var layer in layerOrder)
+        {
+            if (!objectsByLocation.ContainsKey((x, y, layer)))
+                continue;
+            
+            if (objectsByLocation.TryGetValue((x, y, layer), out var obj))
+            {
+                if (filter(obj))
+                    return obj;
+            }
+        
+            if (obj != null)
+                return obj;
+        }
+    
+        return null;
+    }
+    
+    /// <summary>
     /// Place an object at a location on its appropriate layer.
     /// </summary>
     public void PlaceObject(Object obj, int x, int y)

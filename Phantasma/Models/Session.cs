@@ -11,11 +11,13 @@ public class Session
     private bool isRunning;
     private Place currentPlace;
     private Character playerCharacter;
+    private Party playerParty;
     private Map map;
     private DispatcherTimer gameTimer;
         
     public Place CurrentPlace => currentPlace;
     public Character Player => playerCharacter;
+    public Party Party => playerParty;
     public Map Map => map;
     public bool IsRunning => isRunning;
         
@@ -48,8 +50,14 @@ public class Session
         
     private void CreatePlayer()
     {
+        // Create the player party FIRST.
+        playerParty = new Party();
+        
         // Create a test player.
         playerCharacter = Character.CreateTestPlayer();
+    
+        // Add player to the party
+        playerParty.AddMember(playerCharacter);
             
         // Find a good starting position (clear grass).
         int startX = 10;
@@ -71,10 +79,13 @@ public class Session
         }
         FoundSpot:
             
-        // Place the player on the map.
+        // Place the party on the map.
         currentPlace.AddObject(playerCharacter, startX, startY);
+    
+        // Also track individual player position
+        playerCharacter.SetPosition(currentPlace, startX, startY);
             
-        Console.WriteLine($"Player '{playerCharacter.GetName()}' placed at ({startX}, {startY})");
+        Console.WriteLine($"Party with player '{playerCharacter.GetName()}' placed at ({startX}, {startY})");
     }
         
     public void Start()
