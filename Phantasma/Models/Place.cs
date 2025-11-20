@@ -23,12 +23,25 @@ public class Place
 
     public Place()
     {
-        Width = 20;  // TODO: Change to Dimensions.MAP_TILE_W after making Dimensions static.
-        Height = 20; // TODO: Chamge to Dimensions.MAP_TILE_H after making Dimensions static.
+        Width = Phantasma.Dimensions.MAP_TILE_W;
+        Height = Phantasma.Dimensions.MAP_TILE_H;
         Name = "Test Map";
         TerrainGrid = new Terrain[Width, Height];
         objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
         objects = new List<Object>(0);
+    }
+    
+    // Constructor for Scheme/Kernel (kern-mk-place)
+    public Place(int width, int height, string name, bool wrapping, bool wilderness)
+    {
+        Width = width;
+        Height = height;
+        Name = name;
+        Wraps = wrapping;
+        // wilderness parameter stored later if needed
+        TerrainGrid = new Terrain[Width, Height];
+        objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
+        objects = new List<Object>();
     }
     
     /// <summary>

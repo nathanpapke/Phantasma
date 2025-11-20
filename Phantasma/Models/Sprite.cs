@@ -25,6 +25,40 @@ public class Sprite
     
     // ASCII Fallback Character
     public char DisplayChar { get; set; }
+
+    public Sprite()
+    {
+        NFrames = 1;
+        NTotalFrames = 1;
+        WPix = 32;  // Default tile size
+        HPix = 32;
+    }
+    
+    // Constructor for Scheme/Kernel (kern-mk-sprite)
+    public Sprite(string filename)
+    {
+        Tag = filename;
+        NFrames = 1;
+        NTotalFrames = 1;
+        WPix = 32;  // Default tile size
+        HPix = 32;
+        // TODO: Load actual image from filename
+        // SourceImage = LoadImage(filename);
+    }
+    
+    // Constructor for Scheme/Kernel (kern-mk-sprite) with sprite sheet position
+    public Sprite(string filename, int x, int y, int width = 32, int height = 32)
+    {
+        Tag = filename;
+        NFrames = 1;
+        NTotalFrames = 1;
+        WPix = width;
+        HPix = height;
+        SourceX = x;
+        SourceY = y;
+        // TODO: Load actual image from filename
+        // SourceImage = SpriteManager.LoadImage(filename);
+    }
         
     /// <summary>
     /// Create a simple static sprite.

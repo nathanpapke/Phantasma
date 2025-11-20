@@ -6,6 +6,15 @@ using Avalonia.Threading;
 
 namespace Phantasma.Models;
 
+/// <summary>
+/// A Session represents one instance of the game world.
+/// Multiple Sessions can exist simultaneously:
+/// - MainSession: The real game the user is playing
+/// - AgentSessions: Temporary simulations for AI agents
+/// 
+/// Sessions are managed by Phantasma and do NOT reference Kernel.
+/// This avoids circular dependencies and allows clean multi-session support.
+/// </summary>
 public class Session
 {
     private bool isRunning;
@@ -21,15 +30,8 @@ public class Session
     public Map Map => map;
     public bool IsRunning => isRunning;
         
-    // Singleton for Global Access
-    private static Session current;
-    public static Session Current => current;
-        
     public Session()//Mode mode = Mode.Normal)
     {
-        //RunMode = mode;
-        current = this;
-            
         // Create a simple test map.
         currentPlace = new Place();
         currentPlace.GenerateTestMap();

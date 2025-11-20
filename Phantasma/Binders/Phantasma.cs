@@ -12,32 +12,99 @@ using IronScheme.Runtime;
 using Phantasma.Models;
 using Phantasma.Views;
 
-namespace Phantasma.Binders;
+namespace Phantasma;
 
 public class Phantasma
 {
-    private Dictionary<string, string> Configuration;
-    private Common Common;
-    private Dimensions Dimensions;
+    // ===================================================================
+    // SINGLETON PATTERN
+    // ===================================================================
+    
+    private static Phantasma _instance;
+    public static Phantasma Instance 
+    { 
+        get 
+        {
+            if (_instance == null)
+            {
+                throw new InvalidOperationException("Phantasma not initialized. Call Initialize() first.");
+            }
+            return _instance;
+        }
+    }
 
+    // ===================================================================
+    // SHARED RESOURCES (Singleton)
+    // ===================================================================
+
+    private Dictionary<string, string> configuration;
+    private Common common;
+    private Dimensions dimensions;
+    private Kernel kernel;
+    
+    // Object Registry - maps Scheme tags to C# objects.
+    // This is global so all sessions can access defined types.
+    private Dictionary<string, object> registeredObjects;
+
+    public static Dictionary<string, string> Configuration => Instance.configuration;
+    public static Common Common => Instance.common;
+    public static Dimensions Dimensions => Instance.dimensions;
+    public static Kernel Kernel => Instance.kernel;
+    
+    // ===================================================================
+    // SESSION MANAGEMENT (Multiple Sessions Allowed)
+    // ===================================================================
+    
+    private Session mainSession;          // The real game
+    private List<Session> agentSessions;  // Temporary simulations
+    
+    public static Session MainSession => Instance.mainSession;
+    
+    // ===================================================================
+    // UI & STARTUP
+    // ===================================================================
+    
     private SplashWindow splashWindow;
     
-    private static string LoadFileName = "";
+    private static string loadFileName = "";
 
-    private int FullScreenMode = 0;
-    private int DeveloperMode = 0;
-    private int ExitProgram = 0;
-    private int PrintOptions = 0;
+    private int fullScreenMode = 0;
+    private int developerMode = 0;
+    private int exitProgram = 0;
+    private int printOptions = 0;
 
-    private static string ProgramName = "Phantasma";
-    private static string PackageVersion = "1.0";
+    private static string _programName = "Phantasma";
+    private static string _packageVersion = "1.0";
+
+    // ===================================================================
+    // INITIALIZATION
+    // ===================================================================
+    
+    /// <summary>
+    /// Initialize Phantasma singleton with command-line arguments.
+    /// This should be called once at program startup.
+    /// </summary>
+    public static void Initialize(string[] args)
+    {
+        if (_instance != null)
+        {
+            throw new InvalidOperationException("Phantasma already initialized.");
+        }
+        
+        _instance = new Phantasma(args);
+    }
 
     public Phantasma(string[] args)
     {
-        Common = new Common();
-        Configuration = new Dictionary<string, string>();
+        // Initialize shared resources.
+        configuration = new Dictionary<string, string>();
+        common = new Common();
+        dimensions = new Dimensions();
+        registeredObjects = new Dictionary<string, object>();
+        agentSessions = new List<Session>();
         
         ParseArgs(args);
+        InitializeConfig();
     }
 
     /// <summary>
@@ -48,6 +115,144 @@ public class Phantasma
         // Show splash screen while loading.
         await ShowSplashScreen();
     }
+
+    // ===================================================================
+    // OBJECT REGISTRY (For Scheme Interop)
+    // ===================================================================
+    
+    /// <summary>
+    /// Register a game object with a Scheme tag.
+    /// This makes the object accessible from Scheme code.
+    /// Mirrors Nazghul's scm_define() calls in kern-* functions.
+    /// 
+    /// Objects registered here are available to ALL sessions.
+    /// This is for types/templates (terrain types, object types, etc.)
+    /// not for instance objects like specific characters.
+    /// </summary>
+    public void RegisterObject(string tag, object obj)
+    {
+        if (string.IsNullOrEmpty(tag))
+        {
+            Console.WriteLine("Warning: Attempted to register object with null/empty tag");
+            return;
+        }
+        
+        if (registeredObjects.ContainsKey(tag))
+        {
+            Console.WriteLine($"Warning: Overwriting existing object with tag '{tag}'");
+        }
+        
+        registeredObjects[tag] = obj;
+        Console.WriteLine($"Registered object: {tag} ({obj.GetType().Name})");
+    }
+    
+    /// <summary>
+    /// Look up a registered object by its Scheme tag.
+    /// </summary>
+    public object GetRegisteredObject(string tag)
+    {
+        if (registeredObjects.TryGetValue(tag, out object obj))
+        {
+            return obj;
+        }
+        return null;
+    }
+    
+    /// <summary>
+    /// Get all registered objects (useful for debugging/inspection).
+    /// </summary>
+    public IReadOnlyDictionary<string, object> GetAllRegisteredObjects()
+    {
+        return registeredObjects;
+    }
+    
+    // ===================================================================
+    // SESSION MANAGEMENT
+    // ===================================================================
+    
+    /// <summary>
+    /// Create the main game session.
+    /// This should be called after loading game data.
+    /// </summary>
+    public void CreateMainSession()
+    {
+        if (mainSession != null)
+        {
+            Console.WriteLine("Warning: Main session already exists.");
+            return;
+        }
+        
+        mainSession = new Session();
+        Console.WriteLine("Main session created.");
+    }
+    
+    /// <summary>
+    /// Create a temporary session for agent simulation.
+    /// Agents can use this to explore "what-if" scenarios.
+    /// </summary>
+    public Session CreateAgentSession()
+    {
+        var session = new Session();
+        agentSessions.Add(session);
+        Console.WriteLine($"Agent session created (total: {agentSessions.Count}).");
+        return session;
+    }
+    
+    /// <summary>
+    /// Destroy an agent session when simulation is complete.
+    /// </summary>
+    public void DestroyAgentSession(Session session)
+    {
+        if (agentSessions.Remove(session))
+        {
+            session.Stop();
+            Console.WriteLine($"Agent session destroyed (remaining: {agentSessions.Count}).");
+        }
+    }
+    
+    /// <summary>
+    /// Destroy all agent sessions.
+    /// Useful when starting a new main game.
+    /// </summary>
+    public void DestroyAllAgentSessions()
+    {
+        foreach (var session in agentSessions)
+        {
+            session.Stop();
+        }
+        agentSessions.Clear();
+        Console.WriteLine("All agent sessions destroyed");
+    }
+
+    // ===================================================================
+    // SCHEME INTEGRATION
+    // ===================================================================
+    
+    /// <summary>
+    /// Load a Scheme file to configure the game world.
+    /// This creates game objects (terrains, places, etc.) via kern-* functions.
+    /// </summary>
+    public void LoadSchemeFile(string filename)
+    {
+        if (kernel == null)
+        {
+            Console.WriteLine($"Error: Cannot load Scheme file '{filename}' - kernel not initialized");
+            return;
+        }
+        
+        try
+        {
+            kernel.LoadSchemeFile(filename);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading Scheme file '{filename}': {ex.Message}");
+        }
+    }
+
+    // ===================================================================
+    // SPLASH SCREEN & LOADING
+    // ===================================================================
 
     /// <summary>
     /// Show splash screen with loading progress.
@@ -72,7 +277,7 @@ public class Phantasma
     /// </summary>
     private string GetSplashImagePath()
     {
-        string dims = Configuration.GetValueOrDefault("screen-dims", "640x480");
+        string dims = configuration.GetValueOrDefault("screen-dims", "640x480");
         const string suffix = "-splash-image-filename";
         string key = string.Concat(dims, suffix);
         
@@ -93,7 +298,7 @@ public class Phantasma
         {
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", baseName),
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, baseName),
-            Path.Combine(Configuration.GetValueOrDefault("include-dirname", ""), baseName),
+            Path.Combine(configuration.GetValueOrDefault("include-dirname", ""), baseName),
             baseName
         };
         
@@ -119,7 +324,7 @@ public class Phantasma
         {
             // Initialize IronScheme.
             progress.Report((10, "Initializing scripting engine..."));
-            await Task.Run(() => InitializeScheme());
+            await Task.Run(() => InitializeKernel());
             
             // Load game data.
             progress.Report((20, "Loading game data..."));
@@ -158,40 +363,69 @@ public class Phantasma
         }
     }
 
+    // ===================================================================
+    // RESOURCE LOADING
+    // ===================================================================
+
+
     private void InitializeConfig()
     {
         // Set default configuration values.
-        if (!Configuration.ContainsKey("screen-dims"))
-            Configuration["screen-dims"] = "1024x768";
+        if (!configuration.ContainsKey("screen-dims"))
+            configuration["screen-dims"] = "1024x768";
             
-        if (!Configuration.ContainsKey("include-dirname"))
-            Configuration["include-dirname"] = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+        if (!configuration.ContainsKey("include-dirname"))
+            configuration["include-dirname"] = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
             
-        if (!Configuration.ContainsKey("saved-games-dirname"))
-            Configuration["saved-games-dirname"] = Path.Combine(
+        if (!configuration.ContainsKey("saved-games-dirname"))
+            configuration["saved-games-dirname"] = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), 
                 "Phantasma", 
                 "Saves");
             
-        if (!Configuration.ContainsKey("sound-enabled"))
-            Configuration["sound-enabled"] = "yes";
+        if (!configuration.ContainsKey("sound-enabled"))
+            configuration["sound-enabled"] = "yes";
             
         // Create directories if they don't exist.
-        Directory.CreateDirectory(Configuration["include-dirname"]);
-        Directory.CreateDirectory(Configuration["saved-games-dirname"]);
+        Directory.CreateDirectory(configuration["include-dirname"]);
+        Directory.CreateDirectory(configuration["saved-games-dirname"]);
     }
 
-    private void InitializeScheme()
+    private void InitializeKernel()
     {
-        // Initialize IronScheme environment.
-        Console.WriteLine("Initializing IronScheme...");
-        // TODO: Set up Scheme environment
+        // Initialize Kernel (which contains IronScheme).
+        Console.WriteLine("Initializing Kernel...");
+        
+        try
+        {
+            kernel = new Kernel();
+            Console.WriteLine("Kernel initialized successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Could not initialize Kernel: {ex.Message}");
+            Console.WriteLine("Continuing without Scheme support...");
+        }
     }
 
     private void LoadGameData()
     {
         Console.WriteLine("Loading game data...");
-        // TODO: Load data files
+    
+        // Get the data directory path
+        string dataDir = configuration.GetValueOrDefault("include-dirname", "Data");
+        string testWorldPath = Path.Combine(dataDir, "test-world.scm");
+    
+        if (File.Exists(testWorldPath))
+        {
+            Console.WriteLine($"Loading test world from: {testWorldPath}");
+            LoadSchemeFile(testWorldPath);
+        }
+        else
+        {
+            Console.WriteLine($"Warning: test-world.scm not found at {testWorldPath}");
+            Console.WriteLine("Skipping Scheme world loading.");
+        }
     }
 
     private void LoadGraphics()
@@ -202,7 +436,7 @@ public class Phantasma
 
     private void LoadSounds()
     {
-        if (Configuration.GetValueOrDefault("sound-enabled", "yes") == "yes")
+        if (configuration.GetValueOrDefault("sound-enabled", "yes") == "yes")
         {
             Console.WriteLine("Loading sounds...");
             // TODO: Load sound files
@@ -218,9 +452,9 @@ public class Phantasma
     private void LoadScripts()
     {
         Console.WriteLine("Loading scripts...");
-        if (!string.IsNullOrEmpty(LoadFileName))
+        if (!string.IsNullOrEmpty(loadFileName))
         {
-            Console.WriteLine($"Loading save file: {LoadFileName}");
+            Console.WriteLine($"Loading save file: {loadFileName}");
             // TODO: Load save game
         }
         else
@@ -230,9 +464,13 @@ public class Phantasma
         }
     }
 
+    // ===================================================================
+    // COMMAND-LINE PARSING
+    // ===================================================================
+
     private static void PrintVersion()
     {
-        Console.Write("{0} {1}\r\n", ProgramName, PackageVersion);
+        Console.Write("{0} {1}\r\n", _programName, _packageVersion);
         Console.Write("Ported from Nazghul, Copyright (C) 2003 Gordon McNutt & Sam Glasby\r\n"+
                       "to .NET in 2025 by Nathan Papke.\r\n"+
                       "{0} comes with NO WARRANTY,\r\n"+
@@ -241,12 +479,12 @@ public class Phantasma
                       "under the terms of the GNU General Public License.\r\n"+
                       "For more information about these matters,\r\n"+
                       "see the file named COPYING.\r\n",
-            ProgramName);
+            _programName);
     }
 
     private static void PrintUsage()
     {
-        Console.WriteLine("Usage:  {0} [options] <load-file>", ProgramName);
+        Console.WriteLine("Usage:  {0} [options] <load-file>", _programName);
         Console.WriteLine("Options:");
         Console.WriteLine("    -b: bot"); //added
         Console.WriteLine("    -h: help);");
@@ -271,52 +509,52 @@ public class Phantasma
     {
         int c = 0;
         
-        Common.TickMilliseconds = Common.MS_PER_TICK;
-        Common.AnimationTicks = Common.ANIMATION_TICKS;
+        common.TickMilliseconds = Common.MS_PER_TICK;
+        common.AnimationTicks = Common.ANIMATION_TICKS;
 
         while (c < args.Length && args[c].Substring(0, 1) == "-")
         {
             switch (args[c].Substring(1, 1))
             {
                 case "t":
-                    Common.TickMilliseconds = int.Parse(args[c].Substring(3));
+                    common.TickMilliseconds = int.Parse(args[c].Substring(3));
                     break;
                 case "a":
-                    Common.AnimationTicks = int.Parse(args[c].Substring(3));
+                    common.AnimationTicks = int.Parse(args[c].Substring(3));
                     break;
                 case "s":
-                    Configuration["sound-enabled"] = int.Parse(args[c].Substring(3)) != 0 ? "yes" : "no";
+                    configuration["sound-enabled"] = int.Parse(args[c].Substring(3)) != 0 ? "yes" : "no";
                     break;
                 case "T":
-                    Common.ShowAllTerrain = 1;
+                    common.ShowAllTerrain = 1;
                     break;
                 case "d":
-                    DeveloperMode = 1;
+                    developerMode = 1;
                     //DEBUG = 1;
                     //VERBOSE = 1;
                 break;
                 case "f":
-                    FullScreenMode = 1;
+                    fullScreenMode = 1;
                     break;
                 case "R":
                     // Set the filename for recording keystrokes.
-                    Configuration["record-filename"] = args[c].Substring(3);
+                    configuration["record-filename"] = args[c].Substring(3);
                     break;
                 case "S":
                     // Set the speed to play back recorded keystrokes.
-                    Configuration["playback-speed"] = args[c].Substring(3);
+                    configuration["playback-speed"] = args[c].Substring(3);
                     break;
                 case "P":
                     // Set the file to play back keystrokes from.
-                    Configuration["playback-filename"] = args[c].Substring(3);
+                    configuration["playback-filename"] = args[c].Substring(3);
                     break;
                 case "I":
                     // Set the directory for read-only game and cfg files.
-                    Configuration["include-dirname"] = args[c].Substring(3);
+                    configuration["include-dirname"] = args[c].Substring(3);
                     break;
                 case "G":
                     // Set the directory for read-write game and cfg files.
-                    Configuration["saved-games-dirname"] = args[c].Substring(3);
+                    configuration["saved-games-dirname"] = args[c].Substring(3);
                     break;
                 case "v":
                     PrintVersion();
@@ -327,11 +565,11 @@ public class Phantasma
                     Environment.Exit(0);
                     break;
                 case "o":
-                    PrintOptions = 1;
+                    printOptions = 1;
                     break;
                 case "r":
                     // Set the screen dimensions.
-                    Configuration.Add("screen-dims", args[c].Substring(3));
+                    configuration.Add("screen-dims", args[c].Substring(3));
                     break;
                 default:
                     PrintUsage();
@@ -347,15 +585,19 @@ public class Phantasma
         // from. If there is none then abort.
         // --------------------------------------------------------------------
         if (c < args.Length)
-            LoadFileName = args[c];
+            loadFileName = args[c];
     }
+
+    // ===================================================================
+    // UTILITY METHODS
+    // ===================================================================
 
     /// <summary>
     /// Check if developer mode is enabled.
     /// </summary>
     public bool IsDeveloperMode()
     {
-        return DeveloperMode == 1;
+        return developerMode == 1;
     }
 
     /// <summary>
@@ -363,6 +605,6 @@ public class Phantasma
     /// </summary>
     public bool IsFullScreenMode()
     {
-        return FullScreenMode == 1;
+        return fullScreenMode == 1;
     }
 }

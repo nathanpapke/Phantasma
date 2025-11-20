@@ -5,7 +5,7 @@ namespace Phantasma;
 
 sealed class Program
 {
-    private static Binders.Phantasma phantasma;
+    private static Phantasma phantasma;
     
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
@@ -19,7 +19,8 @@ sealed class Program
             Console.WriteLine(arg);
         }
         
-        phantasma = new Binders.Phantasma(args);
+        Phantasma.Initialize(args);
+        phantasma = Phantasma.Instance;
         
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);

@@ -33,6 +33,20 @@ public class Terrain
         Light = 0;
         Alpha = 255; // Fully opaque
     }
+    
+    // Constructor for Scheme/Kernel (kern-mk-terrain)
+    public Terrain(string tag, string name, Sprite sprite, int pclass, int alpha, int light)
+    {
+        Name = name;
+        Sprite = sprite;
+        PassabilityClass = pclass;
+        Alpha = (byte)alpha;
+        Light = light;
+        IsPassable = (pclass == 0);  // pclass 0 = passable, 255 = impassable
+        Transparent = (alpha < 255);  // Full alpha = blocks vision
+        MovementCost = 1.0f;
+        IsHazardous = false;
+    }
         
     public override string ToString()
     {
