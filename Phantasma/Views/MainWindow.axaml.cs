@@ -51,6 +51,7 @@ public partial class MainWindow : Window
             return;
         
         // Handle arrow keys for movement.
+        // TODO: Handle input with Session.
         switch (e.Key)
         {
             case Key.Up:

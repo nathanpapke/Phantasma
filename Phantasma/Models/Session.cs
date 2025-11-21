@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Input;
@@ -23,13 +25,38 @@ public class Session
     private Party playerParty;
     private Map map;
     private DispatcherTimer gameTimer;
-        
+    
+    // ===================================================================
+    // SAVE/LOAD REGISTRY
+    // ===================================================================
+    
+    /// <summary>
+    /// List of objects registered for save/load/destroy.
+    /// Mirrors Nazghul's Session->data_objects linked list.
+    /// Order is preserved - objects are saved in the order they were registered.
+    /// </summary>
+    private readonly List<SaveEntry> saveEntries = new();
+    
+    /// <summary>
+    /// Session ID increments with each save.
+    /// Objects use this to detect if they've already been saved this session.
+    /// </summary>
+    public int SessionId { get; private set; } = 0;
+    
+    // ===================================================================
+    // PUBLIC PROPERTIES
+    // ===================================================================
+    
     public Place CurrentPlace => currentPlace;
     public Character Player => playerCharacter;
     public Party Party => playerParty;
     public Map Map => map;
     public bool IsRunning => isRunning;
-        
+    
+    // ===================================================================
+    // INITIALIZATION
+    // ===================================================================
+    
     public Session()//Mode mode = Mode.Normal)
     {
         // Create a simple test map.
@@ -84,12 +111,187 @@ public class Session
         // Place the party on the map.
         currentPlace.AddObject(playerCharacter, startX, startY);
     
-        // Also track individual player position
+        // Also track individual player position.
         playerCharacter.SetPosition(currentPlace, startX, startY);
             
         Console.WriteLine($"Party with player '{playerCharacter.GetName()}' placed at ({startX}, {startY})");
     }
+    
+    // ===================================================================
+    // SAVE/LOAD REGISTRATION
+    // ===================================================================
+    
+    /// <summary>
+    /// Register an object for save/load/destroy tracking.
+    /// 
+    /// Objects are saved in the order they are registered.
+    /// This is important for dependencies (e.g., if Place A references Place B).
+    /// </summary>
+    /// <param name="obj">The object to track</param>
+    /// <param name="destructor">Optional callback when session is destroyed</param>
+    /// <param name="saveAction">Optional callback when session is saved</param>
+    /// <param name="postLoadAction">Optional callback after session is loaded</param>
+    public void RegisterSaveableObject(
+        object obj,
+        Action<object>? destructor = null,
+        Action<object, SaveWriter>? saveAction = null,
+        Action<object>? postLoadAction = null)
+    {
+        var entry = new SaveEntry(obj, destructor, saveAction, postLoadAction);
+        saveEntries.Add(entry);
         
+        Console.WriteLine($"Registered saveable object: {obj.GetType().Name}");
+    }
+    
+    /// <summary>
+    /// Save the session to a Scheme file.
+    /// </summary>
+    public void Save(string filename)
+    {
+        var savePath = Path.Combine(
+            Phantasma.Configuration["saved-games-dirname"],
+            filename
+        );
+        
+        try
+        {
+            using var writer = new SaveWriter(savePath);
+            
+            // Increment session ID (prevents duplicate saves).
+            SessionId++;
+            
+            // Write header.
+            writer.WriteComment($"{filename} -- a Phantasma session file");  // Might change to Nazghul session file
+            writer.WriteComment($"Created: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            writer.WriteComment("Load the standard definitions file.");
+            writer.WriteLine("(load \"naz.scm\")");
+            writer.WriteLine("");
+            
+            // Save all registered objects.
+            Console.WriteLine($"Saving {saveEntries.Count} registered objects...");
+            foreach (var entry in saveEntries)
+            {
+                if (entry.SaveAction != null)
+                {
+                    try
+                    {
+                        entry.SaveAction(entry.Object, writer);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"Error saving {entry.Object.GetType().Name}: {ex.Message}");
+                        // Continue with other objects.
+                    }
+                }
+            }
+            
+            // Save session-specific state.
+            writer.WriteComment("--------------");
+            writer.WriteComment("Miscellaneous");
+            writer.WriteComment("--------------");
+            SaveSessionState(writer);
+            
+            Console.WriteLine($"Session saved to: {savePath}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to save session: {ex.Message}");
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Load a session from a Scheme file.
+    /// </summary>
+    public void Load(string filename)
+    {
+        var savePath = Path.Combine(
+            Phantasma.Configuration["saved-games-dirname"],
+            filename
+        );
+        
+        try
+        {
+            // Clear current state.
+            ClearSaveRegistry();
+            SessionId++;
+            
+            Console.WriteLine($"Loading session from: {savePath}");
+            
+            // Load via Scheme evaluation.
+            // The Scheme file will call kern-mk-* functions which will
+            // register objects with this session.
+            Phantasma.Kernel.LoadSchemeFile(savePath);
+            
+            // Post-load initialization
+            Console.WriteLine($"Running post-load initialization for {saveEntries.Count} objects...");
+            foreach (var entry in saveEntries)
+            {
+                entry.PostLoadAction?.Invoke(entry.Object);
+            }
+            
+            Console.WriteLine($"Session loaded successfully from: {savePath}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load session: {ex.Message}");
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Save session-specific state (clock, flags, etc.).
+    /// </summary>
+    private void SaveSessionState(SaveWriter writer)
+    {
+        // TODO: Add these as they are implemented:
+        // writer.WriteLine("(kern-set-clock 0 0 0 0 14 30)");
+        // writer.WriteLine("(kern-set-time-accel 1)");
+        // writer.WriteLine("(kern-add-reveal 0)");
+        // writer.WriteLine("(kern-add-quicken 0)");
+        // writer.WriteLine("(kern-add-time-stop 0)");
+        // writer.WriteLine("(kern-add-magic-negated 0)");
+        // writer.WriteLine("(kern-add-xray-vision 0)");
+    }
+    
+    /// <summary>
+    /// Clear the save registry and call destructors.
+    /// Called before loading a new session or when disposing.
+    /// </summary>
+    private void ClearSaveRegistry()
+    {
+        // Call destructors in reverse order (like C++ destructors).
+        for (int i = saveEntries.Count - 1; i >= 0; i--)
+        {
+            var entry = saveEntries[i];
+            try
+            {
+                entry.Destructor?.Invoke(entry.Object);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Error in destructor for {entry.Object.GetType().Name}: {ex.Message}");
+                // Continue with other destructors.
+            }
+        }
+        
+        saveEntries.Clear();
+        Console.WriteLine("Save registry cleared");
+    }
+    
+    /// <summary>
+    /// Dispose of the session and clean up all registered objects.
+    /// Mirrors Nazghul's session_del() function.
+    /// </summary>
+    public void Dispose()
+    {
+        ClearSaveRegistry();
+    }
+    
+    // ===================================================================
+    // GAME LOOP
+    // ===================================================================
+    
     public void Start()
     {
         if (isRunning) return;
@@ -135,6 +337,10 @@ public class Session
     {
         Stop();
     }
+    
+    // ===================================================================
+    // INPUT HANDLING
+    // ===================================================================
     
     /// <summary>
     /// Handle player movement input.
@@ -240,6 +446,58 @@ public class Session
         {
             playerCharacter.EndTurn();
             Console.WriteLine("Player turn ended.");
+        }
+    }
+    
+    /// <summary>
+    /// Handle keyboard input for game actions.
+    /// </summary>
+    public void HandleKeyDown(Key key)
+    {
+        // Check for save/load shortcuts.
+        if (key == Key.F5)
+        {
+            // Quick Save
+            Save("quicksave.scm");
+            // TODO: Show notification "Quick Saved"
+            return;
+        }
+        
+        if (key == Key.F9)
+        {
+            // Quick Load
+            var quickSavePath = Path.Combine(
+                Phantasma.Configuration["saved-games-dirname"],
+                "quicksave.scm"
+            );
+            
+            if (File.Exists(quickSavePath))
+            {
+                Load("quicksave.scm");
+                // TODO: Show notification "Quick Loaded"
+            }
+            else
+            {
+                // TODO: Show notification "No quick save found"
+                Console.WriteLine("No quick save found");
+            }
+            return;
+        }
+        
+        // Other Game Keys
+        switch (key)
+        {
+            case Key.G:
+                // Get/pickup item.
+                // TODO: Implement pickup
+                break;
+            case Key.I:
+                // Show inventory.
+                // TODO: Implement inventory UI
+                break;
+            case Key.Escape:
+                // Show menu or quit.
+                break;
         }
     }
 }
