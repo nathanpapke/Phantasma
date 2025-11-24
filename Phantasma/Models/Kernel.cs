@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Media.Imaging;
 using IronScheme;
+using IronScheme.Compiler;
 using IronScheme.Hosting;
 using IronScheme.Runtime;
 using IronScheme.Scripting;
@@ -26,25 +27,13 @@ namespace Phantasma.Models;
 /// </summary>
 public class Kernel
 {
-    private object schemeEnvironment;
-    
-    // Define the Procedure delegate type that IronScheme expects.
-    public delegate object Procedure(object args);
-    
-    // Static registry to prevent GC of our functions
-    private static readonly Dictionary<string, object> FunctionRegistry = new Dictionary<string, object>();
-    
     /// <summary>
     /// Initialize the Scheme interpreter and register all kern-* API functions.
     /// </summary>
     public Kernel()
     {
-        // Initialize IronScheme.
         try
         {
-            // Create the Scheme environment.
-            schemeEnvironment = "(interaction-environment)".Eval();
-            
             // Register all kern-* API functions.
             RegisterKernelApi();
             
@@ -61,12 +50,6 @@ public class Kernel
     /// </summary>
     public void LoadSchemeFile(string filename)
     {
-        if (schemeEnvironment == null)
-        {
-            Console.WriteLine("Scheme not available - skipping file load.");
-            return;
-        }
-    
         if (!File.Exists(filename))
         {
             throw new FileNotFoundException($"Scheme file not found: {filename}");
@@ -80,28 +63,44 @@ public class Kernel
             string schemeCode = File.ReadAllText(filename);
         
             // Evaluate the Scheme code.
-            schemeCode.Eval();
+            $"(begin\n {schemeCode}\n)".Eval();
         
             var elapsedMs = (DateTime.Now - startTime).TotalMilliseconds;
             Console.WriteLine($"{elapsedMs:F0} ms to load {filename}");
         }
-        catch (IronScheme.Runtime.SchemeException schemeEx)
+        catch (SchemeException schemeEx)
         {
             // Extract detailed Scheme error information.
             Console.WriteLine("═══════════════════════════════════════════");
             Console.WriteLine("SCHEME ERROR:");
-            Console.WriteLine($"Message: {schemeEx.Message}");
+            Console.WriteLine(schemeEx.ToString()
+                .Replace("\n", "\r\n").Replace("\r\r", "\r"));
         
             if (schemeEx.InnerException != null)
             {
-                Console.WriteLine($"Inner Exception: {schemeEx.InnerException.Message}");
+                Console.WriteLine($"Inner Exception: {schemeEx.InnerException.Message
+                    .Replace("\n", "\r\n").Replace("\r\r", "\r")}");
             }
+    
+            // The real issue might be in the Data property.
+            if (schemeEx.Data != null && schemeEx.Data.Count > 0)
+            {
+                foreach (var key in schemeEx.Data.Keys)
+                {
+                    Console.WriteLine($"{key}: {schemeEx.Data[key]}");
+                }
+            }
+    
+            // Also check the stack trace.
+            Console.WriteLine($"Stack: {schemeEx.StackTrace}");
         
             // Try to get the actual Scheme error details.
-            Console.WriteLine($"ToString: {schemeEx.ToString()}");
+            Console.WriteLine($"ToString: {schemeEx.ToString()
+                .Replace("\n", "\r\n").Replace("\r\r", "\r")}");
             Console.WriteLine("═══════════════════════════════════════════");
         
-            throw new Exception($"Scheme error in {filename}: {schemeEx.Message}", schemeEx);
+            throw new Exception($"Scheme error in {filename}: {schemeEx.Message
+                .Replace("\n", "\r\n").Replace("\r\r", "\r")}", schemeEx);
         }
         catch (Exception ex)
         {
@@ -122,24 +121,10 @@ public class Kernel
     /// </summary>
     private void RegisterKernelApi()
     {
-        try
-        {
-            // Import (rnrs) - R6RS standard library.
-            // TODO: Figure out the correct way to import required libraries.
-            Console.WriteLine("Importing (rnrs) (ironscheme)...");
-            "(import (rnrs) (ironscheme))".Eval();
-            Console.WriteLine("  * (rnrs) (ironscheme) imported");
-        
-            // Import (ironscheme) - IronScheme base library.
-            //Console.WriteLine("Importing (ironscheme clr)...");
-            //"(import (ironscheme clr))".Eval();
-            //Console.WriteLine("  * (ironscheme clr) imported");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ERROR] Failed to import libraries: {ex.Message}");
-            throw;
-        }
+        // Basic R6RS boot—ensures core libs (rnrs base, etc.) are loaded without extensions.
+        //"(set! newline (lambda () (display \"\\r\\n\")))".Eval();
+        "(import (rnrs) (ironscheme))".Eval();
+        "(display \"Core R6RS booted.\\r\\n\")".Eval();
     
         // Now define each kern-* function.
         Console.WriteLine("Registering kern-* functions...");
@@ -198,12 +183,13 @@ public class Kernel
         // We'll add them incrementally as we need them.
     }
     
-    /// <summary>
+    /// <summary> 
     /// Helps to define a Scheme function that calls a C# delegate.
     /// </summary>
-    private void DefineFunction(string schemeName, Func<object[], object> csharpFunc)
+    private void DefineFunction(string schemeName, Delegate csharpMethod)
     {
-        // TODO: Provide hooks for the private static C# methods to be called in Scheme.
+        var closure = Closure.Create(csharpMethod, -1);
+        $"(define {schemeName} {{0}})".Eval(closure);
     }
     
     // =============================================================================
@@ -214,79 +200,51 @@ public class Kernel
     /// (kern-mk-sprite tag filename transparent-color)
     /// Creates a sprite from an image file.
     /// </summary>
-    public static object MakeSprite(object[] args)
+    public static object MakeSprite(object tag, object spriteSet, object nFrames, object index, object wave, object facings)
     {
-        if (args.Length < 3)
+        dynamic ss = spriteSet;
+        
+        // Calculate source coordinates from index
+        int idx = Convert.ToInt32(index ?? 0);
+        int cols = ss.Cols;
+        int tileWidth = ss.Width;
+        int tileHeight = ss.Height;
+        
+        // Calculate grid position
+        int col = idx % cols;
+        int row = idx / cols;
+        
+        var sprite = new Sprite
         {
-            Console.WriteLine("[ERROR] kern-mk-sprite: need 3 arguments (tag filename trans-color)");
-            return null;
-        }
+            Tag = ss.Filename?.ToString(),  // The image filename from sprite set
+            SourceX = col * tileWidth + ss.OffsetX,  // Calculate X position in sprite sheet
+            SourceY = row * tileHeight + ss.OffsetY, // Calculate Y position in sprite sheet
+            WPix = tileWidth,
+            HPix = tileHeight,
+            NFrames = Convert.ToInt32(nFrames ?? 1)
+        };
         
-        string tag = args[0]?.ToString() ?? "";
-        string filename = args[1]?.ToString() ?? "";
-        int transColor = Convert.ToInt32(args[2]);
-        
-        var sprite = new Sprite(filename);
-        Phantasma.RegisterObject(tag, sprite);
-        
-        Console.WriteLine($"Created sprite: {tag} -> {filename}");
         return sprite;
     }
     
-    public static object MakeSpriteSet(object[] args) 
+    public static object MakeSpriteSet(object tag, object width, object height, object rows, object cols, object offx, object offy, object filename) 
     {
-        if (args.Length < 8)
+        // For now, just store the metadata in a dictionary or anonymous object
+        // The actual sprite loading would happen elsewhere
+        var spriteSetData = new 
         {
-            Console.WriteLine("[ERROR] kern-mk-sprite-set: need 8 arguments (tag filename trans-color)");
-            return null;
-        }
+            Tag = tag?.ToString(),
+            Width = Convert.ToInt32(width ?? 32),
+            Height = Convert.ToInt32(height ?? 32),
+            Rows = Convert.ToInt32(rows ?? 1),
+            Cols = Convert.ToInt32(cols ?? 1),
+            OffsetX = Convert.ToInt32(offx ?? 0),
+            OffsetY = Convert.ToInt32(offy ?? 0),
+            Filename = filename?.ToString()
+        };
         
-        string tag = args[0] as string;
-        int tileWidth = Convert.ToInt32(args[1]);
-        int tileHeight = Convert.ToInt32(args[2]);
-        int rows = Convert.ToInt32(args[3]);
-        int cols = Convert.ToInt32(args[4]);
-        int offsetX = Convert.ToInt32(args[5]);
-        int offsetY = Convert.ToInt32(args[6]);
-        string filename = args[7] as string;
-        
-        // Load the sprite sheet image.
-        Bitmap image = Models.SpriteManager.LoadImage(filename);
-        
-        if (image == null)
-        {
-            Console.WriteLine("[ERROR] kern-mk-sprite-set {tag}: could not load {filename}");
-            return null;
-        }
-        
-        // Create array of sprites, one for each tile in the grid.
-        int totalTiles = rows * cols;
-        var sprites = new Models.Sprite[totalTiles];
-        
-        for (int index = 0; index < totalTiles; index++)
-        {
-            int row = index / cols;
-            int col = index % cols;
-            
-            int sourceX = offsetX + (col * tileWidth);
-            int sourceY = offsetY + (row * tileHeight);
-            
-            // Create sprite the same shared SourceImage.
-            sprites[index] = Models.Sprite.CreateStatic(
-                $"{tag}_{index}",  // Temporary tag
-                image,             // Shared SourceImage
-                sourceX,           // SourceX for this tile
-                sourceY,           // SourceY for this tile
-                tileWidth,         // WPix
-                tileHeight         // HPix
-            );
-        }
-        
-        // Register the array so kern-mk-sprite can access it.
-        Phantasma.RegisterObject(tag, sprites);
-        
-        Console.WriteLine($"Created sprite set: {tag} from {filename} ({cols}x{rows} = {totalTiles} tiles of {tileWidth}x{tileHeight})");
-        return sprites;
+        // Return the metadata - MakeSprite will use this
+        return spriteSetData;
     }
     
     /// <summary>
@@ -302,81 +260,18 @@ public class Kernel
     /// - light: Light level emitted by terrain (0 = no light)
     /// - effect-proc: Optional procedure called when stepping on terrain
     /// </summary>
-    public static object MakeTerrain(object[] args)
+    public static object MakeTerrain(object tag, object name, object pclass, object sprite, object alpha, object light)
     {
-        // Validate argument count.
-        if (args.Length < 6)
-        {
-            Console.WriteLine("[ERROR] kern-mk-terrain: need at least 6 arguments (tag name pclass sprite alpha light [effect-proc])");
-            return null;
-        }
-        
-        // Extract tag (handle both symbol 't_grass and string "t_grass").
-        string tag = args[0]?.ToString() ?? "";
-        // Remove leading quote if it's a symbol.
-        if (tag.StartsWith("'"))
-            tag = tag.Substring(1);
-        
-        // Extract name.
-        string name = args[1]?.ToString() ?? "";
-        
-        // Extract pclass - can be either integer or symbol.
-        int pclass;
-        if (args[2] is int intPclass)
-        {
-            pclass = intPclass;
-        }
-        else
-        {
-            // Handle symbol like 'p_land.
-            string pclassStr = args[2]?.ToString() ?? "";
-            pclass = ParsePassabilitySymbol(pclassStr);
-        }
-        
-        // Extract sprite object.
-        var sprite = args[3] as Sprite;
-        if (sprite == null)
-        {
-            Console.WriteLine($"[ERROR] kern-mk-terrain {tag}: sprite argument must be a Sprite object");
-            return null;
-        }
-        
-        // Extract alpha (0-255).
-        int alpha = Convert.ToInt32(args[4]);
-        if (alpha < 0 || alpha > 255)
-        {
-            Console.WriteLine($"[WARNING] kern-mk-terrain {tag}: alpha {alpha} out of range (0-255), clamping");
-            alpha = Math.Clamp(alpha, 0, 255);
-        }
-        
-        // Extract light level.
-        int light = Convert.ToInt32(args[5]);
-        
-        // Create terrain object.
         var terrain = new Terrain
         {
-            Name = name,
-            Sprite = sprite,
-            PassabilityClass = pclass,
-            Alpha = (byte)alpha,
-            Light = light,
-            Transparent = (alpha < 255) // If not fully opaque, it's transparent.
+            Name = name?.ToString(),
+            PassabilityClass = pclass == null ? 0 : (int)Convert.ToDouble(pclass),
+            Sprite = sprite as Sprite,
+            Alpha = Convert.ToByte(alpha),
+            Light = Convert.ToInt32(light)
         };
         
-        // Handle optional effect procedure (args[6]).
-        if (args.Length > 6 && args[6] != null)
-        {
-            // TODO: Store the effect procedure
-            // This would be a Scheme closure that gets called when 
-            // a character steps on this terrain.
-            // For now, just log that we received it.
-            Console.WriteLine($"[INFO] kern-mk-terrain {tag}: effect procedure provided (not yet implemented)");
-        }
-        
-        // Register the terrain in the global object registry.
-        Phantasma.RegisterObject(tag, terrain);
-        
-        Console.WriteLine($"Created terrain: {tag} ({name}) pclass={pclass} alpha={alpha} light={light}");
+        Console.WriteLine($"  Created terrain: {tag} '{terrain.Name}' (pclass={terrain.PassabilityClass})");
         
         return terrain;
     }
@@ -385,85 +280,61 @@ public class Kernel
     /// (kern-mk-place tag name wrapping? wilderness? width height [terrain-fill])
     /// Creates a place (map).
     /// </summary>
-    public static object MakePlace(object[] args)
+    public static object MakePlace(object tag, object name, object arg3, object arg4, object width, object height)
     {
-        if (args.Length < 6)
+        var place = new Place
         {
-            Console.WriteLine("[ERROR] kern-mk-place: need at least 6 arguments");
-            return null;
-        }
+            Name = name?.ToString(),
+            Width = Convert.ToInt32(width ?? 128),
+            Height = Convert.ToInt32(height ?? 128)
+        };
         
-        string tag = args[0]?.ToString() ?? "";
-        string name = args[1]?.ToString() ?? "";
-        bool wrapping = Convert.ToBoolean(args[2]);
-        bool wilderness = Convert.ToBoolean(args[3]);
-        int width = Convert.ToInt32(args[4]);
-        int height = Convert.ToInt32(args[5]);
+        // Initialize the terrain grid
+        place.TerrainGrid = new Terrain[place.Width, place.Height];
         
-        var place = new Place(width, height, name, wrapping, wilderness);
-        
-        // Optional terrain fill (args[6]).
-        if (args.Length > 6)
-        {
-            var fillTerrain = args[6] as Terrain;
-            if (fillTerrain != null)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    for (int x = 0; x < width; x++)
-                    {
-                        place.SetTerrain(x, y, fillTerrain);
-                    }
-                }
-            }
-        }
-        
-        Phantasma.RegisterObject(tag, place);
-        
-        Console.WriteLine($"Created place: {tag} ({name}) {width}x{height}");
         return place;
     }
     
-    public static object MakeCharacter(object[] args)
+    public static object MakeCharacter(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object MakeObject(object[] args)
+    public static object MakeObject(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object MakeObjectType(object[] args)
+    public static object MakeObjectType(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object MakeSpecies(object[] args)
+    public static object MakeSpecies(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object MakeOccupation(object[] args)
+    public static object MakeOccupation(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object MakeParty(object[] args)
+    public static object MakeParty(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object MakeSound(object[] args)
+    public static object MakeSound(object args)
     {
         // TODO: Implement
-        return null; 
+        return Builtins.Unspecified;
     }
     
     // ===================================================================
@@ -471,122 +342,106 @@ public class Kernel
     // These set global session properties.
     // ===================================================================
     
-    public static object SetCrosshair(object[] args)
+    public static object SetCrosshair(object args)
     { 
         // TODO: Implement
-        return null; 
+        return Builtins.Unspecified;
     }
     
-    public static object SetCursor(object[] args)
+    public static object SetCursor(object args)
     { 
         // TODO: Implement
-        return null; 
+        return Builtins.Unspecified;
     }
     
-    public static object SetFrame(object[] args)
+    public static object SetFrame(object args)
     { 
         // TODO: Implement
-        return null; 
+        return Builtins.Unspecified;
     }
     
-    public static object SetAscii(object[] args)
+    public static object SetAscii(object args)
     { 
         // TODO: Implement
-        return null; 
+        return Builtins.Unspecified;
     }
     
-    public static object SetClock(object[] args)
+    public static object SetClock(object args)
     { 
         // TODO: Implement
-        return null; 
+        return Builtins.Unspecified;
     }
     
     // ===================================================================
     // KERN-PLACE API IMPLEMENTATIONS
     // ===================================================================
     
-    public static object PlaceGetWidth(object[] args)
+    public static object PlaceGetWidth(object place)
     {
-        if (args.Length < 1)
-        {
-            Console.WriteLine("[ERROR] kern-place-get-width: need place argument.");
-            return 0;
-        }
-        
-        var place = args[0] as Place;
-        return place?.Width ?? 0;
+        var p = place as Place;
+        return p?.Width ?? 0;
     }
     
-    public static object PlaceGetHeight(object[] args)
+    public static object PlaceGetHeight(object place)
     {
-        if (args.Length < 1)
-        {
-            Console.WriteLine("[ERROR] kern-place-get-height: need place argument");
-            return 0;
-        }
-        
-        var place = args[0] as Place;
-        return place?.Height ?? 0;
+        var p = place as Place;
+        return p?.Height ?? 0;
     }
     
-    public static object PlaceSetTerrain(object[] args)
+    public static object PlaceSetTerrain(object place, object x, object y, object terrain)
     {
-        if (args.Length < 4)
+        var p = place as Place;
+        var t = terrain as Terrain;
+        
+        if (p != null && t != null)
         {
-            Console.WriteLine("[ERROR] kern-place-set-terrain: need 4 arguments");
-            return null;
+            int xPos = Convert.ToInt32(x ?? 0);
+            int yPos = Convert.ToInt32(y ?? 0);
+            
+            if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
+            {
+                p.TerrainGrid[xPos, yPos] = t;
+                // Only log occasionally to avoid spam
+                if (xPos % 10 == 0 && yPos % 10 == 0)
+                    Console.WriteLine($"  Set terrain at ({xPos},{yPos})");
+            }
         }
         
-        var place = args[0] as Place;
-        int x = Convert.ToInt32(args[1]);
-        int y = Convert.ToInt32(args[2]);
-        var terrain = args[3] as Terrain;
-        
-        if (place == null || terrain == null)
-        {
-            Console.WriteLine("[ERROR] kern-place-set-terrain: invalid arguments");
-            return null;
-        }
-        
-        place.SetTerrain(x, y, terrain);
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object PlaceGetTerrain(object[] args)
+    public static object PlaceGetTerrain(object place, object x, object y)
     {
-        if (args.Length < 3)
+        var p = place as Place;
+        if (p != null)
         {
-            Console.WriteLine("[ERROR] kern-place-get-terrain: need 3 arguments");
-            return null;
+            int xPos = Convert.ToInt32(x ?? 0);
+            int yPos = Convert.ToInt32(y ?? 0);
+        
+            if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
+            {
+                var terrain = p.TerrainGrid[xPos, yPos];
+                return terrain ?? Builtins.Unspecified;
+            }
         }
-        
-        var place = args[0] as Place;
-        int x = Convert.ToInt32(args[1]);
-        int y = Convert.ToInt32(args[2]);
-        
-        if (place == null)
-        {
-            Console.WriteLine("[ERROR] kern-place-get-terrain: invalid place");
-            return null;
-        }
-        
-        return place.GetTerrain(x, y);
+    
+        return Builtins.Unspecified;
     }
     
     // ===================================================================
     // KERN-OBJ API IMPLEMENTATIONS
     // ===================================================================
     
-    public static object ObjectPutAt(object[] args)
+    public static object ObjectPutAt(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
-    public static object ObjectGetLocation(object[] args)
+    public static object ObjectGetLocation(object args)
     {
         // TODO: Implement
-        return null;
+        return Builtins.Unspecified;
     }
     
     // ===================================================================
@@ -597,34 +452,28 @@ public class Kernel
     /// (kern-print string)
     /// Prints a message to the console.
     /// </summary>
-    public static object Print(object[] args)
+    public static object Print(object args)
     {
-        if (args.Length < 1) return null;
-        
-        string message = args[0]?.ToString() ?? "";
+        // Handle both direct calls and cons lists.
+        string message = args?.ToString() ?? "(null)";
+    
+        if (args is Cons cons)
+        {
+            message = cons.car?.ToString() ?? "(null)";
+        }
+    
         Console.WriteLine($"[Scheme] {message}");
-        return null;
+        return Builtins.Unspecified;
     }
     
     /// <summary>
     /// (kern-include filename)
     /// Loads another Scheme file.
     /// </summary>
-    public static object Include(object[] args)
+    public static object Include(object args)
     {
-        if (args.Length < 1)
-        {
-            Console.WriteLine("[ERROR] kern-include: need filename argument");
-            return null;
-        }
-        
-        string filename = args[0]?.ToString() ?? "";
-        
-        // We need to call LoadSchemeFile, but this is a static method.
-        // For now, just evaluate the file using IronScheme's load.
-        $"(load \"{filename}\")".Eval();
-        
-        return null;
+        // TODO: Implement
+        return Builtins.Unspecified;
     }
     
     // ===================================================================
