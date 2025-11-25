@@ -325,16 +325,47 @@ public class Kernel
         return Builtins.Unspecified;
     }
     
-    public static object MakeParty(object args)
-    {
-        // TODO: Implement
-        return Builtins.Unspecified;
+    public static object MakeParty(object faction)
+    {        
+        var party = new Party();
+        party.Faction = Convert.ToInt32(faction);
+        party.IsPlayerParty = false; // NPC party by default
+        
+        return party;
     }
     
     public static object MakeSound(object args)
     {
         // TODO: Implement
         return Builtins.Unspecified;
+    }
+    
+    // ===================================================================
+    // KERN-PARTY API IMPLEMENTATIONS
+    // These set party properties.
+    // ===================================================================
+    
+    public static object PartyAddMember(object party, object character)
+    {
+        // kern-party-add-member <party> <character>
+        // Adds a character to a party.
+
+        var group = party as Party;
+        var member = character as Character;
+
+        return group.AddMember(member);
+    }
+    
+    public static object PartySetWandering(object party, object wandering)
+    {
+        // kern-party-set-wandering <party> <bool>
+        // Sets whether a party wanders randomly.
+        
+        bool isWandering = wandering is bool b ? b : Convert.ToBoolean(wandering);
+        var group = party as Party;
+        group.IsWandering = isWandering;
+        
+        return true;
     }
     
     // ===================================================================
@@ -401,7 +432,7 @@ public class Kernel
             if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
             {
                 p.TerrainGrid[xPos, yPos] = t;
-                // Only log occasionally to avoid spam
+                // Only log occasionally to avoid spam.
                 if (xPos % 10 == 0 && yPos % 10 == 0)
                     Console.WriteLine($"  Set terrain at ({xPos},{yPos})");
             }
