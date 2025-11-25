@@ -26,6 +26,7 @@ public class Character : Being
     public int Dexterity { get; set; }
     public int Level { get; set; }
     public int Experience { get; set; }
+    public int ArmourClass { get; set; }
     
     // Vision
     public int VisionRadius { get; set; } = 10;
@@ -52,6 +53,7 @@ public class Character : Being
         Strength = 10;
         Intelligence = 10;
         Dexterity = 10;
+        ArmourClass = 10;
     }
 
     public Character(string tag, string name,
@@ -96,6 +98,7 @@ public class Character : Being
         player.HP = player.MaxHP = 100;
         player.MP = player.MaxMP = 50;
         player.ActionPoints = player.MaxActionPoints = 10;
+        player.ArmourClass = 10;
         
         // Try to load player sprite.
         var playerSprite = SpriteManager.GetSprite("player");

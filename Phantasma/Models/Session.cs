@@ -25,6 +25,21 @@ public class Session
     private Party playerParty;
     private Map map;
     private DispatcherTimer gameTimer;
+    private Status status;
+    
+    // ===================================================================
+    // UI EVENTS - For displaying messages to user
+    // ===================================================================
+    
+    /// <summary>
+    /// Fired when a message should be displayed in the command window.
+    /// </summary>
+    public event Action<string> MessageDisplayed;
+    
+    /// <summary>
+    /// Fired when the command prompt changes (e.g., "Talk-", "Ready-").
+    /// </summary>
+    public event Action<string> PromptChanged;
     
     // ===================================================================
     // SAVE/LOAD REGISTRY
@@ -52,6 +67,7 @@ public class Session
     public Party Party => playerParty;
     public Map Map => map;
     public bool IsRunning => isRunning;
+    public Status Status => status;
     
     // ===================================================================
     // INITIALIZATION
@@ -69,6 +85,9 @@ public class Session
             
         // Create the player character.
         CreatePlayer();
+        
+        // Initialize Status.
+        status = new Status(playerParty);
         
         // Attach camera to player.
         if (playerCharacter != null && map != null)
@@ -115,6 +134,27 @@ public class Session
         playerCharacter.SetPosition(currentPlace, startX, startY);
             
         Console.WriteLine($"Party with player '{playerCharacter.GetName()}' placed at ({startX}, {startY})");
+    }
+    
+    // ===================================================================
+    // UI MESSAGE HELPERS
+    // ===================================================================
+    
+    /// <summary>
+    /// Display a message to the user in the command window.
+    /// </summary>
+    private void ShowMessage(string message)
+    {
+        MessageDisplayed?.Invoke(message);
+        Console.WriteLine(message); // Also log to console.
+    }
+    
+    /// <summary>
+    /// Set the command prompt (e.g., "Talk-", "Ready-").
+    /// </summary>
+    private void SetPrompt(string prompt)
+    {
+        PromptChanged?.Invoke(prompt);
     }
     
     // ===================================================================
@@ -191,10 +231,12 @@ public class Session
             writer.WriteComment("--------------");
             SaveSessionState(writer);
             
+            ShowMessage($"Game saved");
             Console.WriteLine($"Session saved to: {savePath}");
         }
         catch (Exception ex)
         {
+            ShowMessage("Save failed!");
             Console.Error.WriteLine($"Failed to save session: {ex.Message}");
             throw;
         }
@@ -230,10 +272,12 @@ public class Session
                 entry.PostLoadAction?.Invoke(entry.Object);
             }
             
+            ShowMessage($"Game loaded.");
             Console.WriteLine($"Session loaded successfully from: {savePath}");
         }
         catch (Exception ex)
         {
+            ShowMessage("Load failed!");
             Console.Error.WriteLine($"Failed to load session: {ex.Message}");
             throw;
         }
@@ -276,7 +320,7 @@ public class Session
         }
         
         saveEntries.Clear();
-        Console.WriteLine("Save registry cleared");
+        Console.WriteLine("Save registry cleared.");
     }
     
     /// <summary>
@@ -396,23 +440,23 @@ public class Session
         {
             // Wait action.
             playerCharacter.DecreaseActionPoints(1);
-            Console.WriteLine("Player waits.");
+            ShowMessage("Player waits.");
         }
         else if (playerCharacter.Move(dx, dy))
         {
             playerCharacter.DecreaseActionPoints(1);
-            Console.WriteLine($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
+            ShowMessage($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
         }
         else
         {
-            Console.WriteLine("Can't move there!");
+            ShowMessage("Can't move there!");
         }
     
         // Check if turn ended.
         if (playerCharacter.ActionPoints <= 0)
         {
             playerCharacter.EndTurn();
-            Console.WriteLine("Player turn ended.");
+            ShowMessage("Player turn ended.");
         }
     }
     
@@ -429,23 +473,23 @@ public class Session
         {
             // Wait action.
             playerCharacter.DecreaseActionPoints(1);
-            Console.WriteLine("Player waits.");
+            ShowMessage("Player waits.");
         }
         else if (playerCharacter.Move(dx, dy))
         {
             playerCharacter.DecreaseActionPoints(1);
-            Console.WriteLine($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
+            ShowMessage($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
         }
         else
         {
-            Console.WriteLine("Can't move there!");
+            ShowMessage("Can't move there!");
         }
     
         // Check if turn ended.
         if (playerCharacter.ActionPoints <= 0)
         {
             playerCharacter.EndTurn();
-            Console.WriteLine("Player turn ended.");
+            ShowMessage("Player turn ended.");
         }
     }
     
@@ -474,12 +518,11 @@ public class Session
             if (File.Exists(quickSavePath))
             {
                 Load("quicksave.scm");
-                // TODO: Show notification "Quick Loaded"
+                ShowMessage("Quick save loaded.");
             }
             else
             {
-                // TODO: Show notification "No quick save found"
-                Console.WriteLine("No quick save found");
+                ShowMessage("No quick save found.");
             }
             return;
         }
@@ -495,8 +538,22 @@ public class Session
                 // Show inventory.
                 // TODO: Implement inventory UI
                 break;
+            case Key.Z:
+                // Show character stats (Ztats)
+                if (status != null)
+                {
+                    status.SetMode(StatusMode.Ztats);
+                    status.SelectedCharacterIndex = 0;
+                    ShowMessage("Stats view.");
+                }
+                break;
             case Key.Escape:
-                // Show menu or quit.
+                // Toggle back to party view.
+                if (status != null && status.Mode != StatusMode.ShowParty)
+                {
+                    status.SetMode(StatusMode.ShowParty);
+                    ShowMessage("");
+                }
                 break;
         }
     }
