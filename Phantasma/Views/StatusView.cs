@@ -10,10 +10,6 @@ namespace Phantasma.Views;
 /// <summary>
 /// View for the status window.
 /// Renders party info, character stats, inventory, etc.
-/// 
-/// IMPORTANT: This View only knows about StatusBinder.
-/// It NEVER references any classes from Phantasma.Models.
-/// All dimension values come from the Binder.
 /// </summary>
 public class StatusView : Control
 {
@@ -23,6 +19,31 @@ public class StatusView : Control
     {
         binder = new StatusBinder();
         DataContext = binder;
+    }
+    
+    /// <summary>
+    /// Report preferred size based on content.
+    /// Status window height depends on number of party members.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        // Base Height: title + padding
+        double height = 30;
+        
+        if (binder != null && binder.IsShowingParty)
+        {
+            // Each party member takes ~2 lines (name + HP/status).
+            int charHeight = binder.AsciiHeight;
+            height += binder.PartyMembers.Count * (charHeight * 2 + 4);
+            height += 10;  // Bottom padding
+        }
+        else
+        {
+            // Default Height for Other Modes
+            height = 150;
+        }
+        
+        return new Size(availableSize.Width, Math.Min(height, availableSize.Height));
     }
     
     /// <summary>

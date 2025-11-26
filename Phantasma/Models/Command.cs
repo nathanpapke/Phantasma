@@ -147,6 +147,15 @@ public class Command
     }
     
     /// <summary>
+    /// Start a conversation with an NPC.
+    /// </summary>
+    public void Talk()
+    {
+        session?.LogMessage("Talk- (not yet implemented)");
+        session?.LogMessage("Full dialog system coming...");
+    }
+    
+    /// <summary>
     /// Prompt user for direction.
     /// This would show "Get-&lt;direction&gt;" and wait for arrow key.
     /// </summary>

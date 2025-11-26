@@ -51,6 +51,28 @@ public partial class MainWindow : Window
         {
             Console.WriteLine("ERROR: StatusView not found!");  // Debug
         }
+        
+        // Console View
+        var consoleView = this.FindControl<ConsoleView>("ConsoleViewControl");
+        if (consoleView != null)
+        {
+            var consoleBinder = consoleView.GetBinder();
+            consoleView.SubscribeToChanges();
+            
+            // Connect Session's ConsoleMessage event to the console binder.
+            gameSession.ConsoleMessage += (msg) => consoleBinder.PrintLine(msg);
+            
+            // Welcome Message
+            consoleBinder.PrintLine("Welcome to Phantasma!");
+            consoleBinder.PrintLine("Use arrow keys or numpad to move.");
+            consoleBinder.PrintLine("");
+            
+            Console.WriteLine("ConsoleView initialized.");
+        }
+        else
+        {
+            Console.WriteLine("ERROR: ConsoleView not found!");
+        }
     
         // Command Window
         var cmdView = this.FindControl<CommandWindow>("CommandWindowControl");
@@ -123,6 +145,9 @@ public partial class MainWindow : Window
             case Key.I:
                 command.Inventory();
                 break;
+            case Key.T:
+                command.Talk();
+                break;
             /*
             case Key.A:
                 command.Attack();
@@ -138,9 +163,6 @@ public partial class MainWindow : Window
                 break;
             case Key.Z:
                 command.Ztats();
-                break;
-            case Key.T:
-                command.Talk();
                 break;
             */
             case Key.Escape:

@@ -38,14 +38,28 @@
                         VerticalAlignment="Stretch"
                         x:Name="GameViewControl"/>
         
-        <!-- Status window on right, spans both rows -->
-        <views:StatusView Grid.Column="1" Grid.Row="1" Grid.RowSpan="2"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          x:Name="StatusViewControl"/>
+        <!-- Right panel: Status + Console stacked vertically -->
+        <Grid Grid.Column="1" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" MinHeight="100"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Status view at top of right panel -->
+            <views:StatusView Grid.Row="0"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Top"
+                              x:Name="StatusViewControl"/>
+            
+            <!-- Console view fills remaining space -->
+            <views:ConsoleView Grid.Row="1"
+                               HorizontalAlignment="Stretch"
+                               VerticalAlignment="Stretch"
+                               x:Name="ConsoleViewControl"/>
+        </Grid>
         
         <!-- Command window at bottom of map column -->
-        <views:CommandWindow Grid.Column="0" Grid.Row="2"
+        <views:CommandWindow Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="2"
                              HorizontalAlignment="Stretch"
                              VerticalAlignment="Stretch"
                              x:Name="CommandWindowControl"/>

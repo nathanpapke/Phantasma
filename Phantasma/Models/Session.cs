@@ -41,6 +41,12 @@ public class Session
     /// </summary>
     public event Action<string> PromptChanged;
     
+    /// <summary>
+    /// Fired when a message should be displayed in the console (multi-line scrollable).
+    /// Used for NPC dialog, combat log, game messages.
+    /// </summary>
+    public event Action<string> ConsoleMessage;
+    
     // ===================================================================
     // SAVE/LOAD REGISTRY
     // ===================================================================
@@ -155,6 +161,17 @@ public class Session
     private void SetPrompt(string prompt)
     {
         PromptChanged?.Invoke(prompt);
+    }
+    
+    /// <summary>
+    /// Log a message to the console view (multi-line, persistent).
+    /// Use this for NPC dialog, combat results, game events.
+    /// </summary>
+    public void LogMessage(string format, params object[] args)
+    {
+        string message = args.Length > 0 ? string.Format(format, args) : format;
+        ConsoleMessage?.Invoke(message);
+        Console.WriteLine($"[LOG] {message}"); // Also log to debug console.
     }
     
     // ===================================================================
