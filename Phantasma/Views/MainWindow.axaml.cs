@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 
@@ -37,7 +38,33 @@ public partial class MainWindow : Window
         {
             gameView.GameSession = gameSession;
         }
-            
+        // Status View
+        var statusView = this.FindControl<StatusView>("StatusViewControl");
+        if (statusView != null)
+        {
+            var statusBinder = statusView.GetBinder();
+            statusBinder.Initialize(gameSession.Status, gameSession.Party);
+            statusView.SubscribeToChanges();
+            Console.WriteLine("StatusView initialized.");  // Debug
+        }
+        else
+        {
+            Console.WriteLine("ERROR: StatusView not found!");  // Debug
+        }
+    
+        // Command Window
+        var cmdView = this.FindControl<CommandWindow>("CommandWindowControl");
+        if (cmdView != null)
+        {
+            var cmdBinder = cmdView.GetBinder();
+            cmdBinder.Initialize(gameSession);
+            Console.WriteLine("CommandWindowView initialized.");  // Debug
+        }
+        else
+        {
+            Console.WriteLine("ERROR: CommandWindowView not found!");  // Debug
+        }
+        
         // Start the game.
         gameSession.Start();
     }

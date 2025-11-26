@@ -41,46 +41,45 @@ public class StatusView : Control
     {
         if (binder != null)
         {
-            // Set dimensions based on binder values
-            Width = binder.AsciiWidth * binder.CharsPerLine / 2;  // ~184 pixels
-            Height = 600;
-            
-            binder.DisplayChanged += () => InvalidateVisual();
-            binder.PropertyChanged += (s, e) => InvalidateVisual();
+            if (binder != null)
+            {
+                binder.DisplayChanged += () => InvalidateVisual();
+                binder.PropertyChanged += (s, e) => InvalidateVisual();
+            }
         }
     }
     
-    // Helper to get padding from binder
+    // Helper to get Padding from Binder
     private int Padding => binder?.BorderWidth / 4 ?? 4;
     
     public override void Render(DrawingContext context)
     {
         base.Render(context);
         
-        // Draw background
-        context.FillRectangle(Brushes.Black, new Rect(0, 0, Width, Height));
+        // Draw background.
+        context.FillRectangle(Brushes.Black, new Rect(0, 0, Bounds.Width, Bounds.Height));
         
-        // Draw border
+        // Draw border.
         var borderPen = new Pen(Brushes.Gray, 2);
-        context.DrawRectangle(borderPen, new Rect(1, 1, Width - 2, Height - 2));
+        context.DrawRectangle(borderPen, new Rect(1, 1, Bounds.Width - 2, Bounds.Height - 2));
         
         if (binder == null) return;
         
-        // Draw title (from binder, not model)
-        DrawTitle(context, binder.Title);
+        // Draw title.
+        DrawTitle(context, binder.Title, Bounds.Width);
         
-        // Draw content based on binder state (not model state)
+        // Draw content based on binder state.
         if (binder.IsShowingParty)
         {
-            DrawPartyList(context);
+            DrawPartyList(context, Bounds.Width, Bounds.Height);
         }
         else if (binder.IsShowingStats)
         {
-            DrawCharacterStats(context);
+            DrawCharacterStats(context, Bounds.Width, Bounds.Height);
         }
         else if (binder.IsShowingPage)
         {
-            DrawPageText(context);
+            DrawPageText(context, Bounds.Width, Bounds.Height);
         }
         else
         {
@@ -88,7 +87,7 @@ public class StatusView : Control
         }
     }
     
-    private void DrawTitle(DrawingContext context, string title)
+    private void DrawTitle(DrawingContext context, string title, double width)
     {
         var typeface = new Typeface("Courier New");
         var text = new FormattedText(
@@ -99,12 +98,12 @@ public class StatusView : Control
             14,
             Brushes.White);
         
-        // Center title
-        double x = (Width - text.Width) / 2;
+        // Center title.
+        double x = (width - text.Width) / 2;
         context.DrawText(text, new Point(x, Padding));
     }
     
-    private void DrawPartyList(DrawingContext context)
+    private void DrawPartyList(DrawingContext context, double width, double height)
     {
         if (binder.PartyMembers.Count == 0) return;
         
@@ -114,7 +113,7 @@ public class StatusView : Control
         
         foreach (var member in binder.PartyMembers)
         {
-            // Draw name
+            // Draw name.
             var nameText = new FormattedText(
                 member.Name,
                 System.Globalization.CultureInfo.CurrentCulture,
@@ -126,7 +125,7 @@ public class StatusView : Control
             context.DrawText(nameText, new Point(Padding + 4, y));
             y += charHeight;
             
-            // Draw HP and condition
+            // Draw HP and condition.
             var hpText = new FormattedText(
                 $"{member.HP}/{member.MaxHP} {member.Condition}",
                 System.Globalization.CultureInfo.CurrentCulture,
@@ -135,10 +134,10 @@ public class StatusView : Control
                 12,
                 Brushes.LightGray);
             
-            context.DrawText(hpText, new Point(Width - hpText.Width - Padding - 4, y));
+            context.DrawText(hpText, new Point(width - hpText.Width - hpText.Width - Padding - 4, y));
             y += charHeight + 4;
             
-            // Shade non-selected members in select mode
+            // Shade non-selected members in select mode.
             if (!member.IsSelected && binder.IsSelectMode)
             {
                 var shadeRect = new Rect(Padding, y - charHeight * 2 - 4, 
@@ -148,7 +147,7 @@ public class StatusView : Control
         }
     }
     
-    private void DrawCharacterStats(DrawingContext context)
+    private void DrawCharacterStats(DrawingContext context, double width, double height)
     {
         if (binder.StatLines.Count == 0) return;
         
@@ -158,7 +157,7 @@ public class StatusView : Control
         
         foreach (var line in binder.StatLines)
         {
-            // Draw label
+            // Draw label.
             var labelText = new FormattedText(
                 line.Label,
                 System.Globalization.CultureInfo.CurrentCulture,
@@ -169,7 +168,7 @@ public class StatusView : Control
             
             context.DrawText(labelText, new Point(Padding + 4, y));
             
-            // Draw value (right-aligned if present)
+            // Draw value (right-aligned if present).
             if (!string.IsNullOrEmpty(line.Value))
             {
                 var valueText = new FormattedText(
@@ -181,14 +180,14 @@ public class StatusView : Control
                     Brushes.LightGray);
                 
                 context.DrawText(valueText, 
-                    new Point(Width - valueText.Width - Padding - 4, y));
+                    new Point(width - valueText.Width - valueText.Width - Padding - 4, y));
             }
             
             y += charHeight;
         }
     }
     
-    private void DrawPageText(DrawingContext context)
+    private void DrawPageText(DrawingContext context, double width, double height)
     {
         if (string.IsNullOrEmpty(binder.PageText)) return;
         
@@ -196,12 +195,12 @@ public class StatusView : Control
         int charHeight = binder.AsciiHeight;
         int y = Padding + 20 - binder.PageScrollY;
         
-        // Split into lines and render
+        // Split into lines and render.
         var lines = binder.PageText.Split('\n');
         
         foreach (var line in lines)
         {
-            if (y > -charHeight && y < Height)  // Only render visible lines
+            if (y > -charHeight && y < Height)  // Only render visible lines.
             {
                 var text = new FormattedText(
                     line,

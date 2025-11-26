@@ -20,7 +20,7 @@ public class GameView : Control
         set
         {
             gameSession = value;
-            InvalidateVisual();  // Redraw when session changes
+            InvalidateVisual();  // Redraw when session changes.
         }
     }
 
@@ -48,7 +48,7 @@ public class GameView : Control
         base.Render(context);
         
         // Clear background.
-        context.FillRectangle(Brushes.Black, new Rect(0, 0, Width, Height));
+        context.FillRectangle(Brushes.Black, new Rect(0, 0, Bounds.Width, Bounds.Height));
         
         if (gameSession?.CurrentPlace == null)
             return;

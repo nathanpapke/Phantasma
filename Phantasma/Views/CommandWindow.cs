@@ -26,9 +26,6 @@ public class CommandWindow : Control
         binder = new CommandWindowBinder();
         DataContext = binder;
         
-        // Set height from binder's dimension info.
-        Height = binder.CmdHeight;
-        
         // Subscribe to binder property changes.
         binder.PropertyChanged += (s, e) => InvalidateVisual();
         
@@ -56,11 +53,11 @@ public class CommandWindow : Control
         base.Render(context);
         
         // Draw background.
-        context.FillRectangle(Brushes.Black, new Rect(0, 0, Width, Height));
+        context.FillRectangle(Brushes.Black, new Rect(0, 0, Bounds.Width, Bounds.Height));
         
         // Draw border
         var borderPen = new Pen(Brushes.Gray, 1);
-        context.DrawRectangle(borderPen, new Rect(0, 0, Width, Height));
+        context.DrawRectangle(borderPen, new Rect(0, 0, Bounds.Width, Bounds.Height));
         
         if (string.IsNullOrEmpty(binder.Text))
             return;
@@ -75,7 +72,7 @@ public class CommandWindow : Control
             14,
             Brushes.White);
         
-        context.DrawText(text, new Point(Padding, (Height - text.Height) / 2));
+        context.DrawText(text, new Point(Padding, (Bounds.Height - text.Height) / 2));
         
         // Draw cursor if waiting for input.
         if (binder.ShowCursor && cursorVisible)
@@ -89,7 +86,7 @@ public class CommandWindow : Control
                 14,
                 Brushes.Yellow);
             
-            context.DrawText(cursor, new Point(cursorX, (Height - cursor.Height) / 2));
+            context.DrawText(cursor, new Point(cursorX, (Bounds.Height - cursor.Height) / 2));
         }
     }
 }
