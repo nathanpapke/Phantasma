@@ -25,4 +25,18 @@
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.1"/>
         <PackageReference Include="IronScheme.Core" Version="1.0.603" />
     </ItemGroup>
+
+    <!-- Copy Scripts directory to output -->
+    <ItemGroup>
+        <Content Include="Scripts\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <!-- Copy Assets directory to output -->
+    <ItemGroup>
+        <Content Include="Assets\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
 </Project>

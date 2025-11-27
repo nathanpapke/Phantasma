@@ -395,7 +395,7 @@ public class Phantasma
             configuration["screen-dims"] = "1024x768";
             
         if (!configuration.ContainsKey("include-dirname"))
-            configuration["include-dirname"] = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+            configuration["include-dirname"] = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
             
         if (!configuration.ContainsKey("saved-games-dirname"))
             configuration["saved-games-dirname"] = Path.Combine(
