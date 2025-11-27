@@ -146,6 +146,13 @@ public class Kernel
         DefineFunction("kern-mk-sound", MakeSound);
         
         // ===================================================================
+        // KERN-PARTY API - Party Functions
+        // ===================================================================
+        
+        DefineFunction("kern-party-add-member", PartyAddMember);
+        DefineFunction("kern-party-set-wandering", PartySetWandering);
+        
+        // ===================================================================
         // KERN-SET API - Session Configuration Functions
         // ===================================================================
         
@@ -170,6 +177,18 @@ public class Kernel
         
         DefineFunction("kern-obj-put-at", ObjectPutAt);
         DefineFunction("kern-obj-get-location", ObjectGetLocation);
+        DefineFunction("kern-obj-get-conversation", ObjectGetConversation);
+        
+        // ===================================================================
+        // KERN-CONV API - Conversation Functions
+        // ===================================================================
+        
+        DefineFunction("kern-conv-say", ConversationSay);
+        DefineFunction("kern-conv-get-reply", ConversationGetReply);
+        DefineFunction("kern-conv-get-yes-no", ConversationGetYesNo);
+        DefineFunction("kern-conv-get-amount", ConversationGetAmount);
+        DefineFunction("kern-conv-trade", ConversationTrade);
+        DefineFunction("kern-conv-end", ConversationEnd);
         
         // ===================================================================
         // MISC API - Utility Functions
@@ -289,16 +308,99 @@ public class Kernel
             Height = Convert.ToInt32(height ?? 128)
         };
         
-        // Initialize the terrain grid
+        // Initialize the terrain grid.
         place.TerrainGrid = new Terrain[place.Width, place.Height];
         
         return place;
     }
     
-    public static object MakeCharacter(object args)
+    public static object MakeCharacter(
+        object tag,
+        object name,
+        object species,
+        object occ,
+        object sprite,
+        object baseFaction,
+        object str,
+        object intl,
+        object dex,
+        object hpmod,
+        object hpmult,
+        object mpmod,
+        object mpmult,
+        object hp,
+        object xp,
+        object mp,
+        object lvl,
+        object dead,
+        object conv,
+        object sched,
+        object ai,
+        object inventory)
     {
-        // TODO: Implement
-        return Builtins.Unspecified;
+        try
+        {
+            // Extract parameters
+            string nameStr = name?.ToString() ?? "Unknown";
+            Species speciesObj = species is Species ? (Species)species : default;
+            Occupation occObj = occ is Occupation ? (Occupation)occ : default;
+            Sprite spriteObj = sprite as Sprite;
+            
+            int baseFactionInt = Convert.ToInt32(baseFaction ?? 0);
+            int strInt = Convert.ToInt32(str ?? 10);
+            int intlInt = Convert.ToInt32(intl ?? 10);
+            int dexInt = Convert.ToInt32(dex ?? 10);
+            int hpmodInt = Convert.ToInt32(hpmod ?? 10);
+            int hpmultInt = Convert.ToInt32(hpmult ?? 1);
+            int mpmodInt = Convert.ToInt32(mpmod ?? 10);
+            int mpmultInt = Convert.ToInt32(mpmult ?? 1);
+            int hpInt = Convert.ToInt32(hp ?? 10);
+            int xpInt = Convert.ToInt32(xp ?? 0);
+            int mpInt = Convert.ToInt32(mp ?? 10);
+            int lvlInt = Convert.ToInt32(lvl ?? 1);
+            bool deadBool = Convert.ToBoolean(dead ?? false);
+            
+            // Create character
+            var character = new Character
+            {
+                Name = nameStr,
+                Species = speciesObj,
+                Occ = occObj,
+                CurrentSprite = spriteObj,
+                Strength = strInt,
+                Intelligence = intlInt,
+                Dexterity = dexInt,
+                HpMod = hpmodInt,
+                HpMult = hpmultInt,
+                MpMod = mpmodInt,
+                MpMult = mpmultInt,
+                HP = hpInt,
+                MaxHP = hpInt,
+                Experience = xpInt,
+                MP = mpInt,
+                MaxMP = mpInt,
+                Level = lvlInt
+            };
+            
+            character.SetBaseFaction(baseFactionInt);
+            
+            if (deadBool)
+            {
+                character.Damage(hpInt);
+            }
+            
+            if (conv != null && !conv.Equals("#f".Eval()))
+            {
+                character.Conversation = conv;
+            }
+            
+            return character;
+        }
+        catch (Exception ex)
+        {
+            LoadError($"kern-mk-char: {ex.Message}");
+            return "#f".Eval();
+        }
     }
     
     public static object MakeObject(object args)
@@ -463,15 +565,152 @@ public class Kernel
     // KERN-OBJ API IMPLEMENTATIONS
     // ===================================================================
     
-    public static object ObjectPutAt(object args)
+    public static object ObjectPutAt(object objParam, object placeParam, object xParam, object yParam)
     {
-        // TODO: Implement
-        return Builtins.Unspecified;
+        // (kern-obj-put-at obj place x y)
+        // Places an object at a location on a map.
+        
+        try
+        {
+            var obj = objParam as Object;
+            var place = placeParam as Place;
+            int x = Convert.ToInt32(xParam);
+            int y = Convert.ToInt32(yParam);
+            
+            if (obj == null)
+            {
+                RuntimeError("kern-obj-put-at: null object");
+                return "#f".Eval();
+            }
+            
+            if (place == null)
+            {
+                RuntimeError("kern-obj-put-at: null place");
+                return "#f".Eval();
+            }
+            
+            // Add object to the place.
+            place.AddObject(obj, x, y);
+            
+            // Set object's position.
+            if (obj is Being being)
+            {
+                being.SetPosition(place, x, y);
+            }
+            
+            Console.WriteLine($"[ObjectPutAt] Placed {obj.Name} at ({x}, {y}) in {place.Name}");
+            return "#t".Eval();
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-obj-put-at: {ex.Message}");
+            return "#f".Eval();
+        }
     }
     
     public static object ObjectGetLocation(object args)
     {
         // TODO: Implement
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-obj-get-conversation obj)
+    /// Get the conversation closure attached to a character.
+    /// </summary>
+    public static object ObjectGetConversation(object obj)
+    {
+        if (obj is Character character)
+        {
+            return character.Conversation ?? "#f".Eval();
+        }
+
+        return "#f".Eval();
+    }
+    
+    // ===================================================================
+    // KERN-CONV API IMPLEMENTATIONS
+    // Conversation functions for keyword-based dialog.
+    // ===================================================================
+    
+    /// <summary>
+    /// (kern-conv-say speaker text)
+    /// NPC speaks a line of dialog to the player.
+    /// </summary>
+    public static object ConversationSay(object speaker, object text)
+    {
+        string message = text?.ToString() ?? "";
+        
+        // Get speaker name if it's a Character.
+        string speakerName = "???";
+        if (speaker is Character character)
+        {
+            speakerName = character.GetName();
+        }
+        
+        // Log the dialog to console.
+        // TODO: Get active session from Phantasma singleton.
+        Console.WriteLine($"{speakerName}: {message}");
+        
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-conv-get-reply pc)
+    /// Get a keyword reply from the player.
+    /// Returns a symbol representing the keyword (truncated to 4 chars).
+    /// </summary>
+    public static object ConversationGetReply(object pc)
+    {
+        // TODO: Implement proper UI input.
+        // For now, just return 'bye to end conversation.
+        Console.WriteLine("[Conversation] Getting player reply (returning 'bye for now)");
+        return "bye".Eval();
+    }
+    
+    /// <summary>
+    /// (kern-conv-get-yes-no pc)
+    /// Prompt player for yes/no response.
+    /// Returns #t for yes, #f for no.
+    /// </summary>
+    public static object ConversationGetYesNo(object pc)
+    {
+        // TODO: Implement UI prompt.
+        Console.WriteLine("[Conversation] Yes/No prompt (returning #f for now)");
+        return "#f".Eval();
+    }
+    
+    /// <summary>
+    /// (kern-conv-get-amount pc)
+    /// Prompt player for a numeric amount.
+    /// Returns the number entered.
+    /// </summary>
+    public static object ConversationGetAmount(object pc)
+    {
+        // TODO: Implement UI prompt.
+        Console.WriteLine("[Conversation] Amount prompt (returning 0 for now)");
+        return 0;
+    }
+    
+    /// <summary>
+    /// (kern-conv-trade npc pc trade-list)
+    /// Handle merchant trading interface.
+    /// </summary>
+    public static object ConversationTrade(object npc, object pc, object tradeList)
+    {
+        // TODO: Implement trading system.
+        Console.WriteLine("[Conversation] Trade interface (not yet implemented)");
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-conv-end)
+    /// End the current conversation.
+    /// </summary>
+    public static object ConversationEnd()
+    {
+        Console.WriteLine("[Conversation] Ending conversation.");
+        Conversation.End();
         return Builtins.Unspecified;
     }
     
@@ -501,10 +740,28 @@ public class Kernel
     /// (kern-include filename)
     /// Loads another Scheme file.
     /// </summary>
-    public static object Include(object args)
+    public static object Include(object filename)
     {
-        // TODO: Implement
-        return Builtins.Unspecified;
+        try
+        {
+            string path = filename?.ToString();
+            if (string.IsNullOrEmpty(path))
+            {
+                RuntimeError("kern-include: null or empty filename");
+                return "#f".Eval();
+            }
+            
+            // Use Phantasma's LoadSchemeFile which handles paths correctly.
+            Phantasma.LoadSchemeFile(path);
+            
+            Console.WriteLine($"[kern-include] Loaded: {path}");
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-include: {ex.Message}");
+            return "#f".Eval();
+        }
     }
     
     // ===================================================================

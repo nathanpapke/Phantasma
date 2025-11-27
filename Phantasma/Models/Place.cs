@@ -352,6 +352,10 @@ public class Place
         {
             objects.Add(obj);
         }
+        
+        // Add to layer-based lookup dictionary for collision detection.
+        var key = (x, y, obj.Layer);
+        objectsByLocation[key] = obj;
     }
     
     public void RemoveObject(Object? obj)
@@ -359,6 +363,10 @@ public class Place
         if (obj != null)
         {
             objects.Remove(obj);
+            
+            // Remove from dictionary as well.
+            var key = (obj.GetX(), obj.GetY(), obj.Layer);
+            objectsByLocation.Remove(key);
         }
     }
     
@@ -366,9 +374,17 @@ public class Place
     {
         if (being == null || IsOffMap(newX, newY))
             return;
+        
+        // Remove from old location in dictionary.
+        var oldKey = (being.GetX(), being.GetY(), ObjectLayer.Being);
+        objectsByLocation.Remove(oldKey);
             
-        // Just update position - being is already in objects list.
+        // Update position.
         being.SetPosition(this, newX, newY);
+        
+        // Add to new location in dictionary.
+        var newKey = (newX, newY, ObjectLayer.Being);
+        objectsByLocation[newKey] = being;
     }
     
     public Being? GetBeingAt(int x, int y)
@@ -453,7 +469,7 @@ public class Place
         if (checkBeings)
         {
             if (IsOccupied(x, y))
-                return false; // Can't walk through other beings
+                return false; // Can't walk through other beings.
         }
         
         // Check for blocking mechanisms (doors, containers, etc.).

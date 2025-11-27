@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Threading;
+using IronScheme;
 
 namespace Phantasma.Models;
 
@@ -81,24 +82,81 @@ public class Session
     
     public Session()//Mode mode = Mode.Normal)
     {
-        // Create a simple test map.
-        currentPlace = new Place();
-        currentPlace.GenerateTestMap();
+        // Try to load world from Scheme first
+        bool loadedFromScheme = TryLoadFromScheme();
+        
+        // Fall back to C# test objects if Scheme didn't create them
+        if (!loadedFromScheme)
+        {
+            Console.WriteLine("[Session] Scheme world not found, using C# test objects");
+            
+            // Create a simple test map.
+            currentPlace = new Place();
+            currentPlace.GenerateTestMap();
+            
+            // Create the player character.
+            CreatePlayer();
+            
+            // Create and place test NPC.
+            var testNPC = Character.CreateTestNPC();
+            if (testNPC != null && playerCharacter != null && currentPlace != null)
+            {
+                int npcX = playerCharacter.GetX() + 2;
+                int npcY = playerCharacter.GetY();
+                currentPlace.AddObject(testNPC, npcX, npcY);
+                testNPC.SetPosition(currentPlace, npcX, npcY);
+            }
+        }
         
         // Create map rendering system.
         map = new Map(800, 600, 32);
         map.SetPlace(currentPlace);
             
-        // Create the player character.
-        CreatePlayer();
-        
-        // Initialize Status.
-        status = new Status(playerParty);
-        
         // Attach camera to player.
         if (playerCharacter != null && map != null)
         {
             map.AttachCamera(playerCharacter);
+        }
+    }
+    
+    private bool TryLoadFromScheme()
+    {
+        try
+        {
+            // Try to get Place from Scheme.
+            var schemePlace = "p_test_map".Eval();
+            if (schemePlace == null || !(schemePlace is Place))
+            {
+                Console.WriteLine("[Session] test-place not found in Scheme.");
+                return false;
+            }
+            
+            currentPlace = schemePlace as Place;
+            Console.WriteLine($"[Session] Loaded Place from Scheme: {currentPlace.Width}x{currentPlace.Height}");
+            
+            // Try to get Player from Scheme.
+            var schemePlayer = "player".Eval();
+            if (schemePlayer == null || !(schemePlayer is Character))
+            {
+                Console.WriteLine("[Session] player not found in Scheme.");
+                return false;
+            }
+            
+            playerCharacter = schemePlayer as Character;
+            Console.WriteLine($"[Session] Loaded Player from Scheme: {playerCharacter.GetName()} at ({playerCharacter.GetX()}, {playerCharacter.GetY()})");
+            
+            // Create party and add player.
+            playerParty = new Party();
+            playerParty.AddMember(playerCharacter);
+            
+            // NPCs are already placed by Scheme, so we don't need to create them.
+            Console.WriteLine("[Session] Successfully loaded world from Scheme.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Session] Error loading from Scheme: {ex.Message}");
+            return false;
         }
     }
         
@@ -572,6 +630,47 @@ public class Session
                     ShowMessage("");
                 }
                 break;
+        }
+    }
+
+    // ===================================================================
+    // CONVERSATION HANDLING
+    // ===================================================================
+    
+    /// <summary>
+    /// Start a conversation with an NPC at the given location.
+    /// </summary>
+    public void StartConversation(int targetX, int targetY)
+    {
+        if (playerCharacter == null || currentPlace == null)
+            return;
+        
+        // Find NPC at target location.
+        var target = currentPlace.GetBeingAt(targetX, targetY);
+        
+        if (target == null)
+        {
+            LogMessage("Nobody there!");
+            return;
+        }
+        
+        // Check if target is a Character with a conversation.
+        if (target is Character npc)
+        {
+            string personName = (npc.GetName() != "") ? npc.GetName() : "person";
+            if (npc.Conversation == null)
+            {
+                LogMessage($"No response from {personName}.");
+                return;
+            }
+            
+            // Start conversation.
+            LogMessage($"Talking to {personName}...");
+            Conversation.Enter(this, npc, playerCharacter, npc.Conversation);
+        }
+        else
+        {
+            LogMessage("That's not a person!");
         }
     }
 }

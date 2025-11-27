@@ -433,13 +433,16 @@ public class Phantasma
         Console.WriteLine("Loading game data...");
     
         // Get the data directory path.
-        string dataDir = configuration.GetValueOrDefault("include-dirname", "Data");
+        string dataDir = configuration.GetValueOrDefault("include-dirname", "Scripts");
         string testWorldPath = Path.Combine(dataDir, "test-world.scm");
+        string testNPCPath = Path.Combine(dataDir, "test-npc.scm");
     
-        if (File.Exists(testWorldPath))
+        if (File.Exists(testWorldPath) && File.Exists(testNPCPath))
         {
             Console.WriteLine($"Loading test world from: {testWorldPath}");
             LoadSchemeFile(testWorldPath);
+            Console.WriteLine($"Loading test NPC from: {testNPCPath}");
+            LoadSchemeFile(testNPCPath);
         }
         else
         {

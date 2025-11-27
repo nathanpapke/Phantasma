@@ -151,8 +151,51 @@ public class Command
     /// </summary>
     public void Talk()
     {
-        session?.LogMessage("Talk- (not yet implemented)");
-        session?.LogMessage("Full dialog system coming...");
+        if (session.Player == null || session.CurrentPlace == null)
+        {
+            Log("Talk - no player or place");
+            return;
+        }
+        
+        Log("Talk-");
+        
+        // Get player position.
+        int playerX = session.Player.GetX();
+        int playerY = session.Player.GetY();
+        
+        // For MVP: Check adjacent tiles for NPCs.
+        // Full implementation would use target selection UI.
+        
+        // Check all 8 adjacent directions.
+        int[] dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        int[] dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
+        
+        Character nearestNPC = null;
+        int npcX = 0, npcY = 0;
+        
+        for (int i = 0; i < 8; i++)
+        {
+            int checkX = playerX + dx[i];
+            int checkY = playerY + dy[i];
+            
+            var being = session.CurrentPlace.GetBeingAt(checkX, checkY);
+            if (being is Character character && !character.IsPlayer)
+            {
+                nearestNPC = character;
+                npcX = checkX;
+                npcY = checkY;
+                break;
+            }
+        }
+        
+        if (nearestNPC == null)
+        {
+            Log("Nobody nearby!");
+            return;
+        }
+        
+        // Start conversation with the NPC.
+        session.StartConversation(npcX, npcY);
     }
     
     /// <summary>

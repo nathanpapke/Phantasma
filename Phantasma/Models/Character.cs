@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using IronScheme;
 
 namespace Phantasma.Models;
 
@@ -30,6 +31,9 @@ public class Character : Being
     
     // Vision
     public int VisionRadius { get; set; } = 10;
+    
+    // Conversation - IronScheme Closure for NPC dialog
+    public object Conversation { get; set; }
     
     // Equipment Slots
     private List<ArmsType> readiedArms;
@@ -118,6 +122,40 @@ public class Character : Being
         }
         
         return player;
+    }
+
+    /// <summary>
+    /// Create a test NPC with conversation for testing.
+    /// </summary>
+    public static Character CreateTestNPC()
+    {
+        // Create NPC character.
+        var npc = new Character
+        {
+            //Name = "Guardsman Bob",
+            IsPlayer = false,
+            Level = 1,
+            HP = 50,
+            MaxHP = 50//,
+            //Conversation = conversationClosure
+        };
+        npc.SetName("Guardsman Bob");
+        
+        // Try to load NPC sprite.
+        var npcSprite = SpriteManager.GetSprite("npc") ?? SpriteManager.GetSprite("player");
+        if (npcSprite == null)
+        {
+            // Create placeholder sprite.
+            npcSprite = new Sprite
+            {
+                Tag = "npc",
+                DisplayChar = '@',
+                SourceImage = null
+            };
+        }
+        npc.CurrentSprite = npcSprite;
+
+        return npc;
     }
     
     public bool IsTurnEnded()
