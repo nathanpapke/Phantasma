@@ -19,6 +19,7 @@ public class Terrain
         
     public Terrain()
     {
+        Color = "#808080";
         IsPassable = true;
         Transparent = true;
     }
@@ -26,6 +27,7 @@ public class Terrain
     public Terrain(string name, bool isPassable = true, float movementCost = 1.0f)
     {
         Name = name;
+        Color = "#808080";
         IsPassable = isPassable;
         MovementCost = movementCost;
         IsHazardous = false;
@@ -38,6 +40,7 @@ public class Terrain
     public Terrain(string tag, string name, Sprite sprite, int pclass, int alpha, int light)
     {
         Name = name;
+        Color = "#808080";
         Sprite = sprite;
         PassabilityClass = pclass;
         Alpha = (byte)alpha;

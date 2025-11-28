@@ -26,8 +26,18 @@ public partial class MainWindow : Window
         
     private void InitializeGame()
     {
-        // Create and start game session.
-        gameSession = new Session();
+        // Get the main session that was created during startup.
+        gameSession = Phantasma.MainSession;
+        
+        if (gameSession == null)
+        {
+            // Fallback: if mainSession wasn't created for some reason, create one.
+            Console.WriteLine("[MainWindow] Warning: MainSession is null; creating fallback session.");
+            var phantasma = Phantasma.Instance;
+            var place = phantasma.GetSchemeObject<Place>("test-place");
+            var player = phantasma.GetSchemeObject<Character>("player");
+            gameSession = new Session(place, player);
+        }
         
         // Initialize command system.
         command = new Command(gameSession);

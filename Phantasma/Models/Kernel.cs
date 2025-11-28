@@ -223,19 +223,24 @@ public class Kernel
     {
         dynamic ss = spriteSet;
         
-        // Calculate source coordinates from index
+        // Load the sprite sheet image
+        string filename = ss.Filename?.ToString();
+        var sourceImage = SpriteManager.LoadImage(filename); 
+        
+        // Calculate source coordinates from index.
         int idx = Convert.ToInt32(index ?? 0);
         int cols = ss.Cols;
         int tileWidth = ss.Width;
         int tileHeight = ss.Height;
         
-        // Calculate grid position
+        // Calculate grid position.
         int col = idx % cols;
         int row = idx / cols;
         
         var sprite = new Sprite
         {
             Tag = ss.Filename?.ToString(),  // The image filename from sprite set
+            SourceImage = sourceImage,
             SourceX = col * tileWidth + ss.OffsetX,  // Calculate X position in sprite sheet
             SourceY = row * tileHeight + ss.OffsetY, // Calculate Y position in sprite sheet
             WPix = tileWidth,

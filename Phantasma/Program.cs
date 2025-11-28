@@ -5,8 +5,6 @@ namespace Phantasma;
 
 sealed class Program
 {
-    private static Phantasma phantasma;
-    
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
@@ -20,7 +18,6 @@ sealed class Program
         }
         
         Phantasma.Initialize(args);
-        phantasma = Phantasma.Instance;
         
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
@@ -34,10 +31,6 @@ sealed class Program
             .LogToTrace()
             .AfterSetup(async builder =>
             {
-                // Initialize Phantasma after Avalonia is set up.
-                if (phantasma != null)
-                {
-                    await phantasma.InitializeAsync();
-                }
+                await Phantasma.Instance.InitializeAsync();  // Use singleton directly.
             });
 }

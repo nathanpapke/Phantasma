@@ -80,33 +80,45 @@ public class Session
     // INITIALIZATION
     // ===================================================================
     
-    public Session()//Mode mode = Mode.Normal)
+    /// <summary>
+    /// Create a session with the given Place and player Character.
+    /// This works for both main game sessions and agent simulation sessions.
+    /// </summary>
+    /// <param name="place">The Place (map) for this session. If null, creates a test map.</param>
+    /// <param name="player">The player Character. If null, creates a test player.</param>
+    public Session(Place place = null, Character player = null)
     {
-        // Try to load world from Scheme first
-        bool loadedFromScheme = TryLoadFromScheme();
-        
-        // Fall back to C# test objects if Scheme didn't create them
-        if (!loadedFromScheme)
+        // Use provided objects or create test fallbacks.
+        if (place != null)
         {
-            Console.WriteLine("[Session] Scheme world not found, using C# test objects");
-            
-            // Create a simple test map.
+            currentPlace = place;
+            Console.WriteLine($"[Session] Using provided Place: {currentPlace.Width}x{currentPlace.Height}");
+        }
+        else
+        {
+            // Fallback: create test map.
             currentPlace = new Place();
             currentPlace.GenerateTestMap();
-            
-            // Create the player character.
-            CreatePlayer();
-            
-            // Create and place test NPC.
-            var testNPC = Character.CreateTestNPC();
-            if (testNPC != null && playerCharacter != null && currentPlace != null)
-            {
-                int npcX = playerCharacter.GetX() + 2;
-                int npcY = playerCharacter.GetY();
-                currentPlace.AddObject(testNPC, npcX, npcY);
-                testNPC.SetPosition(currentPlace, npcX, npcY);
-            }
+            Console.WriteLine("[Session] No Place provided, created test map");
         }
+        
+        if (player != null)
+        {
+            playerCharacter = player;
+            Console.WriteLine($"[Session] Using provided player: {playerCharacter.GetName()} at ({playerCharacter.GetX()}, {playerCharacter.GetY()})");
+        }
+        else
+        {
+            // Fallback: create test player.
+            CreatePlayer();  // should be? playerCharacter = 
+            //playerCharacter = new Character();
+            //playerCharacter.GenerateTestPlayer();
+            Console.WriteLine("[Session] No player provided, created test player");
+        }
+        
+        // Create party and add player.
+        playerParty = new Party();
+        playerParty.AddMember(playerCharacter);
         
         // Create map rendering system.
         map = new Map(800, 600, 32);
@@ -116,47 +128,6 @@ public class Session
         if (playerCharacter != null && map != null)
         {
             map.AttachCamera(playerCharacter);
-        }
-    }
-    
-    private bool TryLoadFromScheme()
-    {
-        try
-        {
-            // Try to get Place from Scheme.
-            var schemePlace = "p_test_map".Eval();
-            if (schemePlace == null || !(schemePlace is Place))
-            {
-                Console.WriteLine("[Session] test-place not found in Scheme.");
-                return false;
-            }
-            
-            currentPlace = schemePlace as Place;
-            Console.WriteLine($"[Session] Loaded Place from Scheme: {currentPlace.Width}x{currentPlace.Height}");
-            
-            // Try to get Player from Scheme.
-            var schemePlayer = "player".Eval();
-            if (schemePlayer == null || !(schemePlayer is Character))
-            {
-                Console.WriteLine("[Session] player not found in Scheme.");
-                return false;
-            }
-            
-            playerCharacter = schemePlayer as Character;
-            Console.WriteLine($"[Session] Loaded Player from Scheme: {playerCharacter.GetName()} at ({playerCharacter.GetX()}, {playerCharacter.GetY()})");
-            
-            // Create party and add player.
-            playerParty = new Party();
-            playerParty.AddMember(playerCharacter);
-            
-            // NPCs are already placed by Scheme, so we don't need to create them.
-            Console.WriteLine("[Session] Successfully loaded world from Scheme.");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Session] Error loading from Scheme: {ex.Message}");
-            return false;
         }
     }
         

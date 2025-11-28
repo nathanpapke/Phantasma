@@ -59,6 +59,6 @@
 
 ;; Place the NPC 2 tiles east of player
 ;; Assumes player is at (64, 64) as defined in test-world.scm
-(kern-obj-put-at guardsman-bob test-world 66 64)
+(kern-obj-put-at guardsman-bob test-place 66 64)
 
 (kern-print "test-npc.scm loaded - created Guardsman Bob at (66, 64)")

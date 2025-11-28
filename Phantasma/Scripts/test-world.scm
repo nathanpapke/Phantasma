@@ -21,7 +21,7 @@
 (define ss_characters
   (kern-mk-sprite-set 'ss_characters 32 32 1 3 0 0 "characters.png"))
 
-(kern-print "Sprite sets loaded successfully")
+(kern-print "Sprite sets loaded successfully.")
 
 ;;; ============================================================================
 ;;; SPRITES - Reference tiles from sprite sets by index
@@ -100,8 +100,8 @@
 
 (kern-print "Creating large test map (128x128)...")
 
-(define test-world
-  (kern-mk-place 'test-world "Test World" #f #f 128 128))
+(define test-place
+  (kern-mk-place 'test-place "Test World" #f #f 128 128))
 
 (kern-print "Map created, filling with terrain...")
 
@@ -111,81 +111,81 @@
 
 ;; Central lake
 (kern-print "Creating central lake...")
-(kern-place-set-terrain test-world 55 55 t_water)
-(kern-place-set-terrain test-world 56 55 t_water)
-(kern-place-set-terrain test-world 57 55 t_water)
-(kern-place-set-terrain test-world 55 56 t_water)
-(kern-place-set-terrain test-world 56 56 t_water)
-(kern-place-set-terrain test-world 57 56 t_water)
-(kern-place-set-terrain test-world 55 57 t_water)
-(kern-place-set-terrain test-world 56 57 t_water)
-(kern-place-set-terrain test-world 57 57 t_water)
+(kern-place-set-terrain test-place 55 55 t_water)
+(kern-place-set-terrain test-place 56 55 t_water)
+(kern-place-set-terrain test-place 57 55 t_water)
+(kern-place-set-terrain test-place 55 56 t_water)
+(kern-place-set-terrain test-place 56 56 t_water)
+(kern-place-set-terrain test-place 57 56 t_water)
+(kern-place-set-terrain test-place 55 57 t_water)
+(kern-place-set-terrain test-place 56 57 t_water)
+(kern-place-set-terrain test-place 57 57 t_water)
 
 ;; Northern mountains
 (kern-print "Creating northern mountains...")
-(kern-place-set-terrain test-world 10 5 t_mountain)
-(kern-place-set-terrain test-world 20 5 t_mountain)
-(kern-place-set-terrain test-world 30 5 t_mountain)
-(kern-place-set-terrain test-world 40 5 t_mountain)
-(kern-place-set-terrain test-world 50 5 t_mountain)
-(kern-place-set-terrain test-world 60 5 t_mountain)
-(kern-place-set-terrain test-world 70 5 t_mountain)
-(kern-place-set-terrain test-world 80 5 t_mountain)
+(kern-place-set-terrain test-place 10 5 t_mountain)
+(kern-place-set-terrain test-place 20 5 t_mountain)
+(kern-place-set-terrain test-place 30 5 t_mountain)
+(kern-place-set-terrain test-place 40 5 t_mountain)
+(kern-place-set-terrain test-place 50 5 t_mountain)
+(kern-place-set-terrain test-place 60 5 t_mountain)
+(kern-place-set-terrain test-place 70 5 t_mountain)
+(kern-place-set-terrain test-place 80 5 t_mountain)
 
 ;; Eastern forest
 (kern-print "Creating eastern forest...")
-(kern-place-set-terrain test-world 100 30 t_tree)
-(kern-place-set-terrain test-world 101 30 t_tree)
-(kern-place-set-terrain test-world 102 30 t_tree)
-(kern-place-set-terrain test-world 100 31 t_tree)
-(kern-place-set-terrain test-world 101 31 t_tree)
-(kern-place-set-terrain test-world 102 31 t_tree)
-(kern-place-set-terrain test-world 100 32 t_tree)
-(kern-place-set-terrain test-world 101 32 t_tree)
-(kern-place-set-terrain test-world 102 32 t_tree)
+(kern-place-set-terrain test-place 100 30 t_tree)
+(kern-place-set-terrain test-place 101 30 t_tree)
+(kern-place-set-terrain test-place 102 30 t_tree)
+(kern-place-set-terrain test-place 100 31 t_tree)
+(kern-place-set-terrain test-place 101 31 t_tree)
+(kern-place-set-terrain test-place 102 31 t_tree)
+(kern-place-set-terrain test-place 100 32 t_tree)
+(kern-place-set-terrain test-place 101 32 t_tree)
+(kern-place-set-terrain test-place 102 32 t_tree)
 
 ;; Dirt path
 (kern-print "Creating dirt path...")
-(kern-place-set-terrain test-world 10 10 t_dirt)
-(kern-place-set-terrain test-world 11 10 t_dirt)
-(kern-place-set-terrain test-world 12 10 t_dirt)
-(kern-place-set-terrain test-world 13 10 t_dirt)
-(kern-place-set-terrain test-world 14 10 t_dirt)
-(kern-place-set-terrain test-world 15 10 t_dirt)
-(kern-place-set-terrain test-world 16 10 t_dirt)
-(kern-place-set-terrain test-world 17 10 t_dirt)
-(kern-place-set-terrain test-world 18 10 t_dirt)
-(kern-place-set-terrain test-world 19 10 t_dirt)
-(kern-place-set-terrain test-world 20 10 t_dirt)
-(kern-place-set-terrain test-world 21 10 t_dirt)
-(kern-place-set-terrain test-world 22 10 t_dirt)
-(kern-place-set-terrain test-world 23 10 t_dirt)
-(kern-place-set-terrain test-world 24 10 t_dirt)
-(kern-place-set-terrain test-world 25 10 t_dirt)
+(kern-place-set-terrain test-place 10 10 t_dirt)
+(kern-place-set-terrain test-place 11 10 t_dirt)
+(kern-place-set-terrain test-place 12 10 t_dirt)
+(kern-place-set-terrain test-place 13 10 t_dirt)
+(kern-place-set-terrain test-place 14 10 t_dirt)
+(kern-place-set-terrain test-place 15 10 t_dirt)
+(kern-place-set-terrain test-place 16 10 t_dirt)
+(kern-place-set-terrain test-place 17 10 t_dirt)
+(kern-place-set-terrain test-place 18 10 t_dirt)
+(kern-place-set-terrain test-place 19 10 t_dirt)
+(kern-place-set-terrain test-place 20 10 t_dirt)
+(kern-place-set-terrain test-place 21 10 t_dirt)
+(kern-place-set-terrain test-place 22 10 t_dirt)
+(kern-place-set-terrain test-place 23 10 t_dirt)
+(kern-place-set-terrain test-place 24 10 t_dirt)
+(kern-place-set-terrain test-place 25 10 t_dirt)
 
 ;; Stone plaza
 (kern-print "Creating stone plaza...")
-(kern-place-set-terrain test-world 26 9 t_stone)
-(kern-place-set-terrain test-world 27 9 t_stone)
-(kern-place-set-terrain test-world 28 9 t_stone)
-(kern-place-set-terrain test-world 26 10 t_stone)
-(kern-place-set-terrain test-world 27 10 t_stone)
-(kern-place-set-terrain test-world 28 10 t_stone)
-(kern-place-set-terrain test-world 26 11 t_stone)
-(kern-place-set-terrain test-world 27 11 t_stone)
-(kern-place-set-terrain test-world 28 11 t_stone)
+(kern-place-set-terrain test-place 26 9 t_stone)
+(kern-place-set-terrain test-place 27 9 t_stone)
+(kern-place-set-terrain test-place 28 9 t_stone)
+(kern-place-set-terrain test-place 26 10 t_stone)
+(kern-place-set-terrain test-place 27 10 t_stone)
+(kern-place-set-terrain test-place 28 10 t_stone)
+(kern-place-set-terrain test-place 26 11 t_stone)
+(kern-place-set-terrain test-place 27 11 t_stone)
+(kern-place-set-terrain test-place 28 11 t_stone)
 
 ;; Starting area grass
 (kern-print "Placing grass around starting area...")
-(kern-place-set-terrain test-world 9 9 t_grass)
-(kern-place-set-terrain test-world 10 9 t_grass)
-(kern-place-set-terrain test-world 11 9 t_grass)
-(kern-place-set-terrain test-world 12 9 t_grass)
-(kern-place-set-terrain test-world 9 10 t_grass)
-(kern-place-set-terrain test-world 9 11 t_grass)
-(kern-place-set-terrain test-world 10 11 t_grass)
-(kern-place-set-terrain test-world 11 11 t_grass)
-(kern-place-set-terrain test-world 12 11 t_grass)
+(kern-place-set-terrain test-place 9 9 t_grass)
+(kern-place-set-terrain test-place 10 9 t_grass)
+(kern-place-set-terrain test-place 11 9 t_grass)
+(kern-place-set-terrain test-place 12 9 t_grass)
+(kern-place-set-terrain test-place 9 10 t_grass)
+(kern-place-set-terrain test-place 9 11 t_grass)
+(kern-place-set-terrain test-place 10 11 t_grass)
+(kern-place-set-terrain test-place 11 11 t_grass)
+(kern-place-set-terrain test-place 12 11 t_grass)
 
 ;;; ============================================================================
 ;;; TESTING
@@ -193,13 +193,13 @@
 
 (kern-print "Testing map query functions...")
 (kern-print "Map width: ")
-(kern-print (kern-place-get-width test-world))
+(kern-print (kern-place-get-width test-place))
 (kern-print "Map height: ")
-(kern-print (kern-place-get-height test-world))
+(kern-print (kern-place-get-height test-place))
 
 (kern-print "Testing terrain queries...")
-(kern-place-get-terrain test-world 10 10)  ; dirt
-(kern-place-get-terrain test-world 55 55)  ; water
+(kern-place-get-terrain test-place 10 10)  ; dirt
+(kern-place-get-terrain test-place 55 55)  ; water
 
 ;;; ============================================================================
 ;;; COMPLETION

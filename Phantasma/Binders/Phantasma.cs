@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -12,6 +13,7 @@ using IronScheme.Runtime;
 
 using Phantasma.Models;
 using Phantasma.Views;
+using Phantasma.Binders;
 
 namespace Phantasma;
 
@@ -203,8 +205,46 @@ public class Phantasma
             return;
         }
         
-        mainSession = new Session();
+        // Try to get the world objects from Scheme.
+        var place = GetSchemeObject<Place>("test-place");
+        var player = GetSchemeObject<Character>("player");
+        
+        // Create session with Scheme objects (or nulls, which will use fallback).
+        mainSession = new Session(place, player);
         Console.WriteLine("Main session created.");
+    }
+    
+    /// <summary>
+    /// Get an object from the Scheme environment by name.
+    /// Returns null if object doesn't exist or is wrong type.
+    /// </summary>
+    /// <typeparam name="T">Expected type of the object</typeparam>
+    /// <param name="schemeName">Name of the Scheme symbol</param>
+    /// <returns>The object, or null if not found/wrong type</returns>
+    public T GetSchemeObject<T>(string schemeName) where T : class
+    {
+        try
+        {
+            var obj = schemeName.Eval();
+            if (obj is T typedObj)
+            {
+                Console.WriteLine($"[Phantasma] Retrieved {typeof(T).Name} '{schemeName}' from Scheme");
+                return typedObj;
+            }
+            else if (obj != null)
+            {
+                Console.WriteLine($"[Phantasma] Scheme object '{schemeName}' exists but is type {obj.GetType().Name}, not {typeof(T).Name}");
+            }
+            else
+            {
+                Console.WriteLine($"[Phantasma] Scheme object '{schemeName}' not found");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Phantasma] Error retrieving '{schemeName}' from Scheme: {ex.Message}");
+        }
+        return null;
     }
     
     /// <summary>
@@ -286,11 +326,64 @@ public class Phantasma
         string splashImagePath = GetSplashImagePath();
         await splashWindow.LoadSplashImage(splashImagePath);
         
-        // Show splash and perform loading.
-        await splashWindow.ShowSplashAsync(async (progress) =>
+        // Set splash as the MainWindow.
+        // This prevents app from exiting with no main window.
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = splashWindow;
+        }
+        
+        // Show the splash (it's now the main window).
+        splashWindow.Show();
+        
+        // Create progress reporter for splash.
+        var progress = new Progress<(double percent, string message)>(report =>
+        {
+            // Update splash window progress on UI thread.
+            splashWindow.UpdateProgress(report.percent, report.message);
+        });
+        
+        // Load all game resources.
+        try
         {
             await LoadGameResources(progress);
-        });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Phantasma] Error during resource loading: {ex.Message}");
+            throw;
+        }
+        
+        // Create the real game window.
+        var gameWindow = new Views.MainWindow
+        {
+            DataContext = new MainWindowBinder(),
+        };
+        
+        // Swap MainWindow to the game window.
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop2)
+        {
+            desktop2.MainWindow = gameWindow;
+        }
+        
+        // Close splash; show game window.
+        gameWindow.Show();
+        splashWindow.Close();
+    }
+    
+    /// <summary>
+    /// Show the main game window after initialization is complete.
+    /// </summary>
+    private void ShowMainWindow()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = new Views.MainWindow
+            {
+                DataContext = new MainWindowBinder(),
+            };
+            desktop.MainWindow.Show();
+        }
     }
 
     /// <summary>
@@ -369,7 +462,7 @@ public class Phantasma
             
             // Initialize game session.
             progress.Report((85, "Initializing game session..."));
-            //await Task.Run(() => InitializeSession());
+            await Task.Run(() => CreateMainSession());
             
             // Final initialization.
             progress.Report((95, "Starting Phantasma..."));
@@ -430,24 +523,39 @@ public class Phantasma
 
     private void LoadGameData()
     {
-        Console.WriteLine("Loading game data...");
+        Console.WriteLine("Loading game scripts...");
     
         // Get the data directory path.
         string dataDir = configuration.GetValueOrDefault("include-dirname", "Scripts");
         string testWorldPath = Path.Combine(dataDir, "test-world.scm");
-        string testNPCPath = Path.Combine(dataDir, "test-npc.scm");
     
-        if (File.Exists(testWorldPath) && File.Exists(testNPCPath))
+        if (File.Exists(testWorldPath))
         {
-            Console.WriteLine($"Loading test world from: {testWorldPath}");
+            Console.WriteLine($"Loading test world from: {testWorldPath}.");
             LoadSchemeFile(testWorldPath);
-            Console.WriteLine($"Loading test NPC from: {testNPCPath}");
-            LoadSchemeFile(testNPCPath);
         }
         else
         {
-            Console.WriteLine($"Warning: test-world.scm not found at {testWorldPath}");
+            Console.WriteLine($"Warning: test-world.scm not found at {testWorldPath}.");
             Console.WriteLine("Skipping Scheme world loading.");
+        }
+        
+        // Load test NPC conversation definitions.
+        string testNpcPath = Path.Combine(dataDir, "test-npc.scm");
+        if (!File.Exists(testNpcPath))
+        {
+            // Try project root as fallback.
+            testNpcPath = "test-npc.scm";
+        }
+        
+        if (File.Exists(testNpcPath))
+        {
+            Console.WriteLine($"Loading test NPC from: {testNpcPath}.");
+            LoadSchemeFile(testNpcPath);
+        }
+        else
+        {
+            Console.WriteLine($"Warning: test-npc.scm not found.");
         }
     }
 
