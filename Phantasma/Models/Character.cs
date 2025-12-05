@@ -11,13 +11,11 @@ public class Character : Being
 {
     public Party Party { get; set; }
     public Species Species { get; set; }
-    public Occupation Occ { get; set; }
+    public Occupation Occupation { get; set; }
     public bool IsClone { get; set; }
     public bool IsPlayer { get; set; }
 
     // Stats
-    public int HitPoints { get; set; }
-    public int MaxHitPoints { get; set; }
     public int HpMod { get; set; }
     public int HpMult { get; set; }
     public int MpMod { get; set; }
@@ -26,11 +24,19 @@ public class Character : Being
     public int Intelligence { get; set; }
     public int Dexterity { get; set; }
     public int Level { get; set; }
+    public bool IsDead { get; set; }
     public int Experience { get; set; }
     public int ArmourClass { get; set; }
     
     // Vision
     public int VisionRadius { get; set; } = 10;
+    
+    // Status Effects (duration in turns, 0 = not active)
+    public int RevealDuration { get; set; } = 0;       // See invisible/hidden
+    public int QuickenDuration { get; set; } = 0;      // Extra actions/turn
+    public int TimeStopDuration { get; set; } = 0;     // Freeze other entities
+    public int MagicNegatedDuration { get; set; } = 0; // Cannot cast spells
+    public int XrayVisionDuration { get; set; } = 0;   // See through walls
     
     // Conversation - IronScheme Closure for NPC dialog
     public object Conversation { get; set; }
@@ -72,7 +78,7 @@ public class Character : Being
         SetName(name);
         CurrentSprite = sprite;
         Species = species;
-        Occ = occupation;
+        Occupation = occupation;
         Strength = str;
         Intelligence = intl;
         Dexterity = dex;
@@ -374,13 +380,13 @@ public class Character : Being
         {
             case "lava":
             case "fire":
-                damage = Math.Max(1, MaxHitPoints / 10); // 10% of max HP
+                damage = Math.Max(1, MaxHP / 10); // 10% of max HP
                 Console.WriteLine($"🔥 {Name} is burned for {damage} damage!");
                 break;
                 
             case "swamp":
             case "poison":
-                damage = Math.Max(1, MaxHitPoints / 20); // 5% of max HP
+                damage = Math.Max(1, MaxHP / 20); // 5% of max HP
                 Console.WriteLine($"☠️  {Name} is poisoned for {damage} damage!");
                 // Future: Apply poison status .
                 break;
@@ -391,7 +397,7 @@ public class Character : Being
                 break;
                 
             default:
-                damage = Math.Max(1, MaxHitPoints / 20);
+                damage = Math.Max(1, MaxHP / 20);
                 Console.WriteLine($"💀 {Name} takes {damage} damage from hazardous terrain!");
                 break;
         }
@@ -400,7 +406,7 @@ public class Character : Being
         {
             Damage(damage);
             
-            if (HitPoints <= 0)
+            if (HP <= 0)
             {
                 Console.WriteLine($"💀 {Name} died from {terrain.Name}!");
             }

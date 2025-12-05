@@ -28,6 +28,11 @@ public class Session
     private DispatcherTimer gameTimer;
     private Status status;
     
+    // Clock and Time System
+    private int gameClock = 0;  // Game time in minutes (0-1439, wraps daily)
+    private int timeAcceleration = 1;  // Time speed multiplier
+
+    
     // ===================================================================
     // UI EVENTS - For displaying messages to user
     // ===================================================================
@@ -75,6 +80,8 @@ public class Session
     public Map Map => map;
     public bool IsRunning => isRunning;
     public Status Status => status;
+    public int GameClock { get => gameClock; set => gameClock = value % 1440; }  // Wrap at 24 hours
+    public int TimeAcceleration { get => timeAcceleration; set => timeAcceleration = Math.Max(1, value); }
     
     // ===================================================================
     // INITIALIZATION
@@ -334,14 +341,36 @@ public class Session
     /// </summary>
     private void SaveSessionState(SaveWriter writer)
     {
-        // TODO: Add these as they are implemented:
-        // writer.WriteLine("(kern-set-clock 0 0 0 0 14 30)");
-        // writer.WriteLine("(kern-set-time-accel 1)");
-        // writer.WriteLine("(kern-add-reveal 0)");
-        // writer.WriteLine("(kern-add-quicken 0)");
-        // writer.WriteLine("(kern-add-time-stop 0)");
-        // writer.WriteLine("(kern-add-magic-negated 0)");
-        // writer.WriteLine("(kern-add-xray-vision 0)");
+        writer.WriteComment("Session State");
+        
+        // Save clock (convert minutes to hours for readability).
+        int hours = gameClock / 60;
+        int minutes = gameClock % 60;
+        writer.WriteLine($"(kern-set-clock {hours})");
+        
+        // Save time acceleration.
+        writer.WriteLine($"(kern-set-time-accel {timeAcceleration})");
+        
+        // Save player status effects if active.
+        if (playerCharacter != null)
+        {
+            if (playerCharacter.RevealDuration > 0)
+                writer.WriteLine($"(kern-add-reveal (kern-get-player) {playerCharacter.RevealDuration})");
+            
+            if (playerCharacter.QuickenDuration > 0)
+                writer.WriteLine($"(kern-add-quicken (kern-get-player) {playerCharacter.QuickenDuration})");
+            
+            if (playerCharacter.TimeStopDuration > 0)
+                writer.WriteLine($"(kern-add-time-stop (kern-get-player) {playerCharacter.TimeStopDuration})");
+            
+            if (playerCharacter.MagicNegatedDuration > 0)
+                writer.WriteLine($"(kern-add-magic-negated (kern-get-player) {playerCharacter.MagicNegatedDuration})");
+            
+            if (playerCharacter.XrayVisionDuration > 0)
+                writer.WriteLine($"(kern-add-xray-vision (kern-get-player) {playerCharacter.XrayVisionDuration})");
+        }
+        
+        writer.WriteLine("");
     }
     
     /// <summary>

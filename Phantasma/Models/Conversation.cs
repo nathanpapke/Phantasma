@@ -49,7 +49,7 @@ public class Conversation
             conversationEnded = false
         };
         
-        conv.Run();
+        conv.RunWithTracking();
     }
     
     /// <summary>
@@ -118,7 +118,7 @@ public class Conversation
         {
             // Call the Scheme closure with (keyword npc pc).
             // Format: (closure keyword-string npc-character pc-character)
-            var result = $"({conversationClosure} \"{keyword}\" #f #f)".Eval();
+            $"({conversationClosure} \"{keyword}\" #f #f)".Eval();
             
             // The closure should call kern-conv-say to display messages.
             // We don't need to do anything with the result here.

@@ -206,8 +206,8 @@ public class Phantasma
         }
         
         // Try to get the world objects from Scheme.
-        var place = GetSchemeObject<Place>("test-place");
-        var player = GetSchemeObject<Character>("player");
+        var place = GetRegisteredObject(Kernel.KEY_CURRENT_PLACE) as Place;
+        var player = GetRegisteredObject(Kernel.KEY_PLAYER_CHARACTER) as Character;
         
         // Create session with Scheme objects (or nulls, which will use fallback).
         mainSession = new Session(place, player);
@@ -523,39 +523,44 @@ public class Phantasma
 
     private void LoadGameData()
     {
-        Console.WriteLine("Loading game scripts...");
-    
+        Console.WriteLine("Loading game data...");
+
         // Get the data directory path.
-        string dataDir = configuration.GetValueOrDefault("include-dirname", "Scripts");
-        string testWorldPath = Path.Combine(dataDir, "test-world.scm");
+        string dataDir = configuration.GetValueOrDefault("include-dirname", "Data");
     
-        if (File.Exists(testWorldPath))
+        // Determine which .scm file to load:
+        // 1. If loadFileName is specified on command line, use that
+        // 2. Otherwise, default to test-world.scm
+        string schemeFile;
+    
+        if (!string.IsNullOrEmpty(loadFileName))
         {
-            Console.WriteLine($"Loading test world from: {testWorldPath}.");
-            LoadSchemeFile(testWorldPath);
+            // Check if it's an absolute path or relative.
+            if (Path.IsPathRooted(loadFileName))
+            {
+                schemeFile = loadFileName;
+            }
+            else
+            {
+                schemeFile = Path.Combine(dataDir, loadFileName);
+            }
+            Console.WriteLine($"Loading specified file: {schemeFile}");
         }
         else
         {
-            Console.WriteLine($"Warning: test-world.scm not found at {testWorldPath}.");
+            schemeFile = Path.Combine(dataDir, "test-world.scm");
+            Console.WriteLine($"Loading default: {schemeFile}");
+        }
+
+        if (File.Exists(schemeFile))
+        {
+            Console.WriteLine($"Loading world from: {schemeFile}");
+            LoadSchemeFile(schemeFile);
+        }
+        else
+        {
+            Console.WriteLine($"Warning: Scheme file not found at {schemeFile}");
             Console.WriteLine("Skipping Scheme world loading.");
-        }
-        
-        // Load test NPC conversation definitions.
-        string testNpcPath = Path.Combine(dataDir, "test-npc.scm");
-        if (!File.Exists(testNpcPath))
-        {
-            // Try project root as fallback.
-            testNpcPath = "test-npc.scm";
-        }
-        
-        if (File.Exists(testNpcPath))
-        {
-            Console.WriteLine($"Loading test NPC from: {testNpcPath}.");
-            LoadSchemeFile(testNpcPath);
-        }
-        else
-        {
-            Console.WriteLine($"Warning: test-npc.scm not found.");
         }
     }
 

@@ -102,6 +102,43 @@ public class Screen
         );
         context.FillRectangle(Brushes.Black, rect);
     }
+    
+    /// <summary>
+    /// Draw an item (gold, potions, weapons, etc.).
+    /// </summary>
+    public void DrawItem(DrawingContext context, int x, int y, Item item)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+    
+        // Get sprite from the item's type
+        var sprite = item.Type?.Sprite;
+    
+        if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw a simple marker
+            DrawItemFallback(context, destRect, item);
+        }
+    }
+
+    /// <summary>
+    /// Fallback rendering for items without sprites.
+    /// </summary>
+    private void DrawItemFallback(DrawingContext context, Rect rect, Item item)
+    {
+        // Draw a small colored square in the center of the tile
+        var itemRect = new Rect(
+            rect.X + rect.Width / 4,
+            rect.Y + rect.Height / 4,
+            rect.Width / 2,
+            rect.Height / 2
+        );
+    
+        context.FillRectangle(Brushes.Yellow, itemRect);
+    }
         
     /// <summary>
     /// Draw a being (character, monster, etc.).
@@ -274,6 +311,21 @@ public class Screen
         }
         
         // Layer 2: Draw objects (items, containers, etc.).
+        var items = place.GetAllItems();
+        foreach (var item in items)
+        {
+            viewX = item.GetX() - viewStartX;
+            viewY = item.GetY() - viewStartY;
+    
+            if (viewX >= 0 && viewX < (screenWidth / tileWidth) &&
+                viewY >= 0 && viewY < (screenHeight / tileHeight))
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawItem(context, viewX, viewY, item);
+                }
+            }
+        }
         
         // Layer 3: Draw beings (player, NPCs, monsters).
         var beings = place.GetAllBeings();

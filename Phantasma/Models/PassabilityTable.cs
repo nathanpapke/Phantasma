@@ -33,17 +33,6 @@ public class PassabilityTable
     private int[,] costTable;
 
     /// <summary>
-    /// Movement modes for different types of travel.
-    /// </summary>
-    public enum MovementMode
-    {
-        Walking = 0,    // On foot
-        Swimming = 1,   // In water without boat
-        Flying = 2,     // Flying (mounts, spells)
-        Sailing = 3     // In boat
-    }
-
-    /// <summary>
     /// Create a new passability table.
     /// </summary>
     /// <param name="movementModes">Number of movement modes</param>
@@ -135,57 +124,57 @@ public class PassabilityTable
         const int PC_ICE = 13;
         
         // Walking mode (0) - Normal on-foot travel
-        ptable.SetCost((int)MovementMode.Walking, PC_GRASS, 1);
-        ptable.SetCost((int)MovementMode.Walking, PC_ROAD, 1);
-        ptable.SetCost((int)MovementMode.Walking, PC_FOREST, 2);      // Slower
-        ptable.SetCost((int)MovementMode.Walking, PC_HILLS, 2);       // Slower
-        ptable.SetCost((int)MovementMode.Walking, PC_SHALLOW, 3);     // Can wade
-        ptable.SetCost((int)MovementMode.Walking, PC_WATER, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Walking, PC_DEEP_WATER, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Walking, PC_MOUNTAIN, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Walking, PC_WALL, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Walking, PC_LAVA, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Walking, PC_SWAMP, 3);       // Very slow
-        ptable.SetCost((int)MovementMode.Walking, PC_FIRE, 2);        // Can run through
-        ptable.SetCost((int)MovementMode.Walking, PC_ICE, 1);         // Slippery
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_GRASS, 1);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_ROAD, 1);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_FOREST, 2);      // Slower
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_HILLS, 2);       // Slower
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_SHALLOW, 3);     // Can wade
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_WATER, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_DEEP_WATER, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_MOUNTAIN, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_WALL, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_LAVA, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_SWAMP, 3);       // Very slow
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_FIRE, 2);        // Can run through
+        ptable.SetCost((int)MovementMode.ModeIndex.Walking, PC_ICE, 1);         // Slippery
         
         // Swimming mode (1) - In water without boat
-        ptable.SetCost((int)MovementMode.Swimming, PC_GRASS, 3);       // Slow on land
-        ptable.SetCost((int)MovementMode.Swimming, PC_ROAD, 3);
-        ptable.SetCost((int)MovementMode.Swimming, PC_FOREST, 4);
-        ptable.SetCost((int)MovementMode.Swimming, PC_HILLS, 4);
-        ptable.SetCost((int)MovementMode.Swimming, PC_SHALLOW, 1);     // Normal in water
-        ptable.SetCost((int)MovementMode.Swimming, PC_WATER, 1);
-        ptable.SetCost((int)MovementMode.Swimming, PC_DEEP_WATER, 2); // Slower in deep
-        ptable.SetCost((int)MovementMode.Swimming, PC_MOUNTAIN, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Swimming, PC_WALL, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Swimming, PC_LAVA, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Swimming, PC_SWAMP, 1);
-        ptable.SetCost((int)MovementMode.Swimming, PC_FIRE, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Swimming, PC_ICE, 1);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_GRASS, 3);       // Slow on land
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_ROAD, 3);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_FOREST, 4);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_HILLS, 4);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_SHALLOW, 1);     // Normal in water
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_WATER, 1);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_DEEP_WATER, 2); // Slower in deep
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_MOUNTAIN, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_WALL, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_LAVA, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_SWAMP, 1);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_FIRE, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Swimming, PC_ICE, 1);
         
         // Flying mode (2) - Can go anywhere
         for (int i = 0; i < NUM_CLASSES; i++)
         {
-            ptable.SetCost((int)MovementMode.Flying, i, 1);
+            ptable.SetCost((int)MovementMode.ModeIndex.Flying, i, 1);
         }
         // Even flying can't go through solid walls
-        ptable.SetCost((int)MovementMode.Flying, PC_WALL, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Flying, PC_WALL, IMPASSABLE);
         
         // Sailing mode (3) - In boat
-        ptable.SetCost((int)MovementMode.Sailing, PC_GRASS, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_ROAD, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_FOREST, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_HILLS, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_SHALLOW, 2);     // Slow in shallow
-        ptable.SetCost((int)MovementMode.Sailing, PC_WATER, 1);       // Normal on water
-        ptable.SetCost((int)MovementMode.Sailing, PC_DEEP_WATER, 1);
-        ptable.SetCost((int)MovementMode.Sailing, PC_MOUNTAIN, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_WALL, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_LAVA, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_SWAMP, 2);
-        ptable.SetCost((int)MovementMode.Sailing, PC_FIRE, IMPASSABLE);
-        ptable.SetCost((int)MovementMode.Sailing, PC_ICE, IMPASSABLE); // Can't sail on ice
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_GRASS, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_ROAD, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_FOREST, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_HILLS, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_SHALLOW, 2);     // Slow in shallow
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_WATER, 1);       // Normal on water
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_DEEP_WATER, 1);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_MOUNTAIN, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_WALL, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_LAVA, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_SWAMP, 2);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_FIRE, IMPASSABLE);
+        ptable.SetCost((int)MovementMode.ModeIndex.Sailing, PC_ICE, IMPASSABLE); // Can't sail on ice
         
         return ptable;
     }

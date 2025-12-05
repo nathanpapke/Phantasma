@@ -27,6 +27,11 @@ namespace Phantasma.Models;
 /// </summary>
 public class Kernel
 {
+    public const string KEY_CURRENT_PLACE = "current-place";
+    public const string KEY_PLAYER_CHARACTER = "player-character";
+    public const string KEY_PLAYER_PARTY = "player-party";
+    
+    
     /// <summary>
     /// Initialize the Scheme interpreter and register all kern-* API functions.
     /// </summary>
@@ -42,6 +47,19 @@ public class Kernel
         catch (Exception ex)
         {
             throw new Exception($"Failed to initialize Scheme interpreter: {ex.Message}", ex);
+        }
+        
+        string dataDir = Phantasma.Configuration.GetValueOrDefault("include-dirname", "Data");
+        string nazPath = Path.Combine(dataDir, "naz.scm");
+        
+        if (File.Exists(nazPath))
+        {
+            Console.WriteLine($"Loading standard definitions: {nazPath}");
+            LoadSchemeFile(nazPath);
+        }
+        else
+        {
+            Console.WriteLine($"Note: naz.scm not found at {nazPath} - using minimal defaults");
         }
     }
     
@@ -137,12 +155,15 @@ public class Kernel
         DefineFunction("kern-mk-sprite-set", MakeSpriteSet);
         DefineFunction("kern-mk-terrain", MakeTerrain);
         DefineFunction("kern-mk-place", MakePlace);
+        DefineFunction("kern-mk-mmode", MakeMovementMode);
+        DefineFunction("kern-mk-species", MakeSpecies);
+        DefineFunction("kern-mk-occ", MakeOccupation);
         DefineFunction("kern-mk-char", MakeCharacter);
         DefineFunction("kern-mk-obj", MakeObject);
         DefineFunction("kern-mk-obj-type", MakeObjectType);
-        DefineFunction("kern-mk-species", MakeSpecies);
-        DefineFunction("kern-mk-occ", MakeOccupation);
+        DefineFunction("kern-mk-container", MakeContainer);
         DefineFunction("kern-mk-party", MakeParty);
+        DefineFunction("kern-mk-player", MakePlayer);
         DefineFunction("kern-mk-sound", MakeSound);
         
         // ===================================================================
@@ -161,6 +182,23 @@ public class Kernel
         DefineFunction("kern-set-frame", SetFrame);
         DefineFunction("kern-set-ascii", SetAscii);
         DefineFunction("kern-set-clock", SetClock);
+        DefineFunction("kern-set-time-accel", SetTimeAcceleration);
+        
+        // ===================================================================
+        // KERN-ADD API - Status Effect Functions
+        // ===================================================================
+        
+        DefineFunction("kern-add-reveal", AddReveal);
+        DefineFunction("kern-add-quicken", AddQuicken);
+        DefineFunction("kern-add-time-stop", AddTimeStop);
+        DefineFunction("kern-add-magic-negated", AddMagicNegated);
+        DefineFunction("kern-add-xray-vision", AddXrayVision);
+        
+        // ===================================================================
+        // KERN-GET API - Accessor Functions
+        // ===================================================================
+        
+        DefineFunction("kern-get-player", GetPlayer);
         
         // ===================================================================
         // KERN-PLACE API - Map/Place Manipulation Functions
@@ -170,6 +208,7 @@ public class Kernel
         DefineFunction("kern-place-get-height", PlaceGetHeight);
         DefineFunction("kern-place-set-terrain", PlaceSetTerrain);
         DefineFunction("kern-place-get-terrain", PlaceGetTerrain);
+        DefineFunction("kern-place-set-current", PlaceSetCurrent);
         
         // ===================================================================
         // KERN-OBJ API - Object Manipulation Functions
@@ -211,6 +250,55 @@ public class Kernel
         $"(define {schemeName} {{0}})".Eval(closure);
     }
     
+    /// <summary>
+    /// Helper to unpack IronScheme Cons list into a regular List.
+    /// </summary>
+    private static List<object> UnpackArgs(object args)
+    {
+        var result = new List<object>();
+    
+        if (args == null)
+            return result;
+        
+        // If it's already a single value (not a list), return it as a single-element list.
+        if (args is not Cons)
+        {
+            result.Add(args);
+            return result;
+        }
+    
+        // Traverse the Cons list.
+        var current = args as Cons;
+        while (current != null)
+        {
+            result.Add(current.car);
+        
+            if (current.cdr is Cons next)
+                current = next;
+            else
+            {
+                // cdr might be the last element or null.
+                if (current.cdr != null && !(current.cdr is bool b && !b))
+                    result.Add(current.cdr);
+                break;
+            }
+        }
+    
+        return result;
+    }
+    
+    /// <summary>
+    /// Convert various Scheme boolean representations to C# bool.
+    /// </summary>
+    private static bool ConvertToBool(object value)
+    {
+        if (value == null) return false;
+        if (value is bool b) return b;
+        if (value is string s) return s.ToLower() == "#t" || s.ToLower() == "true";
+        // IronScheme uses specific boolean objects
+        return value.ToString() != "#f" && value.ToString() != "False";
+    }
+    
     // =============================================================================
     // PUBLIC STATIC C# METHODS - Called from Scheme via clr-static-call
     // =============================================================================
@@ -239,14 +327,28 @@ public class Kernel
         
         var sprite = new Sprite
         {
-            Tag = ss.Filename?.ToString(),  // The image filename from sprite set
-            SourceImage = sourceImage,
-            SourceX = col * tileWidth + ss.OffsetX,  // Calculate X position in sprite sheet
-            SourceY = row * tileHeight + ss.OffsetY, // Calculate Y position in sprite sheet
+            Tag = tag?.ToString(),  // The image filename from sprite set
+            NFrames = Convert.ToInt32(nFrames ?? 1),
+            //NTotalFrames
+            //Facing
+            //Facings
+            //Sequence
+            //Decor
             WPix = tileWidth,
             HPix = tileHeight,
-            NFrames = Convert.ToInt32(nFrames ?? 1)
+            //Faded
+            //Wave
+            SourceImage = sourceImage,
+            SourceX = col * tileWidth + ss.OffsetX,  // Calculate X position in sprite sheet
+            SourceY = row * tileHeight + ss.OffsetY // Calculate Y position in sprite sheet
+            //DisplayChar
         };
+            
+        // Register with Phantasma for lookup.
+        if (tag != null)
+        {
+            Phantasma.RegisterObject(tag.ToString(), sprite);
+        }
         
         return sprite;
     }
@@ -286,18 +388,62 @@ public class Kernel
     /// </summary>
     public static object MakeTerrain(object tag, object name, object pclass, object sprite, object alpha, object light)
     {
+        string tagStr = tag?.ToString() ?? "";
+        string nameStr = name?.ToString() ?? "";
+        
         var terrain = new Terrain
         {
             Name = name?.ToString(),
+            Color = GetTerrainColor(tagStr, nameStr),
             PassabilityClass = pclass == null ? 0 : (int)Convert.ToDouble(pclass),
-            Sprite = sprite as Sprite,
+            //IsPassable
+            //MovementCost
+            //IsHazardous
+            //Effect
+            Light = Convert.ToInt32(light),
             Alpha = Convert.ToByte(alpha),
-            Light = Convert.ToInt32(light)
+            //Transparent
+            //DisplayChar
+            Sprite = sprite as Sprite
         };
-        
-        Console.WriteLine($"  Created terrain: {tag} '{terrain.Name}' (pclass={terrain.PassabilityClass})");
+            
+        // Register with Phantasma for lookup.
+        if (tag != null)
+        {
+            Phantasma.RegisterObject(tag.ToString(), terrain);
+        }
         
         return terrain;
+    }
+    
+    /// <summary>
+    /// Get a default color for terrain based on its tag or name.
+    /// This ensures every terrain has a color for fallback rendering.
+    /// </summary>
+    private static string GetTerrainColor(string tag, string name)
+    {
+        // Convert to lowercase for matching.
+        string key = (tag + name).ToLower();
+        
+        // Common terrain colors based on Nazghul conventions
+        if (key.Contains("grass") || key.Contains("field")) return "#228B22";  // Forest green
+        if (key.Contains("water") || key.Contains("shallow") || key.Contains("deep")) return "#1E90FF";  // Dodger blue
+        if (key.Contains("tree") || key.Contains("forest")) return "#006400";  // Dark green
+        if (key.Contains("mountain") || key.Contains("hill")) return "#8B7355";  // Burlywood
+        if (key.Contains("stone") || key.Contains("cobble")) return "#696969";  // Dim gray
+        if (key.Contains("dirt") || key.Contains("path")) return "#8B4513";  // Saddle brown
+        if (key.Contains("sand") || key.Contains("desert")) return "#F4A460";  // Sandy brown
+        if (key.Contains("snow") || key.Contains("ice")) return "#FFFAFA";  // Snow
+        if (key.Contains("lava") || key.Contains("fire")) return "#FF4500";  // Orange red
+        if (key.Contains("swamp") || key.Contains("marsh")) return "#556B2F";  // Dark olive green
+        if (key.Contains("bridge")) return "#A0522D";  // Sienna
+        if (key.Contains("floor") || key.Contains("dungeon")) return "#404040";  // Dark gray
+        if (key.Contains("wall")) return "#2F4F4F";  // Dark slate gray
+        if (key.Contains("door")) return "#8B4513";  // Saddle brown
+        if (key.Contains("void") || key.Contains("boundary")) return "#000000";  // Black
+        
+        // Default fallback
+        return "#808080";  // Gray
     }
     
     /// <summary>
@@ -315,128 +461,436 @@ public class Kernel
         
         // Initialize the terrain grid.
         place.TerrainGrid = new Terrain[place.Width, place.Height];
+            
+        // Register with Phantasma for lookup.
+        if (tag != null)
+        {
+            Phantasma.RegisterObject(tag.ToString(), place);
+        }
         
         return place;
     }
     
+    /// <summary>
+    /// (kern-mk-mmode tag name index)
+    /// Creates a movement mode.
+    /// </summary>
+    public static object MakeMovementMode(object tag, object name, object index)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        string nameStr = name?.ToString() ?? "Unknown";
+        int indexInt = Convert.ToInt32(index ?? 0);
+        
+        var mmode = new MovementMode(tagStr, nameStr, indexInt);
+        
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, mmode);
+        }
+        
+        Console.WriteLine($"  Created mmode: {nameStr} (index={indexInt})");
+        
+        return mmode;
+    }
+    
+    /// <summary>
+    /// (kern-mk-species tag name str int dex spd vr mmode 
+    ///                  hpmod hpmult mpmod mpmult
+    ///                  sleep-sprite weapon visible 
+    ///                  damage-sound walking-sound on-death
+    ///                  xpval slots spells)
+    /// Creates a species definition - full 21-parameter Nazghul signature.
+    /// </summary>
+    public static object MakeSpecies(
+        object tag, object name,
+        object str, object intl, object dex, object spd, object vr,
+        object mmode,
+        object hpmod, object hpmult, object mpmod, object mpmult,
+        object sleepSprite, object weapon, object visible,
+        object damageSound, object walkingSound, object onDeath,
+        object xpval, object slots, object spells)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        
+        // Get Movement Mode
+        MovementMode movementMode;
+        if (mmode is MovementMode mm)
+            movementMode = mm;
+        else if (mmode is int i)
+            movementMode = new MovementMode(null, "Walking", i);
+        else
+            movementMode = new MovementMode("mmode-walk", "Walking", 0);
+        
+        var species = new Species
+        {
+            Tag = tagStr,
+            Name = name?.ToString() ?? "Unknown",
+            Str = Convert.ToInt32(str ?? 10),
+            Intl = Convert.ToInt32(intl ?? 10),
+            Dex = Convert.ToInt32(dex ?? 10),
+            Spd = Convert.ToInt32(spd ?? 10),
+            Vr = Convert.ToInt32(vr ?? 10),
+            MovementMode = movementMode,
+            HpMod = Convert.ToInt32(hpmod ?? 10),
+            HpMult = Convert.ToInt32(hpmult ?? 5),
+            MpMod = Convert.ToInt32(mpmod ?? 5),
+            MpMult = Convert.ToInt32(mpmult ?? 2),
+            SleepSprite = sleepSprite as Sprite,
+            Weapon = weapon as ArmsType,
+            Visible = ConvertToBool(visible ?? true),
+            // damageSound, walkingSound - TODO when sound system implemented
+            // onDeath - TODO when closure system implemented
+            XpVal = Convert.ToInt32(xpval ?? 10)
+            // slots, spells - TODO: parse lists when needed
+        };
+        
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, species);
+        }
+        
+        Console.WriteLine($"  Created species: {species.Name} (str={species.Str}, dex={species.Dex}, hp={species.HpMod}+{species.HpMult}/lvl)");
+        
+        return species;
+    }
+    
+    /// <summary>
+    /// (kern-mk-occ tag name magic hpmod hpmult mpmod mpmult hit def dam arm xpval)
+    /// Creates an occupation.
+    /// </summary>
+    public static object MakeOccupation(
+        object tag, object name, object magic,
+        object hpmod, object hpmult, object mpmod, object mpmult,
+        object hit, object def, object dam, object arm,
+        object xpval)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        
+        var occ = new Occupation
+        {
+            Tag = tagStr,
+            Name = name?.ToString() ?? "Unknown",
+            Magic = Convert.ToSingle(magic ?? 1.0f),
+            HpMod = Convert.ToInt32(hpmod ?? 0),
+            HpMult = Convert.ToInt32(hpmult ?? 0),
+            MpMod = Convert.ToInt32(mpmod ?? 0),
+            MpMult = Convert.ToInt32(mpmult ?? 0),
+            HitMod = Convert.ToInt32(hit ?? 0),
+            DefMod = Convert.ToInt32(def ?? 0),
+            DamMod = Convert.ToInt32(dam ?? 0),
+            ArmMod = Convert.ToInt32(arm ?? 0),
+            XpVal = Convert.ToInt32(xpval ?? 0)
+        };
+        
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, occ);
+        }
+        
+        Console.WriteLine($"  Created occupation: {occ.Name} (magic={occ.Magic:F1}, hp+{occ.HpMod}+{occ.HpMult}/lvl)");
+        
+        return occ;
+    }
+    
+    /// <summary>
+    /// (kern-mk-char tag name species occ sprite base-faction
+    ///              str int dex hpmod hpmult mpmod mpmult
+    ///              hp xp mp lvl dead
+    ///              conv sched ai inventory
+    ///              readied-list hooks-list)
+    /// Creates a character - full 24-parameter Nazghul signature.
+    /// </summary>
     public static object MakeCharacter(
-        object tag,
-        object name,
-        object species,
-        object occ,
-        object sprite,
+        object tag, object name, object species, object occ, object sprite,
         object baseFaction,
-        object str,
-        object intl,
-        object dex,
-        object hpmod,
-        object hpmult,
-        object mpmod,
-        object mpmult,
-        object hp,
-        object xp,
-        object mp,
-        object lvl,
+        object str, object intl, object dex,
+        object hpmod, object hpmult, object mpmod, object mpmult,
+        object hp, object xp, object mp, object lvl,
         object dead,
-        object conv,
-        object sched,
-        object ai,
-        object inventory)
+        object conv, object sched, object ai, object inventory,
+        object readiedList, object hooksList)
     {
-        try
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        
+        var character = new Character();
+        character.SetName(name?.ToString() ?? "Unknown");
+        
+        // Set sprite.
+        if (sprite is Sprite s)
+            character.CurrentSprite = s;
+        
+        // Set species if available.
+        if (species is Species sp)
+            character.Species = sp;
+        
+        // Set occupation if available.
+        if (occ is Occupation o)
+            character.Occupation = o;
+        
+        // Set base faction.
+        character.SetBaseFaction(Convert.ToInt32(baseFaction ?? 0));
+        
+        // Set base stats.
+        character.Strength = Convert.ToInt32(str ?? 10);
+        character.Intelligence = Convert.ToInt32(intl ?? 10);
+        character.Dexterity = Convert.ToInt32(dex ?? 10);
+        
+        // HP Calculation
+        int baseHpMod = Convert.ToInt32(hpmod ?? 10);
+        int hpPerLevel = Convert.ToInt32(hpmult ?? 5);
+        int currentHp = Convert.ToInt32(hp ?? 0);
+        int level = Convert.ToInt32(lvl ?? 1);
+        
+        character.MaxHP = baseHpMod + (hpPerLevel * level);
+        character.HP = currentHp > 0 ? currentHp : character.MaxHP;
+        
+        // MP Calculation
+        int baseMpMod = Convert.ToInt32(mpmod ?? 5);
+        int mpPerLevel = Convert.ToInt32(mpmult ?? 2);
+        int currentMp = Convert.ToInt32(mp ?? 0);
+        
+        character.MaxMP = baseMpMod + (mpPerLevel * level);
+        character.MP = currentMp > 0 ? currentMp : character.MaxMP;
+        
+        // XP and Level
+        character.Experience = Convert.ToInt32(xp ?? 0);
+        character.Level = level;
+        
+        // Dead Flag
+        character.IsDead = ConvertToBool(dead);
+        
+        // Store conversation closure.
+        if (conv != null && !(conv is bool b && b == false))
         {
-            // Extract parameters
-            string nameStr = name?.ToString() ?? "Unknown";
-            Species speciesObj = species is Species ? (Species)species : default;
-            Occupation occObj = occ is Occupation ? (Occupation)occ : default;
-            Sprite spriteObj = sprite as Sprite;
-            
-            int baseFactionInt = Convert.ToInt32(baseFaction ?? 0);
-            int strInt = Convert.ToInt32(str ?? 10);
-            int intlInt = Convert.ToInt32(intl ?? 10);
-            int dexInt = Convert.ToInt32(dex ?? 10);
-            int hpmodInt = Convert.ToInt32(hpmod ?? 10);
-            int hpmultInt = Convert.ToInt32(hpmult ?? 1);
-            int mpmodInt = Convert.ToInt32(mpmod ?? 10);
-            int mpmultInt = Convert.ToInt32(mpmult ?? 1);
-            int hpInt = Convert.ToInt32(hp ?? 10);
-            int xpInt = Convert.ToInt32(xp ?? 0);
-            int mpInt = Convert.ToInt32(mp ?? 10);
-            int lvlInt = Convert.ToInt32(lvl ?? 1);
-            bool deadBool = Convert.ToBoolean(dead ?? false);
-            
-            // Create character
-            var character = new Character
+            character.Conversation = conv;
+        }
+        // sched - schedule
+        // TODO: Implement scheduling system.
+        // ai - AI closure
+        // TODO: Implement AI system.
+        // inventory - Container
+        // TODO: Implement inventory.
+        
+        // readiedList - list of readied arms
+        // TODO: Implement equipment.
+        // Process readied arms list
+        if (readiedList is Cons armsList)   
+        {
+            // TODO: Iterate through and ready each arm.
+            // while (armsList != null) { ... }
+        }
+        
+        // hooksList - list of effect hooks (TODO: implement hooks)
+        if (hooksList is Cons hooks)
+        {
+            // TODO: Process hooks.
+        }
+        
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, character);
+        }
+        
+        Console.WriteLine($"  Created character: {character.Name} (str={character.Strength}, hp={character.HP}/{character.MaxHP}, lvl={character.Level})");
+        
+        return character;
+    }
+    
+    /// <summary>
+    /// (kern-mk-obj type count)
+    /// Creates an object instance from a type.
+    /// </summary>
+    public static object MakeObject(object type, object count)
+    {
+        if (type is ObjectType objType)
+        {
+            var item = new Item
             {
-                Name = nameStr,
-                Species = speciesObj,
-                Occ = occObj,
-                CurrentSprite = spriteObj,
-                Strength = strInt,
-                Intelligence = intlInt,
-                Dexterity = dexInt,
-                HpMod = hpmodInt,
-                HpMult = hpmultInt,
-                MpMod = mpmodInt,
-                MpMult = mpmultInt,
-                HP = hpInt,
-                MaxHP = hpInt,
-                Experience = xpInt,
-                MP = mpInt,
-                MaxMP = mpInt,
-                Level = lvlInt
+                Type = objType,
+                Count = Convert.ToInt32(count ?? 1)
             };
-            
-            character.SetBaseFaction(baseFactionInt);
-            
-            if (deadBool)
-            {
-                character.Damage(hpInt);
-            }
-            
-            if (conv != null && !conv.Equals("#f".Eval()))
-            {
-                character.Conversation = conv;
-            }
-            
-            return character;
+        
+            // Copy properties from type.
+            item.Name = objType.Name;
+            if (objType.Sprite != null)
+                item.Type.Sprite = objType.Sprite;
+        
+            Console.WriteLine($"  Created object: {objType.Name} x{item.Count}");
+        
+            return item;
         }
-        catch (Exception ex)
+    
+        Console.WriteLine("  [WARNING] kern-mk-obj: invalid type");
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-mk-obj-type tag name sprite layer gifc-cap gifc)
+    /// Creates an object type - Nazghul-compatible 6-parameter signature.
+    /// </summary>
+    public static object MakeObjectType(
+        object tag, object name, object sprite, object layer,
+        object capabilities, object interactionHandler)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+    
+        var objType = new ObjectType
         {
-            LoadError($"kern-mk-char: {ex.Message}");
-            return "#f".Eval();
+            Tag = tagStr ?? "unknown",
+            Name = name?.ToString() ?? "Unknown",
+            Layer = (ObjectLayer)Convert.ToInt32(layer ?? 0),
+            Capabilities = Convert.ToInt32(capabilities ?? 0)
+        };
+    
+        if (sprite is Sprite s)
+            objType.Sprite = s;
+    
+        // Store interaction handler closure for later use.
+        if (interactionHandler != null && !(interactionHandler is bool b && b == false))
+            objType.InteractionHandler = interactionHandler;
+    
+        if (!string.IsNullOrEmpty(tagStr))
+            Phantasma.RegisterObject(tagStr, objType);
+    
+        Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}' (layer={objType.Layer}, caps={objType.Capabilities})");
+    
+        return objType;
+    }
+    
+    /// <summary>
+    /// (kern-mk-container type trap contents-list)
+    /// Creates a container (inventory).
+    /// </summary>
+    public static object MakeContainer(object type, object trap, object contentsList)
+    {
+        var container = new Container();
+    
+        // Type can be nil for player inventory.
+        if (type is ObjectType ot)
+            container.Type = ot;
+    
+        // trap - TODO: Implement when closure system ready.
+    
+        // Contents - List of (Count Type) Pairs
+        if (contentsList is Cons contents)
+        {
+            while (contents != null)
+            {
+                if (contents.car is Cons entry)
+                {
+                    int count = Convert.ToInt32(entry.car ?? 1);
+                    var rest = entry.cdr as Cons;
+                    if (rest?.car is ObjectType itemType)
+                    {
+                        container.AddItem(new Item(){ Type = itemType, Count = count});
+                    }
+                }
+                contents = contents.cdr as Cons;
+            }
         }
+    
+        Console.WriteLine($"  Created container");
+    
+        return container;
     }
     
-    public static object MakeObject(object args)
-    {
-        // TODO: Implement
-        return Builtins.Unspecified;
-    }
-    
-    public static object MakeObjectType(object args)
-    {
-        // TODO: Implement
-        return Builtins.Unspecified;
-    }
-    
-    public static object MakeSpecies(object args)
-    {
-        // TODO: Implement
-        return Builtins.Unspecified;
-    }
-    
-    public static object MakeOccupation(object args)
-    {
-        // TODO: Implement
-        return Builtins.Unspecified;
-    }
-    
-    public static object MakeParty(object faction)
+    /// <summary>
+    /// (kern-mk-party type faction vehicle)
+    /// Creates a party.
+    /// </summary>
+    public static object MakeParty(object type, object faction, object vehicle)
     {        
         var party = new Party();
-        party.Faction = Convert.ToInt32(faction);
-        party.IsPlayerParty = false; // NPC party by default
+        // type - PartyType, ignored for now (TODO: implement PartyType)
+        party.Faction = Convert.ToInt32(faction ?? 0);
+        // vehicle - Vehicle the party is in, ignored for now
+        party.IsPlayerParty = false;
+    
+        Console.WriteLine($"  Created party (faction={party.Faction})");
+    
+        return party;
+    }
+    
+    // <summary>
+    /// (kern-mk-player tag sprite mv-desc mv-sound food gold ttnm 
+    ///                 formation campsite camp-formation vehicle inventory
+    ///                 (list members...))
+    /// Creates the player party - full 13-parameter Nazghul signature.
+    /// </summary>
+    public static object MakePlayer(
+        object tag, object sprite, object mvDesc, object mvSound,
+        object food, object gold, object ttnm,
+        object formation, object campsite, object campFormation,
+        object vehicle, object inventory,
+        object membersList)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        
+        // Create the player party.
+        var party = new Party();
+        party.IsPlayerParty = true;
+        party.Faction = 0; // Player faction
+        
+        // Set sprite if provided.
+        if (sprite is Sprite s)
+            party.Sprite = s;
+        
+        // Set movement description.
+        party.MovementDescription = mvDesc?.ToString() ?? "walking";
+        
+        // Set resources
+        party.Food = Convert.ToInt32(food ?? 0);
+        party.Gold = Convert.ToInt32(gold ?? 0);
+        party.TurnsToNextMeal = Convert.ToInt32(ttnm ?? 100);
+        
+        // TODO: formation, campsite, campFormation - Implement when needed.
+        // TODO: mvSound - Implement when sound system ready.
+        // TODO: vehicle - Implement when vehicle system ready.
+        
+        // Set inventory container.
+        if (inventory is Container inv)
+            party.Inventory = inv;
+        
+        // Add members from the list.
+        Character firstMember = null;
+        if (membersList is Cons members)
+        {
+            while (members != null)
+            {
+                if (members.car is Character ch)
+                {
+                    // Check position BEFORE adding to party.
+                    var posBefore = ch.GetPosition();
+                    Console.WriteLine($"  MakePlayer: {ch.GetName()} position BEFORE AddMember: Place={posBefore?.Place?.Name ?? "NULL"}, X={posBefore?.X}, Y={posBefore?.Y}");
+    
+                    party.AddMember(ch);
+    
+                    // Check position AFTER adding to party.
+                    var posAfter = ch.GetPosition();
+                    Console.WriteLine($"  MakePlayer: {ch.GetName()} position AFTER AddMember: Place={posAfter?.Place?.Name ?? "NULL"}, X={posAfter?.X}, Y={posAfter?.Y}");
+    
+                    if (firstMember == null)
+                        firstMember = ch;
+                }
+                members = members.cdr as Cons;
+            }
+        }
+        
+        // Register the party
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, party);
+        }
+        Phantasma.RegisterObject(KEY_PLAYER_PARTY, party);
+        
+        // Register the first member as the player character
+        if (firstMember != null)
+        {
+            Phantasma.RegisterObject(KEY_PLAYER_CHARACTER, firstMember);
+            Console.WriteLine($"  Set player character: {firstMember.GetName()}");
+        }
+        
+        Console.WriteLine($"  Created player party with {party.Size} members (food={party.Food}, gold={party.Gold})");
         
         return party;
     }
@@ -452,11 +906,12 @@ public class Kernel
     // These set party properties.
     // ===================================================================
     
+    /// <summary>
+    /// (kern-party-add-member party character)
+    /// Adds a character to a party.
+    /// </summary>
     public static object PartyAddMember(object party, object character)
     {
-        // kern-party-add-member <party> <character>
-        // Adds a character to a party.
-
         var group = party as Party;
         var member = character as Character;
 
@@ -504,9 +959,260 @@ public class Kernel
         return Builtins.Unspecified;
     }
     
-    public static object SetClock(object args)
-    { 
-        // TODO: Implement
+    public static object SetClock(object hourObj)
+    {
+        // (kern-set-clock hour)
+        // Sets the game clock to the specified hour (0-23).
+        // Time is stored internally as minutes (0-1439).
+        
+        try
+        {
+            int hour = Convert.ToInt32(hourObj ?? 0);
+            hour = Math.Max(0, Math.Min(23, hour));  // Clamp to 0-23
+            
+            var session = Phantasma.MainSession;
+            if (session != null)
+            {
+                session.GameClock = hour * 60;  // Convert to minutes
+                Console.WriteLine($"[SetClock] Game clock set to {hour}:00");
+            }
+            else
+            {
+                Console.WriteLine("[SetClock] Warning: No main session");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-set-clock: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    public static object SetTimeAcceleration(object accelObj)
+    {
+        // (kern-set-time-accel multiplier)
+        // Sets how fast time passes (1 = normal, 2 = double speed, etc.).
+        
+        try
+        {
+            int accel = Convert.ToInt32(accelObj ?? 1);
+            accel = Math.Max(1, accel);  // Minimum 1x speed
+            
+            var session = Phantasma.MainSession;
+            if (session != null)
+            {
+                session.TimeAcceleration = accel;
+                Console.WriteLine($"[SetTimeAccel] Time acceleration set to {accel}x");
+            }
+            else
+            {
+                Console.WriteLine("[SetTimeAccel] Warning: No main session");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-set-time-accel: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    // ===================================================================
+    // KERN-ADD API IMPLEMENTATIONS
+    // These add status effects to characters.
+    // ===================================================================
+    
+    public static object AddReveal(object characterObj, object durationObj)
+    {
+        // (kern-add-reveal character duration)
+        // Grants ability to see invisible/hidden entities for duration turns.
+        
+        try
+        {
+            var character = characterObj as Character;
+            int duration = Convert.ToInt32(durationObj ?? 10);
+            
+            if (character != null)
+            {
+                character.RevealDuration = Math.Max(character.RevealDuration, duration);
+                Console.WriteLine($"[AddReveal] {character.GetName()} gained Reveal for {duration} turns");
+            }
+            else
+            {
+                RuntimeError("kern-add-reveal: null character");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-add-reveal: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    public static object AddQuicken(object characterObj, object durationObj)
+    {
+        // (kern-add-quicken character duration)
+        // Grants extra actions per turn for duration turns.
+        
+        try
+        {
+            var character = characterObj as Character;
+            int duration = Convert.ToInt32(durationObj ?? 10);
+            
+            if (character != null)
+            {
+                character.QuickenDuration = Math.Max(character.QuickenDuration, duration);
+                Console.WriteLine($"[AddQuicken] {character.GetName()} gained Quicken for {duration} turns");
+            }
+            else
+            {
+                RuntimeError("kern-add-quicken: null character");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-add-quicken: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    public static object AddTimeStop(object characterObj, object durationObj)
+    {
+        // (kern-add-time-stop character duration)
+        // Freezes other entities while this character can act for duration turns.
+        
+        try
+        {
+            var character = characterObj as Character;
+            int duration = Convert.ToInt32(durationObj ?? 5);
+            
+            if (character != null)
+            {
+                character.TimeStopDuration = Math.Max(character.TimeStopDuration, duration);
+                Console.WriteLine($"[AddTimeStop] {character.GetName()} gained Time Stop for {duration} turns");
+            }
+            else
+            {
+                RuntimeError("kern-add-time-stop: null character");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-add-time-stop: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    public static object AddMagicNegated(object characterObj, object durationObj)
+    {
+        // (kern-add-magic-negated character duration)
+        // Prevents character from casting spells for duration turns.
+        
+        try
+        {
+            var character = characterObj as Character;
+            int duration = Convert.ToInt32(durationObj ?? 10);
+            
+            if (character != null)
+            {
+                character.MagicNegatedDuration = Math.Max(character.MagicNegatedDuration, duration);
+                Console.WriteLine($"[AddMagicNegated] {character.GetName()} gained Magic Negated for {duration} turns");
+            }
+            else
+            {
+                RuntimeError("kern-add-magic-negated: null character");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-add-magic-negated: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    public static object AddXrayVision(object characterObj, object durationObj)
+    {
+        // (kern-add-xray-vision character duration)
+        // Grants ability to see through walls for duration turns.
+        
+        try
+        {
+            var character = characterObj as Character;
+            int duration = Convert.ToInt32(durationObj ?? 10);
+            
+            if (character != null)
+            {
+                character.XrayVisionDuration = Math.Max(character.XrayVisionDuration, duration);
+                Console.WriteLine($"[AddXrayVision] {character.GetName()} gained Xray Vision for {duration} turns");
+            }
+            else
+            {
+                RuntimeError("kern-add-xray-vision: null character");
+            }
+            
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-add-xray-vision: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    // ===================================================================
+    // KERN-GET API IMPLEMENTATIONS
+    // ===================================================================
+    
+    public static object GetPlayer()
+    {
+        // (kern-get-player)
+        // Returns the player character from the main session.
+        
+        try
+        {
+            var session = Phantasma.MainSession;
+            if (session != null && session.Player != null)
+            {
+                return session.Player;
+            }
+            else
+            {
+                RuntimeError("kern-get-player: No active session or player");
+                return Builtins.Unspecified;
+            }
+        }
+        catch (Exception ex)
+        {
+            RuntimeError($"kern-get-player: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    /// <summary>
+    /// (kern-set-player party)
+    /// Sets the party as the player-controlled party.
+    /// </summary>
+    public static object SetPlayer(object character)
+    {
+        if (character is Character c)
+        {
+            Phantasma.RegisterObject(KEY_PLAYER_CHARACTER, c);
+            Console.WriteLine($"  Set player: {c.GetName()}");
+            return c;
+        }
+    
+        Console.WriteLine($"  WARNING: SetPlayer expected Character, got {character?.GetType().Name}");
         return Builtins.Unspecified;
     }
     
@@ -566,51 +1272,82 @@ public class Kernel
         return Builtins.Unspecified;
     }
     
+    /// <summary>
+    /// (kern-place-set-current place)
+    /// Sets the place as the current game place.
+    /// </summary>
+    public static object PlaceSetCurrent(object place)
+    {
+        if (place is Place p)
+        {
+            Phantasma.RegisterObject(KEY_CURRENT_PLACE, p);
+            Console.WriteLine($"Registered current place: {p.Name}");
+            return p;
+        }
+    
+        Console.WriteLine("[WARNING] kern-place-set-current: Invalid place object");
+        return Builtins.Unspecified;
+    }
+    
     // ===================================================================
     // KERN-OBJ API IMPLEMENTATIONS
     // ===================================================================
     
-    public static object ObjectPutAt(object objParam, object placeParam, object xParam, object yParam)
+    /// <summary>
+    /// (kern-obj-put-at obj (place x y))
+    /// Places an object at a location. Location is a list.
+    /// </summary>
+    public static object ObjectPutAt(object obj, object location)
     {
-        // (kern-obj-put-at obj place x y)
-        // Places an object at a location on a map.
-        
-        try
+        Console.WriteLine($"  ObjectPutAt called:");
+        Console.WriteLine($"    obj type: {obj?.GetType().Name ?? "NULL"}");
+        Console.WriteLine($"    location type: {location?.GetType().Name ?? "NULL"}");
+
+        var gameObj = obj as Object;
+    
+        if (gameObj == null)
         {
-            var obj = objParam as Object;
-            var place = placeParam as Place;
-            int x = Convert.ToInt32(xParam);
-            int y = Convert.ToInt32(yParam);
-            
-            if (obj == null)
-            {
-                RuntimeError("kern-obj-put-at: null object");
-                return "#f".Eval();
-            }
-            
+            return Builtins.Unspecified;
+        }
+    
+        if (location is Cons locList)
+        {
+            Console.WriteLine($"    locList.car type: {locList.car?.GetType().Name ?? "NULL"}");
+            Console.WriteLine($"    locList.cdr type: {locList.cdr?.GetType().Name ?? "NULL"}");
+
+            var place = locList.car as Place;
+            var rest = locList.cdr as Cons;
+        
             if (place == null)
             {
-                RuntimeError("kern-obj-put-at: null place");
-                return "#f".Eval();
+                return Builtins.Unspecified;
             }
-            
-            // Add object to the place.
-            place.AddObject(obj, x, y);
-            
-            // Set object's position.
-            if (obj is Being being)
+        
+            if (rest != null)
             {
-                being.SetPosition(place, x, y);
-            }
+                int x = Convert.ToInt32(rest.car ?? 0);
+                var rest2 = rest.cdr as Cons;
+                int y = rest2 != null ? Convert.ToInt32(rest2.car ?? 0) : 0;
+                
+                Console.WriteLine($"    Placing at: {place.Name} ({x}, {y})");
             
-            Console.WriteLine($"[ObjectPutAt] Placed {obj.Name} at ({x}, {y}) in {place.Name}");
-            return "#t".Eval();
+                // Verify position BEFORE.
+                var posBefore = gameObj.GetPosition();
+                Console.WriteLine($"    Position BEFORE: Place={posBefore?.Place?.Name ?? "NULL"}, X={posBefore?.X}, Y={posBefore?.Y}");
+            
+                place.AddObject(gameObj, x, y);
+            
+                // Verify position AFTER.
+                var posAfter = gameObj.GetPosition();
+                Console.WriteLine($"    Position AFTER: Place={posAfter?.Place?.Name ?? "NULL"}, X={posAfter?.X}, Y={posAfter?.Y}");
+            }
         }
-        catch (Exception ex)
+        else
         {
-            RuntimeError($"kern-obj-put-at: {ex.Message}");
-            return "#f".Eval();
+            Console.WriteLine($"    [ERROR] location is not a Cons!");
         }
+    
+        return Builtins.Unspecified;
     }
     
     public static object ObjectGetLocation(object args)
@@ -645,18 +1382,8 @@ public class Kernel
     public static object ConversationSay(object speaker, object text)
     {
         string message = text?.ToString() ?? "";
-        
-        // Get speaker name if it's a Character.
-        string speakerName = "???";
-        if (speaker is Character character)
-        {
-            speakerName = character.GetName();
-        }
-        
-        // Log the dialog to console.
-        // TODO: Get active session from Phantasma singleton.
-        Console.WriteLine($"{speakerName}: {message}");
-        
+        var session = Phantasma.MainSession;
+        session?.LogMessage(message);
         return Builtins.Unspecified;
     }
     

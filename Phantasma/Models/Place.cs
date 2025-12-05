@@ -394,6 +394,11 @@ public class Place
             .FirstOrDefault(b => b.GetX() == x && b.GetY() == y);
     }
     
+    public List<Item> GetAllItems()
+    {
+        return objects.OfType<Item>().ToList();
+    }
+    
     public List<Being> GetAllBeings()
     {
         return objects.OfType<Being>().ToList();

@@ -9,28 +9,36 @@ namespace Phantasma.Models;
 /// The party is a collection/manager of Beings, not a Being itself.
 /// The party's "position" is the position of its leader.
 /// </summary>
-public class Party
+public class Party : Object
 {
+    public override ObjectLayer Layer => ObjectLayer.Being;
+
     private readonly List<Character> members = new List<Character>();
     
     // ====================================================================
     // PLAYER PARTY FEATURES
     // ====================================================================
     
+    public string Tag { get; set; }
+    public Sprite Sprite { get; set; }
+    public string MovementDescription { get; set; } = "walking";
+    public int TurnsToNextMeal { get; set; }
+
     /// <summary>
     /// Shared inventory for the entire party.
     /// </summary>
-    public Container Inventory { get; private set; }
+    public Container Inventory { get; set; }
     
-    /// <summary>
-    /// Gold carried by the party.
-    /// </summary>
-    public int Gold { get; set; }
     
     /// <summary>
     /// Food carried by the party.
     /// </summary>
     public int Food { get; set; }
+    
+    /// <summary>
+    /// Gold carried by the party.
+    /// </summary>
+    public int Gold { get; set; }
     
     // ====================================================================
     // NPC PARTY FEATURES  
@@ -171,25 +179,46 @@ public class Party
         if (character == null)
             return false;
         
+        var posBefore = character.GetPosition();
+        Console.WriteLine($"    Party.AddMember ENTRY: {character.GetName()} Place={posBefore?.Place?.Name ?? "NULL"}");
+
         if (!members.Contains(character))
         {
             members.Add(character);
             character.Party = this;
         }
-        
+    
+        var posAfter = character.GetPosition();
+        Console.WriteLine($"    Party.AddMember EXIT: {character.GetName()} Place={posAfter?.Place?.Name ?? "NULL"}");
+
         return true;
     }
     
     /// <summary>
     /// Remove a character from the party.
     /// </summary>
-    public void RemoveMember(Character character)
+    public bool RemoveMember(Character character)
     {
-        if (character == null)
-            return;
-        
-        members.Remove(character);
-        character.Party = null;
+        if (character != null && members.Remove(character))
+        {
+            character.Party = null;
+            return true;
+        }
+        return false;
+    }
+    
+    public int GetSize()
+    {
+        return members.Count;
+    }
+    
+    public Character GetMember(int index)
+    {
+        if (index >= 0 && index < members.Count)
+        {
+            return members[index];
+        }
+        return null;
     }
     
     /// <summary>
@@ -224,6 +253,19 @@ public class Party
         if (index < 0 || index >= members.Count)
             return null;
         return members[index];
+    }
+    
+    public IReadOnlyList<Character> GetMembers()
+    {
+        return members.AsReadOnly();
+    }
+    
+    /// <summary>
+    /// Check if a character is in this party.
+    /// </summary>
+    public bool HasMember(Character character)
+    {
+        return members.Contains(character);
     }
     
     /// <summary>

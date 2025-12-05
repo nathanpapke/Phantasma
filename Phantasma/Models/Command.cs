@@ -39,10 +39,10 @@ public class Command
         if (place == null)
             return false;
         
-        // For MVP: Try north (up) direction.
+        // For MVP: Try north of player.
         // TODO: Implement direction prompt UI.
-        int dx = 0, dy = -1; // North
-        
+        int dx = 0, dy = -1;
+
         int targetX = player.GetX() + dx;
         int targetY = player.GetY() + dy;
         

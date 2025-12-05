@@ -39,4 +39,8 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
+    <ItemGroup>
+      <Folder Include="Scripts\dialogs\" />
+      <Folder Include="Scripts\npcs\" />
+    </ItemGroup>
 </Project>

@@ -3,16 +3,34 @@ namespace Phantasma.Models;
 public class Terrain
 {
     public string Name { get; set; }
-    public char DisplayChar { get; set; }  // ASCII character for display
     public string Color { get; set; }      // Hex color code
     public int PassabilityClass { get; set; }   // Passability class for lookup in passability table
-    public bool IsPassable { get; set; }     // Can beings walk through?
+    public bool IsPassable
+    { 
+        get
+        {
+            // Based on Nazghul passability classes:
+            // 0-5: Passable (none, grass, road, forest, hills, shallow)
+            // 6+: Impassable (water, deep, mountain, wall, lava, etc.)
+            return PassabilityClass < 6;
+        }
+        set { /* legacy setter, ignore */ }
+    }
     public float MovementCost { get; set; } // (1.0 = normal speed, 2.0 = half speed, etc.)
     public bool IsHazardous { get; set; }
     public string Effect { get; set; }     // Special effect (poison, etc.)
     public int Light { get; set; }  // Light emitted by this terrain (for future use)
     public byte Alpha { get; set; } // Alpha transparency (for overlays, fog, etc.)
-    public bool Transparent { get; set; } = true;  // Can see through?
+    public bool Transparent
+    {
+        get
+        {
+            // Mountains and walls block vision, other terrain is transparent.
+            return PassabilityClass != 8 && PassabilityClass != 9;
+        }
+        set { /* legacy setter, ignore */ }
+    }
+    public char DisplayChar { get; set; }  // ASCII character for display
         
     // For sprite-based rendering.
     public Sprite Sprite { get; set; }
