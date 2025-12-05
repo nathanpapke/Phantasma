@@ -31,6 +31,12 @@ public class Session
     // Clock and Time System
     private int gameClock = 0;  // Game time in minutes (0-1439, wraps daily)
     private int timeAcceleration = 1;  // Time speed multiplier
+    
+    /// <summary>
+    /// Key handler stack.
+    /// Top handler receives all key events.
+    /// </summary>
+    private readonly Stack<IKeyHandler> keyHandlers = new();
 
     
     // ===================================================================
@@ -52,6 +58,11 @@ public class Session
     /// Used for NPC dialog, combat log, game messages.
     /// </summary>
     public event Action<string> ConsoleMessage;
+
+    /// <summary>
+    /// Fired when command input text changes (user typing).
+    /// </summary>
+    public event Action<string> CommandInputChanged;
     
     // ===================================================================
     // SAVE/LOAD REGISTRY
@@ -82,6 +93,17 @@ public class Session
     public Status Status => status;
     public int GameClock { get => gameClock; set => gameClock = value % 1440; }  // Wrap at 24 hours
     public int TimeAcceleration { get => timeAcceleration; set => timeAcceleration = Math.Max(1, value); }
+    
+    /// <summary>
+    /// Get the current (top) key handler, or null if stack is empty.
+    /// </summary>
+    public IKeyHandler CurrentKeyHandler => 
+        keyHandlers.Count > 0 ? keyHandlers.Peek() : null;
+
+    /// <summary>
+    /// True if there's an active key handler (not in normal input mode).
+    /// </summary>
+    public bool HasActiveKeyHandler => keyHandlers.Count > 0;
     
     // ===================================================================
     // INITIALIZATION
@@ -631,6 +653,50 @@ public class Session
                 }
                 break;
         }
+    }
+
+    /// <summary>
+    /// Push a key handler onto the stack.
+    /// Mirrors Nazghul's eventPushKeyHandler().
+    /// </summary>
+    public void PushKeyHandler(IKeyHandler handler)
+    {
+        if (handler == null)
+            throw new ArgumentNullException(nameof(handler));
+    
+        keyHandlers.Push(handler);
+        Console.WriteLine($"[Session] Pushed key handler: {handler.GetType().Name} (stack depth: {keyHandlers.Count})");
+    }
+
+    /// <summary>
+    /// Pop the top key handler from the stack.
+    /// Mirrors Nazghul's eventPopKeyHandler().
+    /// </summary>
+    public void PopKeyHandler()
+    {
+        if (keyHandlers.Count > 0)
+        {
+            var handler = keyHandlers.Pop();
+            Console.WriteLine($"[Session] Popped key handler: {handler.GetType().Name} (stack depth: {keyHandlers.Count})");
+        }
+    }
+
+    /// <summary>
+    /// Update the command input display (user's typed text).
+    /// </summary>
+    public void UpdateCommandInput(string text)
+    {
+        CommandInputChanged?.Invoke(text);
+    }
+
+    /// <summary>
+    /// Set the command prompt text (e.g., "Say: ", "Direction?").
+    /// </summary>
+    public void SetCommandPrompt(string prompt)
+    {
+        Console.WriteLine($"[DEBUG] SetCommandPrompt called with: '{prompt}'");
+        Console.WriteLine($"[DEBUG] PromptChanged has subscribers: {PromptChanged != null}");
+        PromptChanged?.Invoke(prompt);
     }
 
     // ===================================================================

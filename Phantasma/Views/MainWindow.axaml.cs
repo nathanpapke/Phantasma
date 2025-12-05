@@ -95,6 +95,34 @@ public partial class MainWindow : Window
         else
         {
             Console.WriteLine("ERROR: CommandWindowView not found!");  // Debug
+        } 
+        
+        // Command Prompt
+        if (cmdView != null)
+        {
+            var cmdBinder = cmdView.GetBinder();
+    
+            gameSession.PromptChanged += (prompt) =>
+            {
+                cmdBinder.Clear();
+                if (!string.IsNullOrEmpty(prompt))
+                {
+                    cmdBinder.Print(prompt);
+                    cmdBinder.Mark();  // Mark position so we don't backspace into prompt.
+                    cmdBinder.ShowCursor = true;
+                }
+                else
+                {
+                    cmdBinder.ShowCursor = false;
+                }
+            };
+    
+            gameSession.CommandInputChanged += (text) =>
+            {
+                // Erase back to mark (the prompt), then print new text.
+                cmdBinder.EraseBackToMark();
+                cmdBinder.Print(text);
+            };
         }
         
         // Start the game.
@@ -102,17 +130,58 @@ public partial class MainWindow : Window
     }
     
     /// <summary>
-    /// Handle keyboard input for player movement.
+    /// Handle keyboard input.
+    /// Checks key handler stack first.
     /// </summary>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (gameSession == null || gameSession.Player == null)
+        if (gameSession == null)
             return;
         
-        // Handle arrow keys for movement.
-        // TODO: Handle input with Session.
+        // Global keys that work even during text input.
         switch (e.Key)
         {
+            case Key.F5:
+                gameSession.Save("quicksave.scm");
+                e.Handled = true;
+                return;
+            case Key.F9:
+                var quickSavePath = System.IO.Path.Combine(
+                    Phantasma.Configuration["saved-games-dirname"],
+                    "quicksave.scm"
+                );
+                if (System.IO.File.Exists(quickSavePath))
+                {
+                    gameSession.Load("quicksave.scm");
+                }
+                e.Handled = true;
+                return;
+        }
+        
+        // Check if there's an active key handler on the stack.
+        var handler = gameSession.CurrentKeyHandler;
+        if (handler != null)
+        {
+            // Route to the handler.
+            bool done = handler.HandleKey(e.Key, e.KeySymbol);
+            
+            if (done)
+            {
+                // Handler is finished, pop it.
+                gameSession.PopKeyHandler();
+            }
+            
+            e.Handled = true;
+            return;
+        }
+        
+        // No active handler - process normal game input.
+        if (gameSession.Player == null)
+            return;
+        
+        switch (e.Key)
+        {
+            // Movement Keys
             case Key.Up:
             case Key.NumPad8:
                 gameSession.HandlePlayerMove(0, -1);
@@ -130,19 +199,19 @@ public partial class MainWindow : Window
                 gameSession.HandlePlayerMove(1, 0);
                 break;
             case Key.NumPad7:
-                gameSession.HandlePlayerMove(-1, -1); // Northwest
+                gameSession.HandlePlayerMove(-1, -1);
                 break;
             case Key.NumPad9:
-                gameSession.HandlePlayerMove(1, -1); // Northeast
+                gameSession.HandlePlayerMove(1, -1);
                 break;
             case Key.NumPad1:
-                gameSession.HandlePlayerMove(-1, 1); // Southwest
+                gameSession.HandlePlayerMove(-1, 1);
                 break;
             case Key.NumPad3:
-                gameSession.HandlePlayerMove(1, 1); // Southeast
+                gameSession.HandlePlayerMove(1, 1);
                 break;
             case Key.NumPad5:
-                gameSession.HandlePlayerMove(0, 0); // Wait/Rest
+                gameSession.HandlePlayerMove(0, 0);
                 break;
             
             // Command Keys
@@ -158,29 +227,12 @@ public partial class MainWindow : Window
             case Key.T:
                 command.Talk();
                 break;
-            /*
-            case Key.A:
-                command.Attack();
-                break;
-            case Key.C:
-                command.CastSpell();
-                break;
-            case Key.U:
-                command.Use();
-                break;
-            case Key.R:
-                command.Ready();
-                break;
-            case Key.Z:
-                command.Ztats();
-                break;
-            */
+            
             case Key.Escape:
                 this.Close();
                 break;
         }
-    
-        // Prevent further processing.
+
         e.Handled = true;
     }
         

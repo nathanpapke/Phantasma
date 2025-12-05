@@ -1,33 +1,34 @@
 using System;
-using IronScheme;
+using Avalonia.Threading;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
 /// <summary>
-/// Conversation System - Manages keyword-based dialog with NPCs.
+/// Conversation System - Keyword-based dialog with NPCs.
 /// 
-/// Port of Nazghul's conv.c system.
-/// In Nazghul, conversations work through Scheme closures that respond to keywords.
-/// The player types keywords like "name", "job", "join", etc.
-/// The NPC's conversation closure is called with the keyword and returns a response.
-/// 
-/// Architecture:
-/// 1. Player presses 'T' to talk
-/// 2. Selects target NPC
-/// 3. Conversation.Enter() is called with NPC and player
-/// 4. Loop: Player types keyword → Call NPC's conversation closure → Display response
-/// 5. Loop until player types "bye" or cancels
+/// Flow:
+/// 1. Player presses 'T' to talk, selects adjacent NPC
+/// 2. Conversation.Enter() is called
+/// 3. Process "hail" keyword (NPC greets player)
+/// 4. Push TextInputHandler onto stack
+/// 5. Player types keyword, presses Enter
+/// 6. TextInputHandler callback processes keyword
+/// 7. Repeat until "bye" or kern-conv-end is called
 /// </summary>
 public class Conversation
 {
-    private const int MaxKeywordLength = 16;
     private const int KeywordTruncateLength = 4;  // Nazghul truncates to 4 chars
     
     private Session session;
     private Character npc;
     private Character player;
-    private object conversationClosure;  // IronScheme Closure
-    private bool conversationEnded;
+    private object conversationClosure;
+    
+    /// <summary>
+    /// Currently active conversation (for kern-conv-end to find).
+    /// </summary>
+    public static Conversation Active { get; private set; }
     
     /// <summary>
     /// Enter conversation mode with an NPC.
@@ -45,105 +46,92 @@ public class Conversation
             session = session,
             npc = npc,
             player = player,
-            conversationClosure = conversationClosure,
-            conversationEnded = false
+            conversationClosure = conversationClosure
         };
         
-        conv.RunWithTracking();
-    }
-    
-    /// <summary>
-    /// Main conversation loop.
-    /// </summary>
-    private void Run()
-    {
+        Active = conv;
+        
         // Log conversation start.
         session.LogMessage("*** CONVERSATION ***");
         session.LogMessage($"You meet {npc.GetName()}.");
         
-        // Start with "hail" keyword.
-        string keyword = "hail";
+        // Execute with "hail" keyword first (Nazghul behavior).
+        conv.ExecuteKeyword("hail");
         
-        while (!conversationEnded)
+        // If conversation wasn't ended by "hail", prompt for input.
+        if (Active != null)
         {
-            // Truncate keyword to 4 characters (Nazghul behavior).
-            if (keyword.Length > KeywordTruncateLength)
-            {
-                keyword = keyword.Substring(0, KeywordTruncateLength);
-            }
-            
-            // Execute the conversation closure with the keyword.
-            try
-            {
-                ExecuteConversation(keyword);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Conversation] Error executing conversation: {ex.Message}");
-                session.LogMessage($"Error in conversation: {ex.Message}");
-                break;
-            }
-            
-            if (conversationEnded)
-                break;
-            
-            // Get next keyword from player.
-            // For now, we'll use a simple console-based approach.
-            // TODO: Replace with proper UI input.
-            keyword = GetPlayerKeyword();
-            
-            if (string.IsNullOrEmpty(keyword))
-                keyword = "bye";
-            
-            // Log what player said.
-            session.LogMessage($"{player.GetName()}: {keyword}");
-            
-            // Check if player wants to end conversation.
-            if (keyword.Equals("bye", StringComparison.OrdinalIgnoreCase))
-            {
-                End();
-            }
+            conv.PromptForKeyword();
         }
-        
-        session.LogMessage("*** END CONVERSATION ***");
     }
     
     /// <summary>
     /// Execute the conversation closure with a keyword.
-    /// The closure is a Scheme procedure: (lambda (keyword npc pc) ...)
     /// </summary>
-    private void ExecuteConversation(string keyword)
+    private void ExecuteKeyword(string keyword)
     {
+        // Truncate to 4 characters (Nazghul behavior).
+        if (keyword.Length > KeywordTruncateLength)
+        {
+            keyword = keyword.Substring(0, KeywordTruncateLength);
+        }
+        
         try
         {
             // Call the Scheme closure with (keyword npc pc).
-            // Format: (closure keyword-string npc-character pc-character)
-            $"({conversationClosure} \"{keyword}\" #f #f)".Eval();
-            
-            // The closure should call kern-conv-say to display messages.
-            // We don't need to do anything with the result here.
+            if (conversationClosure is Callable callable)
+            {
+                callable.Call(keyword, npc, player);
+            }
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to execute conversation closure: {ex.Message}", ex);
+            Console.WriteLine($"[Conversation] Error executing keyword '{keyword}': {ex.Message}");
+            session.LogMessage($"Error in conversation: {ex.Message}");
+            End();
         }
     }
     
     /// <summary>
-    /// Get keyword input from player.
+    /// Prompt player for next keyword by pushing a TextInputHandler.
     /// </summary>
-    private string GetPlayerKeyword()
+    private void PromptForKeyword()
     {
-        // TODO: Implement proper UI input system.
-        // For now, return empty string which will trigger "bye".
+        // Show prompt in command window.
+        session.SetCommandPrompt("Say: ");
         
-        // In full implementation:
-        // 1. Display prompt: "Say: "
-        // 2. Wait for player to type keyword
-        // 3. Return keyword
+        // Create handler that will process the input.
+        var handler = new TextInputHandler(
+            onComplete: OnKeywordEntered,
+            onTextChanged: text => session.UpdateCommandInput(text)
+        );
         
-        // For testing, we'll just end the conversation immediately.
-        return "bye";
+        // Push onto stack - MainWindow will route keys here.
+        session.PushKeyHandler(handler);
+    }
+    
+    /// <summary>
+    /// Called when player finishes typing a keyword.
+    /// </summary>
+    private void OnKeywordEntered(string input)
+    {
+        string keyword = string.IsNullOrWhiteSpace(input) ? "bye" : input.ToLower().Trim();
+    
+        // Log what player said.
+        session.LogMessage($"{player.GetName()}: {keyword}");
+    
+        // Clear the command prompt.
+        session.SetCommandPrompt("");
+    
+        // Execute the keyword.
+        ExecuteKeyword(keyword);
+    
+        // If conversation still active, prompt again.
+        // Use Dispatcher.Post to defer until AFTER current handler is popped.
+        if (Active != null)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => PromptForKeyword());
+        }
     }
     
     /// <summary>
@@ -152,34 +140,11 @@ public class Conversation
     /// </summary>
     public static void End()
     {
-        // Set flag to exit conversation loop.
-        // Note: This is a static method called from Kernel.cs
-        // We'll need to track the active conversation globally.
-        
-        if (ActiveConversation != null)
+        if (Active != null)
         {
-            ActiveConversation.conversationEnded = true;
-        }
-    }
-    
-    /// <summary>
-    /// Track the currently active conversation (for kern-conv-end).
-    /// </summary>
-    public static Conversation ActiveConversation { get; set; }
-    
-    /// <summary>
-    /// Updated Run() that sets active conversation.
-    /// </summary>
-    private void RunWithTracking()
-    {
-        ActiveConversation = this;
-        try
-        {
-            Run();
-        }
-        finally
-        {
-            ActiveConversation = null;
+            Active.session.SetCommandPrompt("");
+            Active.session.LogMessage("*** END CONVERSATION ***");
+            Active = null;
         }
     }
 }

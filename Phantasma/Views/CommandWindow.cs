@@ -77,12 +77,22 @@ public class CommandWindow : Control
         // Draw cursor if waiting for input.
         if (binder.ShowCursor && cursorVisible)
         {
-            double cursorX = Padding + text.Width;
+            // Measure single character width (monospace font)
+            var charMeasure = new FormattedText(
+                "X",
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                typeface,
+                14,
+                Brushes.White);
+
+            double cursorX = Padding + (binder.CursorPosition * charMeasure.Width);
+            
             var cursor = new FormattedText(
                 "_",
                 System.Globalization.CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
-                typeface,
+                typeface, 
                 14,
                 Brushes.Yellow);
             

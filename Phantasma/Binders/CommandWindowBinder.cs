@@ -35,8 +35,8 @@ public partial class CommandWindowBinder : BinderBase
     
     public CommandWindowBinder(int maxLength = 80)
     {
-        maxLength = Dimensions.STAT_CHARS_PER_LINE * 2;  // ~92 chars
-        buffer = new StringBuilder(maxLength);
+        this.maxLength = Dimensions.STAT_CHARS_PER_LINE * 2;  // ~92 chars
+        buffer = new StringBuilder(this.maxLength);
         mark = "";
         CursorPosition = 0;
     }
@@ -50,19 +50,40 @@ public partial class CommandWindowBinder : BinderBase
         {
             session.MessageDisplayed += OnMessageDisplayed;
             session.PromptChanged += OnPromptChanged;
+            session.CommandInputChanged += OnCommandInputChanged;
         }
     }
     
     private void OnMessageDisplayed(string message)
     {
+        Clear();
         Print(message);
     }
     
     private void OnPromptChanged(string prompt)
     {
+        Console.WriteLine($"[DEBUG] OnPromptChanged called with: '{prompt}'");
         Clear();
-        Print(prompt);
-        ShowCursor = true;  // Show cursor when waiting for input.
+        if (!string.IsNullOrEmpty(prompt))
+        {
+            Print(prompt);
+            Console.WriteLine($"[DEBUG] After Print, buffer = '{buffer}', Text = '{Text}'");
+            Mark();
+            ShowCursor = true;
+        }
+        else
+        {
+            ShowCursor = false;
+        }
+    }
+    
+    /// <summary>
+    /// Update just the input text (after the prompt mark).
+    /// </summary>
+    public void OnCommandInputChanged(string text)
+    {
+        EraseBackToMark();
+        Print(text);
     }
     
     /// <summary>
