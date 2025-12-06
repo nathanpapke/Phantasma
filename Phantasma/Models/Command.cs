@@ -197,6 +197,211 @@ public class Command
         // Start conversation with the NPC.
         session.StartConversation(npcX, npcY);
     }
+
+    /// <summary>
+    /// Attack Command - attack an enemy in a direction.
+    /// Port of Nazghul's cmdAttack from cmd.c (lines 934-995)
+    /// </summary>
+    /// <param name="direction">Direction to attack (optional for simplified version)</param>
+    /// <returns>True if attack succeeded</returns>
+    public bool Attack(Direction? direction = null)
+    {
+        if (session.Player == null)
+        {
+            Log("No player character!");
+            return false;
+        }
+        
+        var player = session.Player;
+        var place = player.GetPlace();
+        
+        if (place == null)
+        {
+            Log("Player not on map!");
+            return false;
+        }
+        
+        // Check if player has action points.
+        if (player.ActionPoints <= 0)
+        {
+            Log("Attack - out of action points!");
+            return false;
+        }
+        
+        Log("Attack-");
+        
+        // Get direction.
+        Direction dir;
+        if (direction.HasValue)
+        {
+            dir = direction.Value;
+        }
+        else
+        {
+            // TODO: Implement direction prompt UI
+            dir = Direction.North;
+            Log("<direction not implemented, trying North>");
+        }
+        
+        // Calculate target position.
+        int dx = DirectionToDx(dir);
+        int dy = DirectionToDy(dir);
+        int targetX = player.GetX() + dx;
+        int targetY = player.GetY() + dy;
+        
+        Log($"{DirectionToString(dir)}-");
+        
+        // Get target at location.
+        var target = place.GetBeingAt(targetX, targetY);
+        
+        if (target == null)
+        {
+            Log("nobody there!");
+            return false;
+        }
+        
+        // Can't attack ourselves.
+        if (target == player)
+        {
+            Log("can't attack yourself!");
+            return false;
+        }
+        
+        Log($"{target.GetName()}-");
+        
+        // TODO: Check if target is hostile.
+        // Check factions and ask for confirmation.
+        
+        // Get player's readied weapons.
+        var weapon = player.EnumerateArms();
+        if (weapon == null)
+        {
+            Log("no weapon readied!");
+            // Attack with fists as fallback.
+            weapon = ArmsType.TestWeapons.Fists;
+            Log($"attacking with fists-");
+        }
+        
+        // Check ammo.
+        if (!player.HasAmmo(weapon))
+        {
+            Log("no ammo!");
+            return false;
+        }
+        
+        // Check range.
+        int distance = CalculateDistance(player.GetX(), player.GetY(), targetX, targetY);
+        if (distance > weapon.Range)
+        {
+            Log($"out of range! (distance: {distance}, range: {weapon.Range})");
+            return false;
+        }
+        
+        // Attack!
+        Log($"{weapon.Name}");
+        Console.WriteLine(); // New line for attack resolution
+        
+        bool hit = player.Attack(weapon, target as Character);
+        
+        // TODO: Check if combat state should change.
+        // TODO: Switch to round-robin mode if in party follow mode.
+        
+        return hit;
+    }
+
+    /// <summary>
+    /// Attack with a specific weapon and direction.
+    /// Useful for testing and AI.
+    /// </summary>
+    public bool AttackWith(ArmsType weapon, Direction direction)
+    {
+        if (session.Player == null || weapon == null)
+            return false;
+    
+        var player = session.Player;
+        var place = player.GetPlace();
+    
+        if (place == null)
+            return false;
+    
+        // Get target.
+        int dx = DirectionToDx(direction);
+        int dy = DirectionToDy(direction);
+        int targetX = player.GetX() + dx;
+        int targetY = player.GetY() + dy;
+    
+        var target = place.GetBeingAt(targetX, targetY);
+        if (target == null || target == player)
+            return false;
+    
+        // Attack directly.
+        return player.Attack(weapon, target as Character);
+    }
+
+    /// <summary>
+    /// Auto-attack: find nearest enemy and attack.
+    /// Useful for quick testing.
+    /// </summary>
+    public bool AutoAttack()
+    {
+        if (session.Player == null)
+            return false;
+    
+        var player = session.Player;
+        var place = player.GetPlace();
+    
+        if (place == null)
+            return false;
+    
+        // Find nearest being (simplified - just check adjacent tiles).
+        var directions = new[]
+        {
+            Direction.North, Direction.South, Direction.East, Direction.West,
+            Direction.NorthEast, Direction.NorthWest, Direction.SouthEast, Direction.SouthWest
+        };
+    
+        foreach (var dir in directions)
+        {
+            int dx = DirectionToDx(dir);
+            int dy = DirectionToDy(dir);
+            int targetX = player.GetX() + dx;
+            int targetY = player.GetY() + dy;
+        
+            var target = place.GetBeingAt(targetX, targetY);
+            if (target != null && target != player)
+            {
+                // Found a target!
+                return Attack(dir);
+            }
+        }
+    
+        Log("No targets in range!");
+        return false;
+    }
+
+    /// <summary>
+    /// Calculate Chebyshev distance (max of dx, dy).
+    /// </summary>
+    private int CalculateDistance(int x1, int y1, int x2, int y2)
+    {
+        return Math.Max(Math.Abs(x2 - x1), Math.Abs(y2 - y1));
+    }
+
+    /// <summary>
+    /// Convert direction enum to string.
+    /// </summary>
+    private string DirectionToString(Direction dir) => dir switch
+    {
+        Direction.North => "North",
+        Direction.South => "South",
+        Direction.East => "East",
+        Direction.West => "West",
+        Direction.NorthEast => "NE",
+        Direction.NorthWest => "NW",
+        Direction.SouthEast => "SE",
+        Direction.SouthWest => "SW",
+        _ => "None"
+    };
     
     /// <summary>
     /// Prompt user for direction.

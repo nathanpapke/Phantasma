@@ -180,7 +180,7 @@ public partial class StatusBinder : BinderBase
         StatLines.Add(new StatLine
         {
             Label = $"Dex={character.Dexterity,3}",
-            Value = $"AC:{character.ArmourClass,3}"
+            Value = $"AC:{character.ArmorClass,3}"
         });
     }
     

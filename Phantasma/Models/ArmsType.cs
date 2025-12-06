@@ -1,29 +1,94 @@
+using System;
+
 namespace Phantasma.Models;
 
+/// <summary>
+/// Weapon and Armor type definition - port of Nazghul's ArmsType.
+/// Represents weapons, shields, armor, and other combat equipment.
+/// </summary>
 public class ArmsType : ObjectType
 {
-    protected int SlotMasks;
-    protected int NumHands;
-    protected int Range;
-    protected int Weight;
-    protected int ModifierToApOfUser;
-    protected bool Thrown;
-    protected bool UbiquitousAmmo;
-    protected string ArmorDice;
-    protected string DamageDice;
-    protected string ToDefendDice;
-    protected string ToHitDice;
-    //sound_t *fire_sound
-    protected bool Beam;
-    protected int StrAttackMod;
-    protected int DexAttackMod;
-    protected int CharDamageMod;
-    protected float CharAvoidMod;
-    protected Missile Missile;
-    protected ObjectType AmmoType;
-
-    public ArmsType(string tag, string name, Sprite sprite,
-        int slotMasks,
+    // Core Properties
+    public int SlotMask { get; protected set; }
+    public int NumHands { get; protected set; }
+    public int Range { get; protected set; }
+    public int RequiredActionPoints { get; protected set; }
+    
+    // Dice Strings
+    public string ToHitDice { get; protected set; } = "0";
+    public string ToDefendDice { get; protected set; } = "0";
+    public string DamageDice { get; protected set; } = "0";
+    public string ArmorDice { get; protected set; } = "0";
+    
+    // Weapon Type Flags
+    public bool IsThrown { get; protected set; }
+    public bool HasUbiquitousAmmo { get; protected set; }
+    
+    // Missile/Projectile (for ranged weapons)
+    protected Missile? missile;
+    protected ArmsType? missileType;
+    
+    // Sound Effect for Firing (stub for now)
+    // protected Sound? fireSound;
+    
+    /// <summary>
+    /// Equipment Slot Masks (bitfield)
+    /// Example: SLOT_WEAPON = 0x01, SLOT_SHIELD = 0x02, SLOT_BODY = 0x04
+    /// </summary>
+    public static class Slots
+    {
+        public const int None = 0x00;
+        public const int Weapon = 0x01;
+        public const int Shield = 0x02;
+        public const int Body = 0x04;
+        public const int Helm = 0x08;
+        public const int Boots = 0x10;
+        public const int Gloves = 0x20;
+        public const int Amulet = 0x40;
+        public const int Ring = 0x80;
+    }
+    
+    /// <summary>
+    /// Default Constructor for Deserialization
+    /// </summary>
+    public ArmsType() : base()
+    {
+        Layer = ObjectLayer.Item;
+        SlotMask = Slots.Weapon;
+        NumHands = 1;
+        Range = 1;
+        RequiredActionPoints = 1;
+        ToHitDice = "0";
+        ToDefendDice = "0";
+        DamageDice = "1d2";
+        ArmorDice = "0";
+        IsThrown = false;
+        HasUbiquitousAmmo = false;
+    }
+    
+    /// <summary>
+    /// Full Constructor for Arms Type
+    /// </summary>
+    /// <param name="tag">Unique identifier</param>
+    /// <param name="name">Display name</param>
+    /// <param name="sprite">Visual representation</param>
+    /// <param name="slotMask">Which slots this can be equipped in</param>
+    /// <param name="toHitDice">Attack bonus dice (e.g., "1d4")</param>
+    /// <param name="toDefendDice">Defense bonus when equipped (e.g., "1d2")</param>
+    /// <param name="numHands">1 or 2 handed</param>
+    /// <param name="range">Attack range in tiles</param>
+    /// <param name="weight">Weight in arbitrary units</param>
+    /// <param name="damageDice">Damage dice (e.g., "2d6+3")</param>
+    /// <param name="armorDice">Armor protection dice (e.g., "1d4")</param>
+    /// <param name="requiredActionPoints">AP cost to attack</param>
+    /// <param name="thrown">Is this a thrown weapon?</param>
+    /// <param name="ubiquitousAmmo">Infinite ammo (like arrows for practice bow)</param>
+    /// <param name="missileType">For ranged weapons, the projectile type</param>
+    public ArmsType(
+        string tag,
+        string name,
+        Sprite? sprite,
+        int slotMask,
         string toHitDice,
         string toDefendDice,
         int numHands,
@@ -31,19 +96,243 @@ public class ArmsType : ObjectType
         int weight,
         string damageDice,
         string armorDice,
-        int recActPts,
-        int APMod,
-        bool thrown,
-        bool ubiquitousAmmo,
-        //sound_t *firesound,
-        MissileType missileType,
-        ObjectType ammoType,
-        int strAttackMod,
-        int dexAttackMod,
-        int charDamageMod,
-        float charAvoidMod,
-        bool isBeam)
+        int requiredActionPoints,
+        bool thrown = false,
+        bool ubiquitousAmmo = false,
+        ArmsType? missileType = null)
+        : base(tag, name, ObjectLayer.Item)
     {
-        // Initialize arms type.
+        this.Sprite = sprite;
+        this.SlotMask = slotMask;
+        this.ToHitDice = toHitDice ?? "0";
+        this.ToDefendDice = toDefendDice ?? "0";
+        this.NumHands = numHands;
+        this.Range = range;
+        this.Weight = weight;
+        this.DamageDice = damageDice ?? "1d2";
+        this.ArmorDice = armorDice ?? "0";
+        this.RequiredActionPoints = requiredActionPoints;
+        this.IsThrown = thrown;
+        this.HasUbiquitousAmmo = ubiquitousAmmo;
+        
+        // Set up missile/projectile.
+        if (missileType != null)
+        {
+            this.missileType = missileType;
+            this.missile = new Missile(missileType);
+        }
+        
+        // Thrown weapons are their own missiles.
+        if (thrown)
+        {
+            SetMissileType(this);
+        }
+    }
+    
+    /// <summary>
+    /// Check if this is a missile weapon (bow, crossbow, etc).
+    /// Missile weapons have a separate ammo type.
+    /// </summary>
+    public bool IsMissileWeapon()
+    {
+        return missile != null && !IsThrown;
+    }
+    
+    /// <summary>
+    /// Check if this is a thrown weapon (dagger, spear, etc).
+    /// </summary>
+    public bool IsThrownWeapon()
+    {
+        return IsThrown;
+    }
+    
+    /// <summary>
+    /// Get the projectile type for this weapon.
+    /// For bows: arrows. For crossbows: bolts. For thrown: self.
+    /// </summary>
+    public ArmsType? GetMissileType()
+    {
+        if (missile == null)
+            return null;
+        return missileType;
+    }
+    
+    /// <summary>
+    /// Set the projectile type.
+    /// </summary>
+    public void SetMissileType(ArmsType? newMissileType)
+    {
+        missile = null;
+        missileType = null;
+        
+        if (newMissileType == null)
+            return;
+        
+        missile = new Missile(newMissileType);
+        missileType = newMissileType;
+    }
+    
+    /// <summary>
+    /// Get the ammunition type required.
+    /// For thrown weapons: returns self.
+    /// For missile weapons: returns the missile type.
+    /// For melee weapons: returns null.
+    /// </summary>
+    public ArmsType? GetAmmoType()
+    {
+        if (IsThrown)
+            return this;
+        if (missile == null)
+            return null;
+        return missileType;
+    }
+    
+    /// <summary>
+    /// Fire this weapon at a target.
+    /// Just checks range and returns hit/miss.
+    /// </summary>
+    /// <param name="target">Character being attacked</param>
+    /// <param name="originX">Attacker's X position</param>
+    /// <param name="originY">Attacker's Y position</param>
+    /// <returns>True if projectile hits, false if misses</returns>
+    public virtual bool Fire(Character target, int originX, int originY)
+    {
+        if (!IsMissileWeapon() && !IsThrownWeapon())
+            return true; // Melee always "hits" (actual hit is determined by attack roll)
+        
+        // Check range.
+        int distance = CalculateDistance(
+            originX, originY,
+            target.Position.X, target.Position.Y);
+        
+        if (distance > Range)
+            return false;
+        
+        // TODO: Animate missile flight.
+        // TODO: Check line of sight.
+        // TODO: Sound effect.
+        
+        return true; // Hit
+    }
+    
+    /// <summary>
+    /// Fire weapon at a specific location (not targeting a being).
+    /// Used for targeting terrain, mechanisms, etc.
+    /// </summary>
+    public virtual bool Fire(Place place, int originX, int originY, int targetX, int targetY)
+    {
+        // Simplified for now.
+        int distance = CalculateDistance(originX, originY, targetX, targetY);
+        return distance <= Range;
+    }
+    
+    /// <summary>
+    /// Fire weapon in a direction (for "spray" attacks).
+    /// </summary>
+    public virtual bool FireInDirection(Place place, int originX, int originY, int dx, int dy, Object user)
+    {
+        // TODO: Implement when we add directional attacks.
+        return false;
+    }
+    
+    /// <summary>
+    /// Calculate Manhattan distance between two points.
+    /// </summary>
+    private int CalculateDistance(int x1, int y1, int x2, int y2)
+    {
+        return Math.Max(Math.Abs(x2 - x1), Math.Abs(y2 - y1)); // Chebyshev distance
+    }
+    
+    /// <summary>
+    /// Create a simple melee weapon.
+    /// </summary>
+    public static ArmsType CreateMeleeWeapon(
+        string tag,
+        string name,
+        string damageDice,
+        int range = 1,
+        int numHands = 1,
+        string toHitDice = "0",
+        string armorDice = "0")
+    {
+        return new ArmsType(
+            tag: tag,
+            name: name,
+            sprite: null,
+            slotMask: Slots.Weapon,
+            toHitDice: toHitDice,
+            toDefendDice: "0",
+            numHands: numHands,
+            range: range,
+            weight: 10,
+            damageDice: damageDice,
+            armorDice: armorDice,
+            requiredActionPoints: 1
+        );
+    }
+    
+    /// <summary>
+    /// Create a simple armor piece.
+    /// </summary>
+    public static ArmsType CreateArmor(
+        string tag,
+        string name,
+        string armorDice,
+        int slotMask,
+        string toDefendDice = "0")
+    {
+        return new ArmsType(
+            tag: tag,
+            name: name,
+            sprite: null,
+            slotMask: slotMask,
+            toHitDice: "0",
+            toDefendDice: toDefendDice,
+            numHands: 0,
+            range: 0,
+            weight: 20,
+            damageDice: "0",
+            armorDice: armorDice,
+            requiredActionPoints: 0
+        );
+    }
+    
+    /// <summary>
+    /// Create common test weapons for development.
+    /// </summary>
+    public static class TestWeapons
+    {
+        public static ArmsType Fists => CreateMeleeWeapon(
+            "fists", "Fists", "1d2", 1, 1, "0", "0");
+        
+        public static ArmsType Dagger => CreateMeleeWeapon(
+            "dagger", "Dagger", "1d4", 1, 1, "+1", "0");
+        
+        public static ArmsType Sword => CreateMeleeWeapon(
+            "sword", "Short Sword", "1d6+1", 1, 1, "+2", "0");
+        
+        public static ArmsType LongSword => CreateMeleeWeapon(
+            "longsword", "Long Sword", "1d8+2", 1, 1, "+3", "0");
+        
+        public static ArmsType GreatSword => CreateMeleeWeapon(
+            "greatsword", "Great Sword", "2d6+3", 1, 2, "+1", "0");
+        
+        public static ArmsType Club => CreateMeleeWeapon(
+            "club", "Club", "1d6", 1, 1, "0", "0");
+        
+        public static ArmsType Spear => CreateMeleeWeapon(
+            "spear", "Spear", "1d6+1", 2, 1, "+1", "0");
+        
+        public static ArmsType Axe => CreateMeleeWeapon(
+            "axe", "Battle Axe", "1d8+2", 1, 1, "+1", "0");
+        
+        public static ArmsType LeatherArmor => CreateArmor(
+            "leather", "Leather Armor", "1d2", Slots.Body, "0");
+        
+        public static ArmsType ChainMail => CreateArmor(
+            "chainmail", "Chain Mail", "1d4", Slots.Body, "+1");
+        
+        public static ArmsType Shield => CreateArmor(
+            "shield", "Shield", "1d3", Slots.Shield, "+2");
     }
 }

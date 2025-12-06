@@ -26,7 +26,7 @@ public class Character : Being
     public int Level { get; set; }
     public bool IsDead { get; set; }
     public int Experience { get; set; }
-    public int ArmourClass { get; set; }
+    public int ArmorClass { get; set; }
     
     // Vision
     public int VisionRadius { get; set; } = 10;
@@ -44,6 +44,8 @@ public class Character : Being
     // Equipment Slots
     private List<ArmsType> readiedArms;
     private Container inventory;
+    
+    private int currentArmsIndex = -1;
     
     // Turn Management
     private bool turnEnded;
@@ -63,7 +65,7 @@ public class Character : Being
         Strength = 10;
         Intelligence = 10;
         Dexterity = 10;
-        ArmourClass = 10;
+        ArmorClass = 10;
     }
 
     public Character(string tag, string name,
@@ -108,7 +110,7 @@ public class Character : Being
         player.HP = player.MaxHP = 100;
         player.MP = player.MaxMP = 50;
         player.ActionPoints = player.MaxActionPoints = 10;
-        player.ArmourClass = 10;
+        player.ArmorClass = 10;
         
         // Try to load player sprite.
         var playerSprite = SpriteManager.GetSprite("player");
@@ -162,6 +164,30 @@ public class Character : Being
         npc.CurrentSprite = npcSprite;
 
         return npc;
+    }
+
+    /// <summary>
+    /// Create a test enemy for combat testing.
+    /// </summary>
+    public static Character CreateTestEnemy(string name, int hp = 50)
+    {
+        var enemy = new Character();
+        enemy.SetName(name);
+        enemy.IsPlayer = false;
+        enemy.Level = 1;
+        enemy.HP = enemy.MaxHP = hp;
+        enemy.MP = enemy.MaxMP = 20;
+        enemy.ActionPoints = enemy.MaxActionPoints = 10;
+        enemy.ArmorClass = 10;
+        enemy.Strength = 10;
+        enemy.Dexterity = 10;
+        enemy.Intelligence = 8;
+    
+        // Give enemy a weapon.
+        var weapon = ArmsType.TestWeapons.Club;
+        enemy.Ready(weapon);
+    
+        return enemy;
     }
     
     public bool IsTurnEnded()
@@ -220,14 +246,34 @@ public class Character : Being
     {
         if (weapon == null)
             return ReadyResult.WrongType;
-            
-        // Simple ready - just add to list for now
+    
+        // Check weight.
+        int currentBurden = CalculateBurden();
+        if (currentBurden + weapon.Weight > Strength)
+            return ReadyResult.TooHeavy;
+    
+        // Just add to list.
         if (!readiedArms.Contains(weapon))
         {
             readiedArms.Add(weapon);
+            return ReadyResult.Readied;
         }
-        
+    
         return ReadyResult.Readied;
+    }
+
+    /// <summary>
+    /// Calculate total burden from equipped items.
+    /// </summary>
+    private int CalculateBurden()
+    {
+        int burden = 0;
+        foreach (var weapon in readiedArms)
+        {
+            if (weapon != null)
+                burden += weapon.Weight;
+        }
+        return burden;
     }
     
     public bool Unready(ArmsType weapon)
@@ -239,18 +285,185 @@ public class Character : Being
     {
         return readiedArms.Contains(weapon);
     }
-    
-    public ArmsType EnumerateArms()
+
+    /// <summary>
+    /// Attack a target with a weapon.
+    /// </summary>
+    /// <param name="weapon">Weapon to attack with</param>
+    /// <param name="target">Character being attacked</param>
+    /// <returns>True if attack succeeded</returns>
+    public bool Attack(ArmsType weapon, Character target)
     {
-        if (readiedArms.Count > 0)
-            return readiedArms[0];
-        return null;
+        if (weapon == null || target == null)
+        {
+            Console.WriteLine("Attack failed: null weapon or target");
+            return false;
+        }
+    
+        // Log the attack.
+        string attackMsg = $"{GetName()}: {weapon.Name} - {target.GetName()} ";
+        Console.Write(attackMsg);
+    
+        // Check if weapon fires (for missiles/projectiles).
+        bool miss = !weapon.Fire(target, Position.X, Position.Y);
+    
+        // Consume action points and ammo.
+        DecreaseActionPoints(weapon.RequiredActionPoints);
+        UseAmmo(weapon);
+    
+        if (miss)
+        {
+            Console.WriteLine("missed!");
+            return false;
+        }
+    
+        // Roll to hit: 1d20 + weapon's to-hit bonus.
+        int hit = Dice.Roll("1d20") + Dice.Roll(weapon.ToHitDice);
+        int def = target.GetDefend();
+    
+        Console.WriteLine($"[Hit roll: {hit} vs Defense: {def}]");
+    
+        if (hit < def)
+        {
+            Console.WriteLine("barely scratched!");
+            return false;
+        }
+    
+        // Roll for damage: weapon damage - target armor.
+        int damage = Dice.Roll(weapon.DamageDice);
+        int armor = target.GetArmor();
+        damage -= armor;
+        damage = Math.Max(damage, 0); // Can't have negative damage
+    
+        Console.WriteLine($"[Damage: {damage} (rolled {Dice.Roll(weapon.DamageDice)} - {armor} armor)]");
+    
+        // Apply damage.
+        target.Damage(damage);
+    
+        Console.WriteLine($"{target.GetWoundDescription()}!");
+    
+        // Award XP if target was killed.
+        if (target.IsDead())
+        {
+            int xp = target.GetExperienceValue();
+            AddExperience(xp);
+            Console.WriteLine($"{GetName()} gains {xp} experience!");
+        }
+    
+        return true;
+    }
+
+    /// <summary>
+    /// Calculate defense value.
+    /// </summary>
+    /// <returns>Defense roll total</returns>
+    public new int GetDefend()
+    {
+        int defend = 0;
+    
+        // TODO: Check if asleep - would return -3.
+        // if (IsAsleep()) return -3;
+    
+        // Sum defense dice from all equipped weapons/armor.
+        for (int i = 0; i < readiedArms.Count; i++)
+        {
+            var arms = readiedArms[i];
+            if (arms != null && !string.IsNullOrEmpty(arms.ToDefendDice))
+            {
+                defend += Dice.Roll(arms.ToDefendDice);
+            }
+        }
+    
+        // TODO: Add defense bonus from effects/spells.
+        // defend += defenseBonus;
+    
+        return defend;
+    }
+
+    /// <summary>
+    /// Calculate armor value.
+    /// </summary>
+    /// <returns>Armor roll total</returns>
+    public new int GetArmor()
+    {
+        int armor = 0;
+    
+        // Sum armor dice from all equipped weapons/armor.
+        for (int i = 0; i < readiedArms.Count; i++)
+        {
+            var arms = readiedArms[i];
+            if (arms != null && !string.IsNullOrEmpty(arms.ArmorDice))
+            {
+                armor += Dice.Roll(arms.ArmorDice);
+            }
+        }
+    
+        // Add base armor class (from spells like 'protect').
+        armor += ArmorClass;
+    
+        return armor;
+    }
+
+    /// <summary>
+    /// Iterate through equipped weapons.
+    /// </summary>
+    public ArmsType? EnumerateArms()
+    {
+        currentArmsIndex = 0;
+        if (readiedArms.Count == 0)
+            return null;
+        return readiedArms[0];
     }
     
-    public ArmsType GetNextArms()
+    /// <summary>
+    /// Get next equipped weapon in iteration.
+    /// </summary>
+    public ArmsType? GetNextArms()
     {
-        // Simplified - just return null for now
-        return null;
+        if (currentArmsIndex < 0 || currentArmsIndex >= readiedArms.Count - 1)
+            return null;
+    
+        currentArmsIndex++;
+        return readiedArms[currentArmsIndex];
+    }
+
+    /// <summary>
+    /// Enumerate all weapons for attack purposes.
+    /// Used by AI and attack command to try each weapon.
+    /// </summary>
+    public IEnumerable<ArmsType> EnumerateWeapons()
+    {
+        foreach (var weapon in readiedArms)
+        {
+            if (weapon != null)
+                yield return weapon;
+        }
+    }
+
+    /// <summary>
+    /// Get attack target for this character.
+    /// For player characters, this would be set by targeting UI.
+    /// For NPCs, this is set by AI.
+    /// </summary>
+    private Character? attackTarget;
+
+    public Character? GetAttackTarget()
+    {
+        return attackTarget;
+    }
+
+    public void SetAttackTarget(Character? target)
+    {
+        attackTarget = target;
+    }
+
+    /// <summary>
+    /// Check if this character is incapacitated.
+    /// </summary>
+    public bool IsIncapacitated()
+    {
+        // TODO: Add sleep check when implemented.
+        return IsDead(); // || IsAsleep();
     }
     
     public bool HasAmmo(ArmsType weapon)
@@ -315,7 +528,7 @@ public class Character : Being
         
         // Get movement cost for destination terrain.
         float cost = Position.Place.GetMovementCost(newX, newY, this);
-        int apCost = (int)Math.Ceiling(cost); // Round up
+        int apCost = (int)Math.Ceiling(cost); // Round up.
         
         // Check if we can afford the movement.
         if (ActionPoints < apCost)
