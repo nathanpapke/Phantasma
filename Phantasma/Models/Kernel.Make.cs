@@ -1,4 +1,5 @@
 using System;
+using IronScheme;
 using IronScheme.Runtime;
 
 namespace Phantasma.Models;
@@ -119,26 +120,118 @@ public partial class Kernel
     }
     
     /// <summary>
-    /// (kern-mk-place tag name wrapping? wilderness? width height [terrain-fill])
-    /// Creates a place (map).
+    /// (kern-mk-terrain-type tag name pclass sprite)
+    /// Creates a terrain type definition.
     /// </summary>
-    public static object MakePlace(object tag, object name, object arg3, object arg4, object width, object height)
+    public static object MakeTerrainType(object tag, object name, object pclass, object sprite)
     {
+        string tagStr = tag?.ToString() ?? "unknown";
+        string nameStr = name?.ToString() ?? tagStr;
+        string pclassStr = pclass?.ToString() ?? ".g";
+    
+        // Parse passability from second char of pclass string.
+        int passability = PassabilityTable.PCLASS_NONE;
+        if (pclassStr.Length >= 2)
+        {
+            char passChar = pclassStr[1];
+            passability = passChar switch
+            {
+                'g' => 1,  // Grass - passable
+                '.' => PassabilityTable.PCLASS_NONE,  // Impassable
+                'w' => 6,  // Water
+                'm' => 8,  // Mountain
+                _ => PassabilityTable.PCLASS_NONE
+            };
+        }
+    
+        var terrain = new Terrain
+        {
+            Name = nameStr,
+            PassabilityClass = passability,
+            Sprite = sprite as Sprite
+        };
+    
+        Console.WriteLine($"  Created terrain type: {terrain.Name}");
+        return terrain;
+    }
+    
+    /// <summary>
+    /// (kern-mk-place tag name sprite map wraps underground wild combat
+    ///                subplaces neighbors contents hooks entrances)
+    /// Creates a place (map/location).
+    /// </summary>
+    public static object MakePlace(
+        object tag, object name,
+        object sprite, object map,
+        object wraps, object underground, object wild, object combat,
+        object subplaces, object neighbors, object contents,
+        object hooks, object entrances)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
+        string nameStr = name?.ToString() ?? "Unnamed Place";
+        
+        // Extract boolean flags.
+        bool wrapsFlag = Convert.ToBoolean(wraps);
+        bool undergroundFlag = Convert.ToBoolean(underground);
+        bool wildFlag = Convert.ToBoolean(wild);
+        bool combatFlag = Convert.ToBoolean(combat);
+        
+        // For now, create a basic place without terrain map.
+        // Full implementation would require terrain_map support.
         var place = new Place
         {
-            Name = name?.ToString(),
-            Width = Convert.ToInt32(width ?? 128),
-            Height = Convert.ToInt32(height ?? 128)
+            Tag = tagStr,
+            Name = nameStr,
+            Wraps = wrapsFlag,
+            IsUnderground = undergroundFlag,
+            IsWilderness = wildFlag,
+            CombatEnabled = combatFlag,
+            Sprite = sprite as Sprite,
+            Width = 20,  // Default size - would come from terrain_map
+            Height = 20,
+            TerrainGrid = new Terrain[20, 20]
         };
         
-        // Initialize the terrain grid.
-        place.TerrainGrid = new Terrain[place.Width, place.Height];
-            
-        // Register with Phantasma for lookup.
-        if (tag != null)
+        // Initialize terrain grid with basic grass.
+        // In full implementation, this would come from the terrain_map parameter.
+        var defaultTerrain = new Terrain
         {
-            Phantasma.RegisterObject(tag.ToString(), place);
+            Name = "grass",
+            IsPassable = true,
+            PassabilityClass = 1
+        };
+        
+        for (int y = 0; y < place.Height; y++)
+        {
+            for (int x = 0; x < place.Width; x++)
+            {
+                place.TerrainGrid[x, y] = defaultTerrain;
+            }
         }
+        
+        // Process list parameters.
+        // For now, just acknowledge them - full implementation would process each list.
+        
+        // TODO: Process subplaces list.
+        // Each entry would be unpacked and added as a sub-region.
+        
+        // TODO: Process neighbors list.
+        // Each entry defines a neighboring place and direction (up/down).
+        // Example: (neighbor-place UP) or (neighbor-place DOWN)
+        
+        // TODO: Process contents list.
+        // Each entry is an object to place on the map with coordinates.
+        // Example: (object x y)
+        
+        // TODO: Process hooks list.
+        // Each entry is an effect/hook to attach to the place.
+        
+        // TODO: Process entrances list.
+        // Each entry defines an entrance/exit point.
+        
+        Console.WriteLine($"  Created place '{tagStr}': {nameStr}");
+        Console.WriteLine($"    Flags: wraps={wrapsFlag}, underground={undergroundFlag}, " +
+                         $"wild={wildFlag}, combat={combatFlag}");
         
         return place;
     }
@@ -427,6 +520,76 @@ public partial class Kernel
         Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}' (layer={objType.Layer}, caps={objType.Capabilities})");
     
         return objType;
+    }
+
+    /// <summary>
+    /// (kern-mk-arms-type tag name sprite to-hit damage armor defend
+    ///                    slots hands range rap missile thrown ubiq
+    ///                    weight fire-sound gifc-cap gifc)
+    /// Creates a weapon or armor type.
+    /// </summary>
+    public static object MakeArmsType(
+        object tag, object name, object sprite,
+        object toHit, object damage, object armor, object defend,
+        object slots, object hands, object range, object rap,
+        object missile, object thrown, object ubiq, object weight,
+        object fireSound, object gifcCap, object gifc)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
+        string nameStr = name?.ToString() ?? tagStr;
+        
+        // Get dice strings
+        string toHitDice = toHit?.ToString() ?? "0";
+        string damageDice = damage?.ToString() ?? "0";
+        string armorDice = armor?.ToString() ?? "0";
+        string defendDice = defend?.ToString() ?? "0";
+        
+        // Validate dice notation
+        if (!Dice.IsValid(toHitDice))
+        {
+            LoadError($"kern-mk-arms-type {tagStr}: bad to-hit dice '{toHitDice}'");
+            return Builtins.Unspecified;
+        }
+        if (!Dice.IsValid(damageDice))
+        {
+            LoadError($"kern-mk-arms-type {tagStr}: bad damage dice '{damageDice}'");
+            return Builtins.Unspecified;
+        }
+        if (!Dice.IsValid(armorDice))
+        {
+            LoadError($"kern-mk-arms-type {tagStr}: bad armor dice '{armorDice}'");
+            return Builtins.Unspecified;
+        }
+        if (!Dice.IsValid(defendDice))
+        {
+            LoadError($"kern-mk-arms-type {tagStr}: bad defend dice '{defendDice}'");
+            return Builtins.Unspecified;
+        }
+        
+        // Use the full constructor - it sets all protected properties internally
+        var armsType = new ArmsType(
+            tag: tagStr,
+            name: nameStr,
+            sprite: sprite as Sprite,
+            slotMask: Convert.ToInt32(slots ?? 0x01),
+            toHitDice: toHitDice,
+            toDefendDice: defendDice,
+            numHands: Convert.ToInt32(hands ?? 1),
+            range: Convert.ToInt32(range ?? 1),
+            weight: Convert.ToInt32(weight ?? 0),
+            damageDice: damageDice,
+            armorDice: armorDice,
+            requiredActionPoints: Convert.ToInt32(rap ?? 1),
+            thrown: Convert.ToBoolean(thrown),
+            ubiquitousAmmo: Convert.ToBoolean(ubiq),
+            missileType: missile as ArmsType  // null if not provided
+        );
+        
+        // Set Scheme variable so 't_sword holds this weapon.
+        //"(set-global! {0} {1})".Eval(tagStr, armsType);
+        
+        Console.WriteLine($"  Created arms type '{tagStr}': {nameStr}");
+        return armsType;
     }
     
     /// <summary>

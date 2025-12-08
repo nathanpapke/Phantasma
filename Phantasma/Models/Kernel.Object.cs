@@ -66,6 +66,22 @@ public partial class Kernel
     
         return Builtins.Unspecified;
     }
+
+    /// <summary>
+    /// (kern-obj-get-name object)
+    /// Gets the name of an object.
+    /// </summary>
+    public static object ObjectGetName(object obj)
+    {
+        if (obj is Character character)
+            return character.GetName();
+        else if (obj is Object gameObj)
+            return gameObj.Name;
+        else if (obj is ObjectType objType)
+            return objType.Name;
+    
+        return "(unnamed)";
+    }
     
     public static object ObjectGetLocation(object args)
     {

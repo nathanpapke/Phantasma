@@ -6,17 +6,27 @@ namespace Phantasma.Models;
 
 public class Place
 {
+    public string Tag { get; set; } = "";
     public string Name { get; set; }
-    public bool Wraps { get; set; } = false;
-    public int Width { get; set; }
-    public int Height { get; set; }
+    public Sprite? Sprite { get; set; }
     public Terrain[,] TerrainGrid { get; set; }
+    public bool Wraps { get; set; } = false;
+    public bool IsUnderground { get; set; } = false;
+    public bool IsWilderness { get; set; } = false;
+    public bool CombatEnabled { get; set; } = true;
+    public List<Place> SubPlaces { get; set; } = new();
+    public Dictionary<string, Place> Neighbors { get; set; } = new();
+        
+    // Object Tracking
+    public List<Object> Objects;
     
     // Object Layers - Multiple objects can exist at same location in different layers.
     private Dictionary<(int x, int y, ObjectLayer layer), Object> objectsByLocation;
-        
-    // Object Tracking
-    private List<Object> objects;
+    
+    public List<(int x, int y, Place? destination)> Entrances { get; set; } = new();
+    
+    public int Width { get; set; }
+    public int Height { get; set; }
 
     // Magic number for type checking (from Nazghul).
     public int Magic { get; set; } = 0x1234ABCD;
@@ -28,7 +38,7 @@ public class Place
         Name = "Test Map";
         TerrainGrid = new Terrain[Width, Height];
         objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
-        objects = new List<Object>(0);
+        Objects = new List<Object>(0);
     }
     
     // Constructor for Scheme/Kernel (kern-mk-place)
@@ -41,7 +51,7 @@ public class Place
         // wilderness parameter stored later if needed
         TerrainGrid = new Terrain[Width, Height];
         objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
-        objects = new List<Object>();
+        Objects = new List<Object>();
     }
     
     /// <summary>
@@ -348,9 +358,9 @@ public class Place
             
         obj.SetPosition(this, x, y);
         
-        if (!objects.Contains(obj))
+        if (!Objects.Contains(obj))
         {
-            objects.Add(obj);
+            Objects.Add(obj);
         }
         
         // Add to layer-based lookup dictionary for collision detection.
@@ -362,7 +372,7 @@ public class Place
     {
         if (obj != null)
         {
-            objects.Remove(obj);
+            Objects.Remove(obj);
             
             // Remove from dictionary as well.
             var key = (obj.GetX(), obj.GetY(), obj.Layer);
@@ -389,24 +399,24 @@ public class Place
     
     public Being? GetBeingAt(int x, int y)
     {
-        return objects
+        return Objects
             .OfType<Being>()
             .FirstOrDefault(b => b.GetX() == x && b.GetY() == y);
     }
     
     public List<Item> GetAllItems()
     {
-        return objects.OfType<Item>().ToList();
+        return Objects.OfType<Item>().ToList();
     }
     
     public List<Being> GetAllBeings()
     {
-        return objects.OfType<Being>().ToList();
+        return Objects.OfType<Being>().ToList();
     }
     
     public Object? GetMechanismAt(int x, int y)
     {
-        return objects
+        return Objects
             .FirstOrDefault(o => o.Layer == ObjectLayer.Mechanism && 
                                  o.GetX() == x && o.GetY() == y);
     }

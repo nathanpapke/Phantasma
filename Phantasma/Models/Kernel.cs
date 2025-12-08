@@ -142,6 +142,8 @@ public partial class Kernel
         // Basic R6RS boot—ensures core libs (rnrs base, etc.) are loaded without extensions.
         "(import (rnrs) (ironscheme))".Eval();
         "(display \"Core R6RS booted.\\r\\n\")".Eval();
+        //"(define (set-global! sym val) (eval `(define ,sym ',val) (interaction-environment)))".Eval();
+
     
         // Now define each kern-* function.
         Console.WriteLine("Registering kern-* functions...");
@@ -153,6 +155,7 @@ public partial class Kernel
         DefineFunction("kern-mk-sprite", MakeSprite);
         DefineFunction("kern-mk-sprite-set", MakeSpriteSet);
         DefineFunction("kern-mk-terrain", MakeTerrain);
+        DefineFunction("kern-mk-terrain-type", MakeTerrainType);
         DefineFunction("kern-mk-place", MakePlace);
         DefineFunction("kern-mk-mmode", MakeMovementMode);
         DefineFunction("kern-mk-species", MakeSpecies);
@@ -160,6 +163,7 @@ public partial class Kernel
         DefineFunction("kern-mk-char", MakeCharacter);
         DefineFunction("kern-mk-obj", MakeObject);
         DefineFunction("kern-mk-obj-type", MakeObjectType);
+        DefineFunction("kern-mk-arms-type", MakeArmsType);
         DefineFunction("kern-mk-container", MakeContainer);
         DefineFunction("kern-mk-party", MakeParty);
         DefineFunction("kern-mk-player", MakePlayer);
@@ -214,8 +218,17 @@ public partial class Kernel
         // ===================================================================
         
         DefineFunction("kern-obj-put-at", ObjectPutAt);
+        DefineFunction("kern-obj-get-name", ObjectGetName);
         DefineFunction("kern-obj-get-location", ObjectGetLocation);
         DefineFunction("kern-obj-get-conversation", ObjectGetConversation);
+        
+        // ===================================================================
+        // KERN-CHAR API - Character Functions
+        // ===================================================================
+        
+        DefineFunction("kern-char-get-hp", CharacterGetHp);
+        DefineFunction("kern-char-get-max-hp", CharacterGetMaxHp);
+        DefineFunction("kern-char-get-level", CharacterGetLevel);
         
         // ===================================================================
         // KERN-CONV API - Conversation Functions
