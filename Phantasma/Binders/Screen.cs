@@ -20,9 +20,11 @@ public class Screen
     private VisibilityMask visibilityCache = new VisibilityMask();
     
     // UI State
-    private Cursor cursor;
+    private Cursor cursor;      // For blinking text cursor sprite
+    private Crosshair crosshair;    // For targeting system
     
     public Cursor Cursor => cursor;
+    public Crosshair Crosshair => crosshair;
 
     // Rendering Mode
     public enum RenderMode
@@ -38,8 +40,9 @@ public class Screen
         tileWidth = Dimensions.TILE_W;
         tileHeight = Dimensions.TILE_H;
         
-        // Initialize cursor.
+        // Initialize UI elements.
         cursor = new Cursor();
+        crosshair = new Crosshair();
         
         // Check if sprites are available.
         CurrentRenderMode = SpriteManager.HasSprites() ? 
@@ -166,9 +169,9 @@ public class Screen
     }
     
     /// <summary>
-    /// Draw the cursor (targeting crosshair).
+    /// Draw the targeting crosshair).
     /// </summary>
-    public void DrawCursor(DrawingContext context, int x, int y, Cursor cursor)
+    public void DrawCrosshair(DrawingContext context, int x, int y, Cursor cursor)
     {
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
     
@@ -183,11 +186,11 @@ public class Screen
         else
         {
             // Fallback: draw hardcoded crosshair graphic.
-            DrawCrosshair(context, destRect);
+            DrawHardcodedCrosshair(context, destRect);
         }
     }
 
-    private void DrawCrosshair(DrawingContext context, Rect destRect)
+    private void DrawHardcodedCrosshair(DrawingContext context, Rect destRect)
     {
         var pen = new Pen(Brushes.Red, 2);
     
@@ -393,15 +396,15 @@ public class Screen
         
         // Layer 4: Draw cursor if active.
         // Add this after the beings loop ends and before the closing brace of DrawMap()
-        if (cursor != null && cursor.IsActive())
+        if (crosshair != null && crosshair.IsActive())
         {
-            viewX = cursor.GetX() - viewStartX;
-            viewY = cursor.GetY() - viewStartY;
+            viewX = crosshair.GetX() - viewStartX;
+            viewY = crosshair.GetY() - viewStartY;
             
             if (viewX >= 0 && viewX < tilesWide &&
                 viewY >= 0 && viewY < tilesHigh)
             {
-                DrawCursor(context, viewX, viewY, cursor);
+                DrawCrosshair(context, viewX, viewY, cursor);
             }
         }
     }

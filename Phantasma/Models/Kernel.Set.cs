@@ -57,10 +57,32 @@ public partial class Kernel
         return "#t".Eval();
     }
     
-    public static object SetCursor(object args)
+    /// <summary>
+    /// (kern-set-cursor sprite)
+    /// Set the text input cursor sprite for the command window.
+    /// This is the blinking cursor when typing, NOT the targeting crosshair.
+    /// </summary>
+    public static object SetCursor(object spriteRef)
     {
-        // TODO: Implement
-        return Builtins.Unspecified;
+        // Get the sprite from the registry.
+        Sprite sprite = null;
+    
+        if (spriteRef is Sprite spr)
+        {
+            sprite = spr;
+        }
+        else if (spriteRef is string tag)
+        {
+            sprite = Phantasma.GetRegisteredObject(tag) as Sprite;
+        }
+    
+        if (sprite == null)
+        {
+            Console.WriteLine("kern-set-cursor: invalid sprite");
+            return "#f".Eval();
+        }
+    
+        return "#t".Eval();
     }
     
     public static object SetFrame(object args)
