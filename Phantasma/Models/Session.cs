@@ -32,6 +32,14 @@ public class Session
     private int gameClock = 0;  // Game time in minutes (0-1439, wraps daily)
     private int timeAcceleration = 1;  // Time speed multiplier
     
+    // Targeting
+    public bool IsTargeting { get; private set; }
+    public int TargetOriginX { get; private set; }
+    public int TargetOriginY { get; private set; }
+    public int TargetRange { get; private set; }
+    public int TargetX { get; private set; }
+    public int TargetY { get; private set; }
+    
     /// <summary>
     /// Key handler stack.
     /// Top handler receives all key events.
@@ -738,5 +746,55 @@ public class Session
         {
             LogMessage("That's not a person!");
         }
+    }
+
+    // ===================================================================
+    // TARGET HANDLING
+    // ===================================================================
+    
+    /// <summary>
+    /// Begin targeting mode with the crosshair.
+    /// When complete, calls onComplete with (targetX, targetY, cancelled).
+    /// </summary>
+    public void BeginTargeting(int originX, int originY, int range, 
+        int startX, int startY,
+        Action<int, int, bool> onComplete)
+    {
+        IsTargeting = true;
+        TargetOriginX = originX;
+        TargetOriginY = originY;
+        TargetRange = range;
+        TargetX = startX;
+        TargetY = startY;
+    
+        // Create and push handler.
+        var handler = new TargetingKeyHandler(this, originX, originY, range, startX, startY);
+    
+        handler.OnComplete = (success, targetX, targetY) =>
+        {
+            IsTargeting = false;
+            PopKeyHandler();
+            SetCommandPrompt("");
+            onComplete(targetX, targetY, !success);
+        };
+    
+        PushKeyHandler(handler);
+        SetCommandPrompt("<target>");
+    }
+
+    /// <summary>
+    /// Move the targeting cursor (called by TargetingKeyHandler).
+    /// </summary>
+    public void MoveTarget(int dx, int dy)
+    {
+        if (!IsTargeting) return;
+    
+        int newX = TargetX + dx;
+        int newY = TargetY + dy;
+    
+        // TODO: Validate range, bounds, etc.
+    
+        TargetX = newX;
+        TargetY = newY;
     }
 }

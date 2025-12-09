@@ -18,6 +18,11 @@ public class Screen
     private int tileWidth;
     private int tileHeight;
     private VisibilityMask visibilityCache = new VisibilityMask();
+    
+    // UI State
+    private Cursor cursor;
+    
+    public Cursor Cursor => cursor;
 
     // Rendering Mode
     public enum RenderMode
@@ -32,6 +37,9 @@ public class Screen
     {
         tileWidth = Dimensions.TILE_W;
         tileHeight = Dimensions.TILE_H;
+        
+        // Initialize cursor.
+        cursor = new Cursor();
         
         // Check if sprites are available.
         CurrentRenderMode = SpriteManager.HasSprites() ? 
@@ -155,6 +163,45 @@ public class Screen
         {
             DrawCharacterTile(context, destRect, being);
         }
+    }
+    
+    /// <summary>
+    /// Draw the cursor (targeting crosshair).
+    /// </summary>
+    public void DrawCursor(DrawingContext context, int x, int y, Cursor cursor)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+    
+        // Look up crosshair type from registry.
+        var crosshairType = Phantasma.GetRegisteredObject("crosshair") as ObjectType;
+    
+        // Use configured crosshair sprite if available.
+        if (CurrentRenderMode == RenderMode.Sprites && crosshairType?.Sprite?.SourceImage != null)
+        {
+            DrawSprite(context, crosshairType.Sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw hardcoded crosshair graphic.
+            DrawCrosshair(context, destRect);
+        }
+    }
+
+    private void DrawCrosshair(DrawingContext context, Rect destRect)
+    {
+        var pen = new Pen(Brushes.Red, 2);
+    
+        // Vertical Line
+        context.DrawLine(pen, 
+            new Point(destRect.X + destRect.Width / 2, destRect.Y),
+            new Point(destRect.X + destRect.Width / 2, destRect.Y + destRect.Height));
+    
+        // Horizontal Line
+        context.DrawLine(pen,
+            new Point(destRect.X, destRect.Y + destRect.Height / 2),
+            new Point(destRect.X + destRect.Width, destRect.Y + destRect.Height / 2));
+    
+        // Corner brackets for better visibility...
     }
 
     /// <summary>
@@ -341,6 +388,20 @@ public class Screen
                 {
                     DrawBeing(context, viewX, viewY, being);
                 }
+            }
+        }
+        
+        // Layer 4: Draw cursor if active.
+        // Add this after the beings loop ends and before the closing brace of DrawMap()
+        if (cursor != null && cursor.IsActive())
+        {
+            viewX = cursor.GetX() - viewStartX;
+            viewY = cursor.GetY() - viewStartY;
+            
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                DrawCursor(context, viewX, viewY, cursor);
             }
         }
     }

@@ -204,12 +204,12 @@ public class Command
     /// </summary>
     /// <param name="direction">Direction to attack (optional for simplified version)</param>
     /// <returns>True if attack succeeded</returns>
-    public bool Attack(Direction? direction = null)
+    public void Attack(Direction? direction = null)
     {
-        if (session.Player == null)
+        if (session.Player == null || session.Player.ActionPoints <= 0)
         {
-            Log("No player character!");
-            return false;
+            Log("Attack - can't attack now!");
+            return;
         }
         
         var player = session.Player;
@@ -218,95 +218,142 @@ public class Command
         if (place == null)
         {
             Log("Player not on map!");
-            return false;
-        }
-        
-        // Check if player has action points.
-        if (player.ActionPoints <= 0)
-        {
-            Log("Attack - out of action points!");
-            return false;
+            return;
         }
         
         Log("Attack-");
         
-        // Get direction.
-        Direction dir;
+        // Get weapon
+        var weapon = player.EnumerateArms();
+        if (weapon == null)
+        {
+            Log("no weapon readied!");
+            weapon = ArmsType.TestWeapons.Fists;
+            Log("attacking with fists-");
+        }
+        
+        if (!player.HasAmmo(weapon))
+        {
+            Log("no ammo!");
+            return;
+        }
+        
+        // Two paths: direct attack or targeted attack
         if (direction.HasValue)
         {
-            dir = direction.Value;
+            // Direct attack in direction
+            int dx = DirectionToDx(direction.Value);
+            int dy = DirectionToDy(direction.Value);
+            int targetX = player.GetX() + dx;
+            int targetY = player.GetY() + dy;
+            
+            Log($"{DirectionToString(direction.Value)}-");
+            ExecuteAttack(targetX, targetY, weapon);
         }
         else
         {
-            // TODO: Implement direction prompt UI
-            dir = Direction.North;
-            Log("<direction not implemented, trying North>");
+            // Begin targeting - use callback for completion
+            BeginTargetSelection(weapon, (targetX, targetY, cancelled) =>
+            {
+                if (cancelled)
+                {
+                    Log("none!");
+                    return;
+                }
+                
+                ExecuteAttack(targetX, targetY, weapon);
+            });
+        }
+    }
+
+    /// <summary>
+    /// Start target selection mode.
+    /// When complete, calls the callback with (x, y, cancelled).
+    /// </summary>
+    private void BeginTargetSelection(ArmsType weapon, Action<int, int, bool> onComplete)
+    {
+        var player = session.Player;
+        
+        // Determine starting position for cursor
+        var lastTarget = player.GetAttackTarget();
+        int startX, startY;
+        
+        if (lastTarget != null && lastTarget.Position?.Place == player.GetPlace())
+        {
+            // Remember last target position
+            startX = lastTarget.GetX();
+            startY = lastTarget.GetY();
+        }
+        else
+        {
+            // Default to player position
+            startX = player.GetX();
+            startY = player.GetY();
         }
         
-        // Calculate target position.
-        int dx = DirectionToDx(dir);
-        int dy = DirectionToDy(dir);
-        int targetX = player.GetX() + dx;
-        int targetY = player.GetY() + dy;
+        // Delegate to Session to manage the targeting UI
+        session.BeginTargeting(
+            player.GetX(), 
+            player.GetY(), 
+            weapon.Range,
+            startX,
+            startY,
+            onComplete
+        );
+    }
+
+    /// <summary>
+    /// Execute the actual attack on the target.
+    /// </summary>
+    private void ExecuteAttack(int targetX, int targetY, ArmsType weapon)
+    {
+        var player = session.Player;
+        var place = player.GetPlace();
         
-        Log($"{DirectionToString(dir)}-");
-        
-        // Get target at location.
+        // Get target at location
         var target = place.GetBeingAt(targetX, targetY);
         
         if (target == null)
         {
             Log("nobody there!");
-            return false;
+            return;
         }
         
-        // Can't attack ourselves.
+        // Can't attack ourselves
         if (target == player)
         {
             Log("can't attack yourself!");
-            return false;
+            return;
         }
         
         Log($"{target.GetName()}-");
         
-        // TODO: Check if target is hostile.
-        // Check factions and ask for confirmation.
+        // Remember this target for next time
+        player.SetAttackTarget(target as Character);
         
-        // Get player's readied weapons.
-        var weapon = player.EnumerateArms();
-        if (weapon == null)
-        {
-            Log("no weapon readied!");
-            // Attack with fists as fallback.
-            weapon = ArmsType.TestWeapons.Fists;
-            Log($"attacking with fists-");
-        }
-        
-        // Check ammo.
-        if (!player.HasAmmo(weapon))
-        {
-            Log("no ammo!");
-            return false;
-        }
-        
-        // Check range.
+        // Check range
         int distance = CalculateDistance(player.GetX(), player.GetY(), targetX, targetY);
         if (distance > weapon.Range)
         {
             Log($"out of range! (distance: {distance}, range: {weapon.Range})");
-            return false;
+            return;
         }
         
         // Attack!
         Log($"{weapon.Name}");
-        Console.WriteLine(); // New line for attack resolution
+        Console.WriteLine();
         
-        bool hit = player.Attack(weapon, target as Character);
-        
-        // TODO: Check if combat state should change.
-        // TODO: Switch to round-robin mode if in party follow mode.
-        
-        return hit;
+        player.Attack(weapon, target as Character);
+    }
+    
+    /// <summary>
+    /// Select a target using the crosshair cursor.
+    /// </summary>
+    private void SelectTarget(int originX, int originY, int range, 
+                             int startX, int startY,
+                             Action<int, int, bool> onComplete)
+    {
+        session.BeginTargeting(originX, originY, range, startX, startY, onComplete);
     }
 
     /// <summary>
@@ -371,7 +418,8 @@ public class Command
             if (target != null && target != player)
             {
                 // Found a target!
-                return Attack(dir);
+                Attack(dir);
+                return true;
             }
         }
     

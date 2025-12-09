@@ -1,4 +1,5 @@
 using System;
+using IronScheme;
 using IronScheme.Runtime;
 
 namespace Phantasma.Models;
@@ -27,26 +28,49 @@ public partial class Kernel
         return Builtins.Unspecified;
     }
     
-    public static object SetCrosshair(object args)
-    { 
-        // TODO: Implement
-        return Builtins.Unspecified;
+    public static object SetCrosshair(object objTypeRef)
+    {
+        ObjectType objType = null;
+    
+        // Try direct cast first
+        if (objTypeRef is ObjectType ot)
+        {
+            objType = ot;
+        }
+        // Try looking up by string tag
+        else if (objTypeRef is string tag)
+        {
+            objType = Phantasma.GetRegisteredObject(tag) as ObjectType;
+        }
+    
+        if (objType == null)
+        {
+            Console.WriteLine("kern-set-crosshair: invalid object type");
+            return "#f".Eval();
+        }
+    
+        // Store with well-known key "crosshair"
+        Phantasma.RegisterObject("crosshair", objType);
+    
+        Console.WriteLine($"Crosshair type set to: {objType.Name}");
+    
+        return "#t".Eval();
     }
     
     public static object SetCursor(object args)
-    { 
+    {
         // TODO: Implement
         return Builtins.Unspecified;
     }
     
     public static object SetFrame(object args)
-    { 
+    {
         // TODO: Implement
         return Builtins.Unspecified;
     }
     
     public static object SetAscii(object args)
-    { 
+    {
         // TODO: Implement
         return Builtins.Unspecified;
     }
