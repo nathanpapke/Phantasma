@@ -101,6 +101,13 @@ public abstract class Object
     {
         // Override in items.
     }
+
+    public virtual Object? GetSpeaker()
+    {
+        // Override in party.
+        
+        return null;
+    }
     
     public virtual void Remove()
     {

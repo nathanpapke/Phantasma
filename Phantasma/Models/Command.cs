@@ -5,7 +5,7 @@ namespace Phantasma.Models;
 /// <summary>
 /// Game Command Implementations
 /// </summary>
-public class Command
+public partial class Command
 {
     private readonly Session session;
     
@@ -19,93 +19,6 @@ public class Command
     }
     
     /// <summary>
-    /// Get Command - pick up items from the ground.
-    /// </summary>
-    /// <param name="scoopAll">If true, get ALL items at location (default behavior)</param>
-    public bool Get(bool scoopAll = true)
-    {
-        if (session.Party == null || session.Player == null)
-            return false;
-        
-        Log("Get-");
-        
-        // Request direction from user.
-        // For now, we'll implement a simple version that tries the facing direction.
-        // Full implementation would use PromptForDirection() with UI.
-        
-        // Get player's current position.
-        var player = session.Player;
-        var place = player.GetPlace();
-        if (place == null)
-            return false;
-        
-        // For MVP: Try north of player.
-        // TODO: Implement direction prompt UI.
-        int dx = 0, dy = -1;
-
-        int targetX = player.GetX() + dx;
-        int targetY = player.GetY() + dy;
-        
-        var item = place.GetFilteredObject(targetX, targetY, obj => obj.IsGettable());
-        
-        if (item == null)
-        {
-            Log("Get - nothing there!");
-            return false;
-        }
-        
-        LogBeginGroup();
-        
-        // Get the first item.
-        GetItem(item);
-        
-        if (scoopAll)
-        {
-            while ((item = place.GetFilteredObject(targetX, targetY, 
-                obj => obj.IsGettable())) != null)
-            {
-                GetItem(item);
-            }
-        }
-        
-        LogEndGroup();
-        
-        // Nazghul: mapSetDirty();
-        // session.SetMapDirty();
-        
-        // Nazghul: actor->decActionPoints(NAZGHUL_BASE_ACTION_POINTS);
-        // player.DecActionPoints(10);
-        
-        return true;
-    }
-    
-    /// <summary>
-    /// Actually get a single item - transfer to party inventory.
-    /// </summary>
-    private void GetItem(Object item)
-    {
-        if (session.Party == null)
-            return;
-        
-        // Add to party inventory.
-        if (item is Item itemObj)
-        {
-            session.Party.Inventory.AddItem(itemObj);
-            
-            // Log what was picked up.
-            string description = itemObj.Name;
-            if (itemObj.Quantity > 1)
-            {
-                description = $"{itemObj.Name} x{itemObj.Quantity}";
-            }
-            Log($"You get: {description}");
-            
-            // Remove from map.
-            item.Remove();
-        }
-    }
-    
-    /// <summary>
     /// Open Command - open containers/doors.
     /// </summary>
     public bool Open()
@@ -113,37 +26,6 @@ public class Command
         // TODO: Implement for Task 9 completion
         Log("Open command not yet implemented");
         return false;
-    }
-    
-    /// <summary>
-    /// Drop Command - drop items from inventory.
-    /// </summary>
-    public bool Drop()
-    {
-        // TODO: Implement later
-        Log("Drop command not yet implemented");
-        return false;
-    }
-    
-    /// <summary>
-    /// Inventory Command - show inventory UI.
-    /// </summary>
-    public bool Inventory()
-    {
-        // TODO: Implement with Task 14 (Status Display)
-        Log("Inventory command not yet implemented");
-        
-        // For now, just print inventory to console.
-        if (session.Party?.Inventory != null)
-        {
-            var items = session.Party.Inventory.GetContents();
-            Log($"Inventory ({items.Count} types):");
-            foreach (var item in items)
-            {
-                Log($"  - {item.Name} x{item.Quantity}");
-            }
-        }
-        return true;
     }
     
     /// <summary>
@@ -199,74 +81,6 @@ public class Command
     }
 
     /// <summary>
-    /// Attack Command - attack an enemy in a direction.
-    /// Port of Nazghul's cmdAttack from cmd.c (lines 934-995)
-    /// </summary>
-    /// <param name="direction">Direction to attack (optional for simplified version)</param>
-    /// <returns>True if attack succeeded</returns>
-    public void Attack(Direction? direction = null)
-    {
-        if (session.Player == null || session.Player.ActionPoints <= 0)
-        {
-            Log("Attack - can't attack now!");
-            return;
-        }
-        
-        var player = session.Player;
-        var place = player.GetPlace();
-        
-        if (place == null)
-        {
-            Log("Player not on map!");
-            return;
-        }
-        
-        Log("Attack-");
-        
-        // Get weapon
-        var weapon = player.EnumerateArms();
-        if (weapon == null)
-        {
-            Log("no weapon readied!");
-            weapon = ArmsType.TestWeapons.Fists;
-            Log("attacking with fists-");
-        }
-        
-        if (!player.HasAmmo(weapon))
-        {
-            Log("no ammo!");
-            return;
-        }
-        
-        // Two paths: direct attack or targeted attack
-        if (direction.HasValue)
-        {
-            // Direct attack in direction
-            int dx = DirectionToDx(direction.Value);
-            int dy = DirectionToDy(direction.Value);
-            int targetX = player.GetX() + dx;
-            int targetY = player.GetY() + dy;
-            
-            Log($"{DirectionToString(direction.Value)}-");
-            ExecuteAttack(targetX, targetY, weapon);
-        }
-        else
-        {
-            // Begin targeting - use callback for completion
-            BeginTargetSelection(weapon, (targetX, targetY, cancelled) =>
-            {
-                if (cancelled)
-                {
-                    Log("none!");
-                    return;
-                }
-                
-                ExecuteAttack(targetX, targetY, weapon);
-            });
-        }
-    }
-
-    /// <summary>
     /// Start target selection mode.
     /// When complete, calls the callback with (x, y, cancelled).
     /// </summary>
@@ -274,13 +88,13 @@ public class Command
     {
         var player = session.Player;
         
-        // Determine starting position for cursor
+        // Determine starting position for cursor.
         var lastTarget = player.GetAttackTarget();
         int startX, startY;
         
         if (lastTarget != null && lastTarget.Position?.Place == player.GetPlace())
         {
-            // Remember last target position
+            // Remember last target position.
             startX = lastTarget.GetX();
             startY = lastTarget.GetY();
         }
@@ -471,6 +285,34 @@ public class Command
     }
     
     /// <summary>
+    /// Prompt for a yes/no response.
+    /// Mirrors Nazghul's ui_get_yes_no().
+    /// </summary>
+    /// <param name="prompt">The question to ask (e.g., "Quit & Save Game")</param>
+    /// <returns>True for yes, false for no</returns>
+    protected bool PromptForYesNo(string prompt)
+    {
+        // Show the prompt with Y/N indicator
+        ShowPrompt($"{prompt}-<Y/N>");
+    
+        // TODO: Full implementation should:
+        // 1. Push a YesNoKeyHandler onto the key handler stack
+        // 2. Wait for user to press Y, N, or Escape
+        // 3. Pop the handler when done
+        // 4. Return the result
+    
+        // SIMPLIFIED VERSION for now:
+        // Default to Yes until key handlers are implemented
+        bool result = true;
+    
+        // Clear and show result
+        ClearPrompt();
+        ShowPrompt(result ? "Yes!" : "No");
+    
+        return result;
+    }
+    
+    /// <summary>
     /// Process direction input (called by MainWindow when awaiting direction).
     /// </summary>
     public void ProcessDirection(Direction direction)
@@ -529,6 +371,22 @@ public class Command
     private void LogEndGroup()
     {
         // Nazghul's log_end_group()
+    }
+    
+    /// <summary>
+    /// Show a command prompt (e.g., "Talk-", "Ready-").
+    /// </summary>
+    protected void ShowPrompt(string prompt)
+    {
+        session.SetCommandPrompt(prompt);
+    }
+    
+    /// <summary>
+    /// Clear the command prompt.
+    /// </summary>
+    protected void ClearPrompt()
+    {
+        session.SetCommandPrompt("");
     }
 }
 

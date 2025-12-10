@@ -24,7 +24,6 @@ public class Character : Being
     public int Intelligence { get; set; }
     public int Dexterity { get; set; }
     public int Level { get; set; }
-    public bool IsDead { get; set; }
     public int Experience { get; set; }
     public int ArmorClass { get; set; }
     
@@ -49,6 +48,17 @@ public class Character : Being
     
     // Turn Management
     private bool turnEnded;
+    
+    /// <summary>
+    /// Current activity this character is performing.
+    /// Tracked independently for solo characters, or synced with party.
+    /// </summary>
+    private Activity currentActivity = Activity.Idle;
+    
+    // Party Dynamics
+    public int Order { get; set; } = 0;
+    public bool IsLeader => Party?.GetLeader() == this;
+    public bool CanBeLeader => !IsDead && !IsAsleep && !IsCharmed && Position?.Place != null;
     
     public enum ReadyResult
     {
@@ -221,6 +231,43 @@ public class Character : Being
         return Dexterity;
     }
     
+    /// <summary>
+    /// Get current activity (sleeping, working, etc).
+    /// </summary>
+    public Activity GetActivity()
+    {
+        // Priority 1: Check if asleep (overrides everything)
+        if (IsAsleep)
+            return Activity.Sleeping;
+    
+        // Priority 2: If in a party, use the party's current activity
+        // (Party tracks activity based on schedule appointments)
+        if (Party != null)
+            return Party.CurrentActivity;
+    
+        // Priority 3: Use character's own tracked activity
+        return currentActivity;
+    }
+
+    /// <summary>
+    /// Set current activity.
+    /// Mirrors Nazghul's Character::setActivity().
+    /// </summary>
+    public void SetActivity(Activity activity)
+    {
+        currentActivity = activity;
+    
+        // Sleeping activity controls IsAsleep state.
+        if (activity == Activity.Sleeping && !IsAsleep)
+        {
+            IsAsleep = true;
+        }
+        else if (activity != Activity.Sleeping && IsAsleep)
+        {
+            IsAsleep = false;
+        }
+    }
+    
     public void AddExperience(int xp)
     {
         Experience += xp;
@@ -343,7 +390,7 @@ public class Character : Being
         Console.WriteLine($"{target.GetWoundDescription()}!");
     
         // Award XP if target was killed.
-        if (target.IsDead())
+        if (target.IsDead)
         {
             int xp = target.GetExperienceValue();
             AddExperience(xp);
@@ -462,8 +509,7 @@ public class Character : Being
     /// </summary>
     public bool IsIncapacitated()
     {
-        // TODO: Add sleep check when implemented.
-        return IsDead(); // || IsAsleep();
+        return IsDead || IsAsleep;
     }
     
     public bool HasAmmo(ArmsType weapon)

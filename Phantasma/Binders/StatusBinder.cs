@@ -124,7 +124,7 @@ public partial class StatusBinder : BinderBase
                     Name = member.GetName(),
                     HP = member.HP,
                     MaxHP = member.MaxHP,
-                    Condition = member.IsDead() ? "Dead" : "Ok",
+                    Condition = member.IsDead ? "Dead" : "Ok",
                     IsSelected = (SelectedCharacterIndex == i)
                 });
             }

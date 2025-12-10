@@ -23,6 +23,13 @@ public abstract class Being : Object
     public int ActionPoints { get; set; }
     public int MaxActionPoints { get; set; }
     
+    // Effects
+    public bool IsDead
+    { get { return HP <= 0; } }
+    public bool IsAsleep { get; protected set; } = false;
+    public bool IsCharmed
+    { get { return false; } }
+    
     // Visual
     public Sprite CurrentSprite { get; set; }
     
@@ -98,11 +105,6 @@ public abstract class Being : Object
     public string GetName()
     {
         return name ?? "Unknown";
-    }
-    
-    public bool IsDead()
-    {
-        return HP <= 0;
     }
     
     public void Damage(int amount)

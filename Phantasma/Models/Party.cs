@@ -186,6 +186,9 @@ public class Party : Object
         {
             members.Add(character);
             character.Party = this;
+        
+            // Set the character's order.
+            character.Order = members.Count - 1;
         }
     
         var posAfter = character.GetPosition();
@@ -202,6 +205,13 @@ public class Party : Object
         if (character != null && members.Remove(character))
         {
             character.Party = null;
+        
+            // Re-index remaining members.
+            for (int i = 0; i < members.Count; i++)
+            {
+                members[i].Order = i;
+            }
+            
             return true;
         }
         return false;
@@ -230,11 +240,51 @@ public class Party : Object
     }
     
     /// <summary>
+    /// Make a character the party leader by moving them to position 0.
+    /// </summary>
+    public void SetLeader(Character? newLeader)
+    {
+        if (newLeader == null || !members.Contains(newLeader))
+            return;
+    
+        int currentIndex = members.IndexOf(newLeader);
+        if (currentIndex > 0)
+        {
+            // Move this character to position 0 (leader position).
+            members.RemoveAt(currentIndex);
+            members.Insert(0, newLeader);
+        
+            // Update order values for all affected members.
+            for (int i = 0; i < members.Count; i++)
+            {
+                members[i].Order = i;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Get the speaker for this party (override from Object).
+    /// Returns the party leader or first available member.
+    /// </summary>
+    public override Object? GetSpeaker()
+    {
+        var leader = GetLeader();
+        if (leader != null)
+            return leader;
+    
+        // No leader, return first member
+        if (members.Count > 0)
+            return members[0];
+    
+        return null;
+    }
+    
+    /// <summary>
     /// Get the first living member.
     /// </summary>
     public Character? GetFirstLivingMember()
     {
-        return members.FirstOrDefault(m => !m.IsDead());
+        return members.FirstOrDefault(m => !m.IsDead);
     }
     
     /// <summary>
@@ -242,7 +292,7 @@ public class Party : Object
     /// </summary>
     public int GetNumLivingMembers()
     {
-        return members.Count(m => !m.IsDead());
+        return members.Count(m => !m.IsDead);
     }
     
     /// <summary>
@@ -284,7 +334,7 @@ public class Party : Object
     /// </summary>
     public bool AllDead()
     {
-        return members.All(m => m.IsDead());
+        return members.All(m => m.IsDead);
     }
     
     /// <summary>
@@ -299,6 +349,9 @@ public class Party : Object
         {
             members[index1] = ch2;
             members[index2] = ch1;
+        
+            // Swap order values.
+            (ch1.Order, ch2.Order) = (ch2.Order, ch1.Order);
         }
     }
     
@@ -582,7 +635,7 @@ public class Party : Object
     /// </summary>
     public void Damage(int amount)
     {
-        var livingMembers = members.Where(m => !m.IsDead()).ToList();
+        var livingMembers = members.Where(m => !m.IsDead).ToList();
         if (livingMembers.Count > 0)
         {
             var target = livingMembers[new Random().Next(livingMembers.Count)];

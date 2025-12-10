@@ -422,7 +422,8 @@ public partial class Kernel
         character.Level = level;
         
         // Dead Flag
-        character.IsDead = ConvertToBool(dead);
+        //character.IsDead =  ConvertToBool(dead);
+        // Character IsDead if HP == 0
         
         // Store conversation closure.
         if (conv != null && !(conv is bool b && b == false))
