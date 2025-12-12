@@ -157,4 +157,29 @@ public partial class Kernel
             return Builtins.Unspecified;
         }
     }
+
+    /// <summary>
+    /// (kern-set-spell-words (word1 word2 word3 ...))
+    /// Set spell syllables/words for Ultima-style magic.
+    /// </summary>
+    public static object SetSpellWords(object words)
+    {
+        var wordsVector = Builtins.ListToVector(words);
+        if (wordsVector is object[] wordsArray)
+        {
+            for (int i = 0; i < wordsArray.Length && i < 26; i++)
+            {
+                string word = wordsArray[i]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(word))
+                {
+                    char letter = (char)('A' + i);
+                    Magic.AddWordGlobal(letter, word);
+                }
+            }
+
+            Console.WriteLine($"  Set {wordsArray.Length} spell words (global)");
+        }
+
+        return Builtins.Unspecified;
+    }
 }

@@ -156,6 +156,8 @@ public partial class Kernel
         DefineFunction("kern-mk-sprite-set", MakeSpriteSet);
         DefineFunction("kern-mk-terrain", MakeTerrain);
         DefineFunction("kern-mk-terrain-type", MakeTerrainType);
+        DefineFunction("kern-mk-palette", MakePalette);
+        DefineFunction("kern-mk-map", MakeMap);
         DefineFunction("kern-mk-place", MakePlace);
         DefineFunction("kern-mk-mmode", MakeMovementMode);
         DefineFunction("kern-mk-species", MakeSpecies);

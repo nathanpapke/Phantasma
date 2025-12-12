@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using IronScheme;
 using IronScheme.Runtime;
 
@@ -156,6 +157,109 @@ public partial class Kernel
     }
     
     /// <summary>
+    /// (kern-mk-palette tag ((glyph1 terrain1) (glyph2 terrain2) ...))
+    /// Creates a terrain palette for decoding map glyphs.
+    /// </summary>
+    public static object MakePalette(object tag, object mappings)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
+        
+        var palette = new TerrainPalette(tagStr);
+        
+        // Convert Scheme list to vector for easier iteration.
+        var mappingsVector = Builtins.ListToVector(mappings);
+        int count = 0;
+        
+        if (mappingsVector is object[] mappingsArray)
+        {
+            foreach (var pairObj in mappingsArray)
+            {
+                if (pairObj == null) continue;
+                
+                // Each element is a (glyph terrain) pair.
+                // Extract glyph (first) and terrain (second).
+                var glyph = Builtins.Car(pairObj);
+                var rest = Builtins.Cdr(pairObj);
+                var terrain = Builtins.Car(rest);
+                
+                string glyphStr = glyph?.ToString()?.Trim('"', '\'') ?? "";
+                
+                if (terrain is Terrain t && !string.IsNullOrEmpty(glyphStr))
+                {
+                    palette.AddMapping(glyphStr, t);
+                    count++;
+                }
+            }
+        }
+        
+        // Register palette for later use.
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, palette);
+        }
+        
+        return palette;
+    }
+    
+    /// <summary>
+    /// (kern-mk-map tag width height palette (line1 line2 line3 ...))
+    /// Creates a terrain map from glyph strings using a palette.
+    /// </summary>
+    public static object MakeMap(object tag, object width, object height, 
+                                 object palette, object lines)
+    {
+        string? tagStr = tag?.ToString()?.TrimStart('\'');
+        if (tagStr == "nil") tagStr = null;
+        
+        int w = Convert.ToInt32(width);
+        int h = Convert.ToInt32(height);
+        var pal = palette as TerrainPalette;
+        
+        if (pal == null)
+        {
+            return Builtins.Unspecified;
+        }
+        
+        var map = new TerrainMap(tagStr, w, h);
+        
+        // Convert Scheme list of lines to vector for easier iteration.
+        var linesVector = Builtins.ListToVector(lines);
+        
+        if (linesVector is object[] linesArray)
+        {
+            for (int y = 0; y < linesArray.Length && y < h; y++)
+            {
+                var lineObj = linesArray[y];
+                if (lineObj == null) continue;
+                
+                string line = lineObj.ToString()?.Trim('"') ?? "";
+                
+                // Split line by spaces to get individual glyphs.
+                string[] glyphs = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                
+                for (int x = 0; x < glyphs.Length && x < w; x++)
+                {
+                    string glyph = glyphs[x];
+                    var terrain = pal.GetTerrainForGlyph(glyph);
+                    
+                    if (terrain != null)
+                    {
+                        map.SetTerrain(x, y, terrain);
+                    }
+                }
+            }
+        }
+        
+        // Register map if it has a tag.
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, map);
+        }
+        
+        return map;
+    }
+    
+    /// <summary>
     /// (kern-mk-place tag name sprite map wraps underground wild combat
     ///                subplaces neighbors contents hooks entrances)
     /// Creates a place (map/location).
@@ -169,69 +273,36 @@ public partial class Kernel
     {
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         string nameStr = name?.ToString() ?? "Unnamed Place";
+
+        var terrainMap = map is TerrainMap ? (TerrainMap)map : default;
+        //if (terrainMap == null)
+        {
+            //Console.WriteLine($"[ERROR] kern-mk-place {tagStr}: invalid terrain map");
+            //return Builtins.Unspecified;
+        }
         
-        // Extract boolean flags.
-        bool wrapsFlag = Convert.ToBoolean(wraps);
-        bool undergroundFlag = Convert.ToBoolean(underground);
-        bool wildFlag = Convert.ToBoolean(wild);
-        bool combatFlag = Convert.ToBoolean(combat);
+        Console.WriteLine($"  Creating place: {tagStr} - {nameStr}");
         
-        // For now, create a basic place without terrain map.
-        // Full implementation would require terrain_map support.
         var place = new Place
         {
             Tag = tagStr,
             Name = nameStr,
-            Wraps = wrapsFlag,
-            IsUnderground = undergroundFlag,
-            IsWilderness = wildFlag,
-            CombatEnabled = combatFlag,
             Sprite = sprite as Sprite,
-            Width = 20,  // Default size - would come from terrain_map
-            Height = 20,
-            TerrainGrid = new Terrain[20, 20]
+            Width = terrainMap.Width,
+            Height = terrainMap.Height,
+            TerrainGrid = terrainMap.TerrainGrid,
+            Wraps = Convert.ToBoolean(wraps),
+            IsUnderground = Convert.ToBoolean(underground),
+            IsWilderness = Convert.ToBoolean(wild),
+            CombatEnabled = Convert.ToBoolean(combat)
         };
         
-        // Initialize terrain grid with basic grass.
-        // In full implementation, this would come from the terrain_map parameter.
-        var defaultTerrain = new Terrain
-        {
-            Name = "grass",
-            IsPassable = true,
-            PassabilityClass = 1
-        };
+        Console.WriteLine($"    Place created ({place.Width}x{place.Height})");
         
-        for (int y = 0; y < place.Height; y++)
+        if (!string.IsNullOrEmpty(tagStr))
         {
-            for (int x = 0; x < place.Width; x++)
-            {
-                place.TerrainGrid[x, y] = defaultTerrain;
-            }
+            Phantasma.RegisterObject(tagStr, place);
         }
-        
-        // Process list parameters.
-        // For now, just acknowledge them - full implementation would process each list.
-        
-        // TODO: Process subplaces list.
-        // Each entry would be unpacked and added as a sub-region.
-        
-        // TODO: Process neighbors list.
-        // Each entry defines a neighboring place and direction (up/down).
-        // Example: (neighbor-place UP) or (neighbor-place DOWN)
-        
-        // TODO: Process contents list.
-        // Each entry is an object to place on the map with coordinates.
-        // Example: (object x y)
-        
-        // TODO: Process hooks list.
-        // Each entry is an effect/hook to attach to the place.
-        
-        // TODO: Process entrances list.
-        // Each entry defines an entrance/exit point.
-        
-        Console.WriteLine($"  Created place '{tagStr}': {nameStr}");
-        Console.WriteLine($"    Flags: wraps={wrapsFlag}, underground={undergroundFlag}, " +
-                         $"wild={wildFlag}, combat={combatFlag}");
         
         return place;
     }
@@ -729,6 +800,101 @@ public partial class Kernel
         Console.WriteLine($"  Created player party with {party.Size} members (food={party.Food}, gold={party.Gold})");
         
         return party;
+    }
+    
+    /// <summary>
+    /// (kern-mk-reagent-type tag name sprite char)
+    /// Create a reagent type.
+    /// </summary>
+    public static object MakeReagentType(object tag, object name, object sprite, object displayChar)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
+        string nameStr = name?.ToString() ?? "Unnamed Reagent";
+        char charVal = displayChar?.ToString().FirstOrDefault() ?? '?';
+        
+        var reagentType = new ReagentType
+        {
+            Tag = tagStr,
+            Name = nameStr,
+            DisplayChar = charVal,
+            Sprite = sprite as Sprite
+        };
+        
+        Console.WriteLine($"  Created reagent type: {tagStr} - {nameStr}");
+        
+        // Register for later lookup.
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, reagentType);
+        }
+        
+        return reagentType;
+    }
+    
+    /// <summary>
+    /// (kern-mk-spell tag name level mana-cost range sprite 
+    ///               can-target-empty? can-target-ally? can-target-enemy? can-target-self?
+    ///               requires-los? (reagent-list) effect-closure)
+    /// Create a spell type.
+    /// </summary>
+    public static object MakeSpell(
+        object tag, object name, object level, object manaCost, object range,
+        object sprite, object canTargetEmpty, object canTargetAlly, 
+        object canTargetEnemy, object canTargetSelf, object requiresLos,
+        object reagents, object effect)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
+        string nameStr = name?.ToString() ?? "Unnamed Spell";
+        int lvl = Convert.ToInt32(level);
+        int cost = Convert.ToInt32(manaCost);
+        int rng = Convert.ToInt32(range);
+        
+        var spell = new SpellType
+        {
+            Tag = tagStr,
+            Name = nameStr,
+            Level = lvl,
+            ManaCost = cost,
+            Range = rng,
+            Sprite = sprite as Sprite,
+            CanTargetEmpty = Convert.ToBoolean(canTargetEmpty),
+            CanTargetAlly = Convert.ToBoolean(canTargetAlly),
+            CanTargetEnemy = Convert.ToBoolean(canTargetEnemy),
+            CanTargetSelf = Convert.ToBoolean(canTargetSelf),
+            RequiresLineOfSight = Convert.ToBoolean(requiresLos),
+            Effect = effect
+        };
+        
+        Console.WriteLine($"  Created spell: {tagStr} - {nameStr} (Lv{lvl}, {cost}MP)");
+        
+        // Process reagent list.
+        var reagentVector = Builtins.ListToVector(reagents);
+        if (reagentVector is object[] reagentArray)
+        {
+            foreach (var reagentObj in reagentArray)
+            {
+                if (reagentObj is ReagentType rt)
+                {
+                    // For now, assume 1 of each reagent.
+                    // In full implementation, this would be (reagent-type quantity) pairs.
+                    spell.RequiredReagents[rt] = 1;
+                }
+            }
+            
+            if (reagentArray.Length > 0)
+            {
+                Console.WriteLine($"    Requires {reagentArray.Length} reagents");
+            }
+        }
+        
+        // Register spell.
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, spell);      // For lookup by tag
+            Magic.RegisterSpellForEnumeration(spell);     // For enumeration
+        }
+        
+        return spell;
     }
     
     public static object MakeSound(object args)

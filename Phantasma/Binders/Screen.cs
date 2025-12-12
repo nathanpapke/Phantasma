@@ -121,7 +121,7 @@ public class Screen
     {
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
     
-        // Get sprite from the item's type
+        // Get sprite from the item's type.
         var sprite = item.Type?.Sprite;
     
         if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
@@ -130,7 +130,7 @@ public class Screen
         }
         else
         {
-            // Fallback: draw a simple marker
+            // Fallback: draw a simple marker.
             DrawItemFallback(context, destRect, item);
         }
     }
@@ -140,7 +140,7 @@ public class Screen
     /// </summary>
     private void DrawItemFallback(DrawingContext context, Rect rect, Item item)
     {
-        // Draw a small colored square in the center of the tile
+        // Draw a small colored square in the center of the tile.
         var itemRect = new Rect(
             rect.X + rect.Width / 4,
             rect.Y + rect.Height / 4,

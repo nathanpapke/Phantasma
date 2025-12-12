@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using IronScheme;
 
 namespace Phantasma.Models;
@@ -45,6 +46,11 @@ public class Character : Being
     private Container inventory;
     
     private int currentArmsIndex = -1;
+    
+    /// <summary>
+    /// Spells known by this character.
+    /// </summary>
+    public HashSet<SpellType> KnownSpells { get; set; } = new();
     
     // Turn Management
     private bool turnEnded;
@@ -537,6 +543,47 @@ public class Character : Being
     {
         return inventory;
     }
+
+    /// <summary>
+    /// Learn a new spell.
+    /// </summary>
+    public void LearnSpell(SpellType spell)
+    {
+        if (!KnownSpells.Contains(spell))
+        {
+            KnownSpells.Add(spell);
+            Console.WriteLine($"{Name} learned {spell.Name}!");
+        }
+    }
+
+    /// <summary>
+    /// Forget a spell.
+    /// </summary>
+    public void ForgetSpell(SpellType spell)
+    {
+        if (KnownSpells.Remove(spell))
+        {
+            Console.WriteLine($"{Name} forgot {spell.Name}!");
+        }
+    }
+
+    /// <summary>
+    /// Check if character knows a spell.
+    /// </summary>
+    public bool KnowsSpell(SpellType spell)
+    {
+        return KnownSpells.Contains(spell);
+    }
+
+    /// <summary>
+    /// Get all spells the character can currently cast.
+    /// (Has enough MP and reagents)
+    /// </summary>
+    public IEnumerable<SpellType> GetCastableSpells()
+    {
+        return KnownSpells.Where(spell => 
+            spell.CanAfford(this) && spell.HasReagents(this));
+    }
     
     /// <summary>
     /// Attempt to move in a direction with collision detection.
@@ -549,6 +596,12 @@ public class Character : Being
         if (Position == null)
         {
             Console.WriteLine($"{Name} has no location!");
+            return false;
+        }
+        
+        if (Position.Place == null)
+        {
+            Console.WriteLine($"{Name} has a position but no place!");
             return false;
         }
         

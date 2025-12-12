@@ -46,9 +46,7 @@ public abstract class Object
     
     public void SetPosition(Place place, int x, int y)
     {
-        Position.Place = place;
-        Position.X = x;
-        Position.Y = y;
+        Position = new Location(place, x, y);
     }
     
     public int GetX()
