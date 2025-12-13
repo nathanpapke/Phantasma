@@ -311,9 +311,9 @@ public struct Magic
     /// Mix reagents to identify a spell.
     /// Used for Ultima-style magic where players mix reagents to discover spells.
     /// </summary>
-    public SpellType? MixReagents(Character character, List<ReagentType> reagents)
+    public static SpellType? MixReagents(Character character, List<ReagentType> reagents)
     {
-        // Find spell that matches these reagents from global registry
+        // Find spell that matches these reagents from global registry.
         var matchingSpell = GetAllSpellsGlobal().FirstOrDefault(spell =>
         {
             if (spell.RequiredReagents.Count != reagents.Count)

@@ -156,6 +156,33 @@ public partial class MainWindow : Window
                 }
                 e.Handled = true;
                 return;
+            
+            // ===== MAGIC COMMANDS =====
+            case Key.C:
+                // Cast spell
+                command.CastSpell();
+                break;
+            
+            case Key.M:
+                // Mix reagents
+                command.MixReagents();
+                break;
+            
+            case Key.Y:
+                // Yuse (special abilities) - not yet implemented
+                command.Yuse();
+                break;
+            
+            // ===== COMBAT COMMANDS =====
+            case Key.A:
+                // Attack
+                command.Attack();
+                break;
+            
+            case Key.F:
+                // Fire (vehicle weapons) - not yet implemented
+                command.Fire();
+                break;
         }
         
         // Check if there's an active key handler on the stack.

@@ -23,10 +23,7 @@ public partial class Command
     public void Attack(Direction? direction = null)
     {
         if (session.Player == null || session.Player.ActionPoints <= 0)
-        {
-            Log("Attack - can't attack now!");
             return;
-        }
         
         var player = session.Player;
         var place = player.GetPlace();
@@ -54,10 +51,10 @@ public partial class Command
             return;
         }
         
-        // Two paths: direct attack or targeted attack
+        // Two paths: direct attack or targeted attack.
         if (direction.HasValue)
         {
-            // Direct attack in direction
+            // Direct attack in direction.
             int dx = DirectionToDx(direction.Value);
             int dy = DirectionToDy(direction.Value);
             int targetX = player.GetX() + dx;
@@ -68,7 +65,7 @@ public partial class Command
         }
         else
         {
-            // Begin targeting - use callback for completion
+            // Begin targeting - use callback for completion.
             BeginTargetSelection(weapon, (targetX, targetY, cancelled) =>
             {
                 if (cancelled)
@@ -85,5 +82,21 @@ public partial class Command
     // ===================================================================
     // FIRE COMMAND - Vehicle weapons
     // ===================================================================
-
+    
+    /// <summary>
+    /// Fire Command - fire vehicle-mounted weapons.
+    /// Mirrors Nazghul's cmdFire().
+    /// 
+    /// Flow:
+    /// 1. Check if vehicle has ordnance
+    /// 2. Prompt for direction
+    /// 3. Fire weapon if it's a valid broadside
+    /// </summary>
+    public bool Fire()
+    {
+        // TODO: Implement in Task 24 (Vehicles)
+        Log("Fire command not yet implemented");
+        Log("Will be implemented in Task 24: Vehicles");
+        return false;
+    }
 }
