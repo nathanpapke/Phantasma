@@ -191,14 +191,14 @@ public class ArmsType : ObjectType
     /// Fire this weapon at a target.
     /// Just checks range and returns hit/miss.
     /// </summary>
-    /// <param name="target">Character being attacked</param>
+    /// <param name="target">Being being attacked</param>
     /// <param name="originX">Attacker's X position</param>
     /// <param name="originY">Attacker's Y position</param>
     /// <returns>True if projectile hits, false if misses</returns>
-    public virtual bool Fire(Character target, int originX, int originY)
+    public virtual bool Fire(Being target, int originX, int originY)
     {
         if (!IsMissileWeapon() && !IsThrownWeapon())
-            return true; // Melee always "hits" (actual hit is determined by attack roll)
+            return true; // Melee always "hits" (actual hit is determined by attack roll).
         
         // Check range.
         int distance = CalculateDistance(
@@ -206,32 +206,93 @@ public class ArmsType : ObjectType
             target.Position.X, target.Position.Y);
         
         if (distance > Range)
-            return false;
+            return false; // Out of range
         
-        // TODO: Animate missile flight.
-        // TODO: Check line of sight.
-        // TODO: Sound effect.
+        // Set up the missile for animation.
+        if (missile != null)
+        {
+            missile.Position = new Location(target.GetPlace(), originX, originY);
+            
+            // Check if we hit.
+            if (!missile.HitTarget())
+                return false; // Missed or blocked
+        }
         
         return true; // Hit
     }
     
     /// <summary>
     /// Fire weapon at a specific location (not targeting a being).
-    /// Used for targeting terrain, mechanisms, etc.
+    /// Used for targeting terrain, mechanisms, or empty tiles.
     /// </summary>
+    /// <param name="place">The map/place</param>
+    /// <param name="originX">Attacker's X position</param>
+    /// <param name="originY">Attacker's Y position</param>
+    /// <param name="targetX">Target X coordinate</param>
+    /// <param name="targetY">Target Y coordinate</param>
+    /// <returns>True if animation completed</returns>
     public virtual bool Fire(Place place, int originX, int originY, int targetX, int targetY)
     {
-        // Simplified for now.
+        if (!IsMissileWeapon() && !IsThrownWeapon())
+            return true; // Melee doesn't fire at locations.
+        
+        // Check range.
         int distance = CalculateDistance(originX, originY, targetX, targetY);
-        return distance <= Range;
+        if (distance > Range)
+            return false;
+        
+        // Set up the missile for animation.
+        if (missile != null)
+        {
+            missile.Position = new Location(place, originX, originY);
+        }
+        
+        return true;
     }
     
     /// <summary>
-    /// Fire weapon in a direction (for "spray" attacks).
+    /// Fire weapon in a direction (for "spray" attacks like cannonballs).
+    /// Fires at maximum range in the given direction.
     /// </summary>
+    /// <param name="place">The map/place</param>
+    /// <param name="originX">Attacker's X position</param>
+    /// <param name="originY">Attacker's Y position</param>
+    /// <param name="dx">Direction X (-1, 0, 1)</param>
+    /// <param name="dy">Direction Y (-1, 0, 1)</param>
+    /// <param name="user">Object firing (for sound effects)</param>
+    /// <returns>True if hit something, false if missed</returns>
     public virtual bool FireInDirection(Place place, int originX, int originY, int dx, int dy, Object user)
     {
-        // TODO: Implement when we add directional attacks.
+        if (!IsMissileWeapon() && !IsThrownWeapon())
+            return false;
+        
+        // TODO: Play fire sound when sound system is implemented (Task 25)
+        // if (fireSound != null)
+        //     Sound.Play(fireSound, Sound.MaxVolume);
+        
+        // Calculate target at maximum range in this direction.
+        int targetX = dx * Range + originX;
+        int targetY = dy * Range + originY;
+        
+        // Set up the missile for animation.
+        if (missile != null)
+        {
+            missile.Position = new Location(place, originX, originY);
+            
+            // Check if we hit something.
+            if (!missile.HitTarget() || missile.GetStruck() == null)
+                return false;
+            
+            // Log the hit.
+            var struck = missile.GetStruck();
+            Console.WriteLine($"{Name} hit {struck?.Name ?? "something"}!");
+            
+            // Deal damage to what we hit.
+            // (This will be called by the combat system in ctrl_do_attack.)
+            
+            return true;
+        }
+        
         return false;
     }
     

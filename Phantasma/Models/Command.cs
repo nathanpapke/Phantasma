@@ -117,14 +117,21 @@ public partial class Command
     }
 
     /// <summary>
-    /// Execute the actual attack on the target.
+    /// Execute an attack on a target at given coordinates.
+    /// Handles both melee and ranged attacks with missile animation.
     /// </summary>
     private void ExecuteAttack(int targetX, int targetY, ArmsType weapon)
     {
         var player = session.Player;
         var place = player.GetPlace();
         
-        // Get target at location
+        if (place == null)
+        {
+            Log("Not on a map!");
+            return;
+        }
+        
+        // Get the target being.
         var target = place.GetBeingAt(targetX, targetY);
         
         if (target == null)
@@ -133,31 +140,66 @@ public partial class Command
             return;
         }
         
-        // Can't attack ourselves
-        if (target == player)
-        {
-            Log("can't attack yourself!");
-            return;
-        }
-        
         Log($"{target.GetName()}-");
         
-        // Remember this target for next time
-        player.SetAttackTarget(target as Character);
+        // Check if target is non-hostile (prompt for confirmation in full implementation).
+        // For now, just proceed.
         
-        // Check range
-        int distance = CalculateDistance(player.GetX(), player.GetY(), targetX, targetY);
+        // Log the attack.
+        Console.WriteLine($"You attack {target.GetName()}.");
+        
+        // Check range.
+        int distance = CalculateDistance(
+            player.GetX(), player.GetY(),
+            targetX, targetY);
+        
         if (distance > weapon.Range)
         {
-            Log($"out of range! (distance: {distance}, range: {weapon.Range})");
+            Log("out of range!");
             return;
         }
         
-        // Attack!
-        Log($"{weapon.Name}");
-        Console.WriteLine();
+        // Fire the weapon (this will animate missiles for ranged weapons).
+        bool hit = weapon.Fire(target, player.GetX(), player.GetY());
         
-        player.Attack(weapon, target as Character);
+        if (!hit)
+        {
+            Log("missed!");
+            player.ActionPoints -= weapon.RequiredActionPoints;
+            player.UseAmmo(weapon);
+            return;
+        }
+        
+        // Weapon fired successfully, now roll for hit.
+        int toHit = Dice.Roll("1d20") + Dice.Roll(weapon.ToHitDice);
+        int defense = target.GetDefend();
+        
+        if (toHit < defense)
+        {
+            Log("barely scratched!");
+            player.ActionPoints -= weapon.RequiredActionPoints;
+            player.UseAmmo(weapon);
+            return;
+        }
+        
+        // Hit! Roll for damage.
+        int damage = Dice.Roll(weapon.DamageDice);
+        int armor = target.GetArmor();
+        damage = Math.Max(0, damage - armor);
+        
+        target.Damage(damage);
+        
+        Log($"{target.GetWoundDescription()}!");
+        
+        // Spend action points and ammo.
+        player.ActionPoints -= weapon.RequiredActionPoints;
+        player.UseAmmo(weapon);
+        
+        // Award experience if target was killed.
+        if (target.IsDead)
+        {
+            player.AddExperience(target.GetExperienceValue());
+        }
     }
     
     /// <summary>

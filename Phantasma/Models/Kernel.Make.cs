@@ -801,6 +801,33 @@ public partial class Kernel
         
         return party;
     }
+    /// <summary>
+    /// (kern-fire-missile missile-type origin-loc dest-loc)
+    /// Fire a missile from origin to destination.
+    /// </summary>
+    public static object FireMissile(object missileTypeObj, object originLocObj, object destLocObj)
+    {
+        var missileType = missileTypeObj as ArmsType;
+        var originLoc = originLocObj as Location;
+        var destLoc = destLocObj as Location;
+        
+        // Fire the missile using the ArmsType's Fire method.
+        bool hit = missileType.Fire(originLoc.Place,
+            originLoc.X, originLoc.Y,
+            destLoc.X, destLoc.Y);
+        /*
+        // Run hit-location procedure if it hit.
+        if (hit && missileType.CanHitLocation)
+        {
+            var missile = missileType.GetMissile();
+            if (missile != null)
+            {
+                missileType.HitLocation(missile, destLoc.Place, destLoc.X, destLoc.Y);
+            }
+        }
+        */
+        return hit ? "#t".Eval() : "#f".Eval();
+    }
     
     /// <summary>
     /// (kern-mk-reagent-type tag name sprite char)

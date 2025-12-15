@@ -413,6 +413,11 @@ public class Place
     {
         return Objects.OfType<Being>().ToList();
     }
+
+    public List<Missile> GetAllMissiles()
+    {
+        return Objects.OfType<Missile>().ToList();
+    }
     
     public Object? GetMechanismAt(int x, int y)
     {

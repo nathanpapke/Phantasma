@@ -94,7 +94,7 @@ public partial class Command
     /// </summary>
     public bool Fire()
     {
-        // TODO: Implement in Task 24 (Vehicles)
+        // TODO: Implement.
         Log("Fire command not yet implemented");
         Log("Will be implemented in Task 24: Vehicles");
         return false;

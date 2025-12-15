@@ -169,6 +169,39 @@ public class Screen
     }
     
     /// <summary>
+    /// Draw a missile (arrow, bolt, etc. in flight).
+    /// </summary>
+    public void DrawMissile(DrawingContext context, int viewX, int viewY, Missile missile)
+    {
+        var destRect = new Rect(viewX * tileWidth, viewY * tileHeight, tileWidth, tileHeight);
+    
+        var sprite = missile.Sprite;
+    
+        if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw a simple projectile indicator.
+            DrawMissileDot(context, destRect, missile);
+        }
+    }
+
+    /// <summary>
+    /// Fallback rendering for missiles without sprites.
+    /// </summary>
+    private void DrawMissileDot(DrawingContext context, Rect rect, Missile missile)
+    {
+        // Draw a small white dot in center of tile.
+        var centerX = rect.X + rect.Width / 2;
+        var centerY = rect.Y + rect.Height / 2;
+        var radius = Math.Min(rect.Width, rect.Height) / 4;
+
+        context.DrawEllipse(Brushes.White, null, new Point(centerX, centerY), radius, radius);
+    }
+    
+    /// <summary>
     /// Draw the targeting crosshair).
     /// </summary>
     public void DrawCrosshair(DrawingContext context, int x, int y, Cursor cursor)
@@ -304,6 +337,235 @@ public class Screen
             
         context.DrawText(text, new Point(textX, textY));
     }
+    
+    /// <summary>
+    /// Animate a projectile flying from origin to target.
+    /// Uses Bresenham's line algorithm to move pixel-by-pixel.
+    /// Calls missile.EnterTile() for collision detection at each tile boundary.
+    /// </summary>
+    /// <param name="originX">Starting map X coordinate</param>
+    /// <param name="originY">Starting map Y coordinate</param>
+    /// <param name="targetX">Target map X coordinate</param>
+    /// <param name="targetY">Target map Y coordinate</param>
+    /// <param name="sprite">Projectile sprite to render</param>
+    /// <param name="place">The map/place</param>
+    /// <param name="missile">Missile object for collision detection</param>
+    /// <returns>Final position where missile stopped (may be before target if hit)</returns>
+    public (int X, int Y) AnimateProjectile(
+        int originX, int originY, 
+        int targetX, int targetY,
+        Sprite? sprite, 
+        Place place, 
+        Missile missile)
+    {
+        // Track current position in map coordinates as we fly.
+        int currentMapX = originX;
+        int currentMapY = originY;
+        int prevMapX = originX;
+        int prevMapY = originY;
+        
+        // Get viewport offset (where map origin is on screen).
+        int viewStartX = (screenWidth / tileWidth) / 2;
+        int viewStartY = (screenHeight / tileHeight) / 2;
+        
+        // Convert map coordinates to screen pixel coordinates.
+        int screenOriginX = (originX - viewStartX) * tileWidth;
+        int screenOriginY = (originY - viewStartY) * tileHeight;
+        int screenTargetX = (targetX - viewStartX) * tileWidth;
+        int screenTargetY = (targetY - viewStartY) * tileHeight;
+        
+        // Current screen pixel position (starts at origin).
+        int screenX = screenOriginX;
+        int screenY = screenOriginY;
+        
+        // Calculate deltas.
+        int deltaX = screenTargetX - screenOriginX;
+        int deltaY = screenTargetY - screenOriginY;
+        int absDeltaX = Math.Abs(deltaX);
+        int absDeltaY = Math.Abs(deltaY);
+        
+        // Set sprite orientation based on direction of travel.
+        if (sprite != null)
+        {
+            int facing = DirectionFromVector(deltaX, deltaY);
+            sprite.Facing = facing;
+        }
+        
+        // Determine step direction (+1 or -1).
+        int stepX = (screenOriginX > screenTargetX) ? -1 : 1;
+        int stepY = (screenOriginY > screenTargetY) ? -1 : 1;
+        
+        // Bresenham's Line Algorithm
+        // Walk along the dominant axis (X or Y).
+        if (absDeltaX >= absDeltaY)
+        {
+            // Walk along X axis.
+            int deltaP = absDeltaY << 1;
+            int deltaPIncr = deltaP - (absDeltaX << 1);
+            int p = deltaP - absDeltaX;
+            
+            for (int i = absDeltaX; i >= 0; i--)
+            {
+                // Check if we've entered a new tile.
+                prevMapX = currentMapX;
+                prevMapY = currentMapY;
+                currentMapX = (screenX - screenOriginX + originX * tileWidth) / tileWidth;
+                currentMapY = (screenY - screenOriginY + originY * tileHeight) / tileHeight;
+                
+                // If changed tiles, do collision detection.
+                if (currentMapX != prevMapX || currentMapY != prevMapY)
+                {
+                    if (!missile.EnterTile(place, currentMapX, currentMapY))
+                    {
+                        // Hit something - stop here
+                        return (currentMapX, currentMapY);
+                    }
+                }
+                
+                // Paint missile sprite at current position (if visible).
+                if (IsTileVisibleInViewport(currentMapX, currentMapY, place))
+                {
+                    PaintProjectile(screenX, screenY, sprite);
+                }
+                
+                // Move to next pixel.
+                if (p > 0)
+                {
+                    screenX += stepX;
+                    screenY += stepY;
+                    p += deltaPIncr;
+                }
+                else
+                {
+                    screenX += stepX;
+                    p += deltaP;
+                }
+            }
+        }
+        else
+        {
+            // Walk along Y axis.
+            int deltaP = absDeltaX << 1;
+            int deltaPIncr = deltaP - (absDeltaY << 1);
+            int p = deltaP - absDeltaY;
+            
+            for (int i = absDeltaY; i >= 0; i--)
+            {
+                // Check if we've entered a new tile.
+                prevMapX = currentMapX;
+                prevMapY = currentMapY;
+                currentMapX = (screenX - screenOriginX + originX * tileWidth) / tileWidth;
+                currentMapY = (screenY - screenOriginY + originY * tileHeight) / tileHeight;
+                
+                // If changed tiles, do collision detection.
+                if (currentMapX != prevMapX || currentMapY != prevMapY)
+                {
+                    if (!missile.EnterTile(place, currentMapX, currentMapY))
+                    {
+                        // Hit something - stop here.
+                        return (currentMapX, currentMapY);
+                    }
+                }
+                
+                // Paint missile sprite at current position (if visible).
+                if (IsTileVisibleInViewport(currentMapX, currentMapY, place))
+                {
+                    PaintProjectile(screenX, screenY, sprite);
+                }
+                
+                // Move to next pixel.
+                if (p > 0)
+                {
+                    screenX += stepX;
+                    screenY += stepY;
+                    p += deltaPIncr;
+                }
+                else
+                {
+                    screenY += stepY;
+                    p += deltaP;
+                }
+            }
+        }
+        
+        // Restore sprite to default facing.
+        if (sprite != null)
+        {
+            sprite.Facing = 0; // SPRITE_DEF_FACING
+        }
+        
+        // Return final position (reached target).
+        return (currentMapX, currentMapY);
+    }
+    
+    /// <summary>
+    /// Paint a projectile sprite at screen coordinates.
+    /// Handles rendering with brief pause so player can see it.
+    /// </summary>
+    private void PaintProjectile(int screenX, int screenY, Sprite? sprite)
+    {
+        if (sprite == null)
+            return;
+        
+        // Check if on screen.
+        if (screenX < 0 || screenY < 0 || 
+            screenX + tileWidth > screenWidth || 
+            screenY + tileHeight > screenHeight)
+            return;
+        
+        // TODO: Actual rendering implementation
+        // This would need access to the DrawingContext
+        // For now, this is a placeholder
+        
+        // In full implementation:
+        // 1. Save background at this position
+        // 2. Draw sprite
+        // 3. Update screen
+        // 4. Brief pause (1-2ms) so player can see it
+        // 5. Restore background
+        // 6. Update screen again
+        
+        System.Threading.Thread.Sleep(1); // Brief pause
+    }
+    
+    /// <summary>
+    /// Check if a map tile is visible in the current viewport.
+    /// </summary>
+    private bool IsTileVisibleInViewport(int mapX, int mapY, Place place)
+    {
+        // Check map bounds.
+        if (mapX < 0 || mapX >= place.Width || mapY < 0 || mapY >= place.Height)
+            return false;
+        
+        // Check if in viewport.
+        int viewStartX = (screenWidth / tileWidth) / 2;
+        int viewStartY = (screenHeight / tileHeight) / 2;
+        int viewEndX = viewStartX + (screenWidth / tileWidth);
+        int viewEndY = viewStartY + (screenHeight / tileHeight);
+        
+        return mapX >= viewStartX && mapX < viewEndX && 
+               mapY >= viewStartY && mapY < viewEndY;
+    }
+    
+    /// <summary>
+    /// Convert a direction vector to a facing index.
+    /// </summary>
+    private int DirectionFromVector(int dx, int dy)
+    {
+        // Nazghul uses 8 directions (N, NE, E, SE, S, SW, W, NW).
+        // Map dx/dy to direction index.
+        
+        if (dx == 0 && dy < 0) return 0;  // North
+        if (dx > 0 && dy < 0) return 1;   // Northeast
+        if (dx > 0 && dy == 0) return 2;  // East
+        if (dx > 0 && dy > 0) return 3;   // Southeast
+        if (dx == 0 && dy > 0) return 4;  // South
+        if (dx < 0 && dy > 0) return 5;   // Southwest
+        if (dx < 0 && dy == 0) return 6;  // West
+        if (dx < 0 && dy < 0) return 7;   // Northwest
+        
+        return 0; // Default to North
+    }
 
     /// <summary>
     /// Draw the complete map view.
@@ -394,7 +656,24 @@ public class Screen
             }
         }
         
-        // Layer 4: Draw cursor if active.
+        // Layer 4: Draw missiles (arrows in flight)
+        var missiles = place.GetAllMissiles();
+        foreach (var missile in missiles)
+        {
+            viewX = missile.GetX() - viewStartX;
+            viewY = missile.GetY() - viewStartY;
+
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawMissile(context, viewX, viewY, missile);
+                }
+            }
+        }
+        
+        // Layer 5: Draw cursor if active.
         // Add this after the beings loop ends and before the closing brace of DrawMap()
         if (crosshair != null && crosshair.IsActive())
         {

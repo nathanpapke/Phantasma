@@ -50,7 +50,7 @@ public partial class Kernel
         }
         return c.Level;
     }
-    
+    /*
     /// <summary>
     /// (kern-char-add-spell character spell)
     /// Add a spell to a character's known spells.
@@ -93,5 +93,5 @@ public partial class Kernel
         }
         
         return "#f".Eval();
-    }
+    }*/
 }

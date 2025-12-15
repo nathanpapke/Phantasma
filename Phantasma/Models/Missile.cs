@@ -7,14 +7,41 @@ public class Missile : Object
 {
     public override ObjectLayer Layer => ObjectLayer.Missile;
     
-    // The object type this missile represents (arrow, bolt, etc)
+    // Object Type this Missile R   epresents (arrow, bolt, etc)
     private ArmsType objectType;
+    
+    // Animation Flags
+    private int flags;
+    
+    // Hit Detection
+    private bool hit;
+    private Object? struck;
     
     // Projectile State
     public Being? Source { get; set; }
     public int TargetX { get; set; }
     public int TargetY { get; set; }
     public Being? StruckTarget { get; set; }
+    
+    /// <summary>
+    /// Get the sprite for this missile (from its object type).
+    /// </summary>
+    public Sprite? Sprite
+    {
+        get =>  objectType?.Sprite;
+        set
+        {
+            if (objectType != null)
+                objectType.Sprite = value;
+        }
+    }
+
+    public enum MissileFlags
+    {
+        None = 0,
+        IgnoreLineOfSight = 1 << 0,
+        HitParty = 1 << 1
+    }
     
     /// <summary>
     /// Create a missile from an arms type (the projectile).
@@ -24,6 +51,7 @@ public class Missile : Object
     {
         this.objectType = missileType;
         this.Name = missileType.Name;
+        this.Sprite = missileType.Sprite;
     }
     
     /// <summary>
@@ -37,9 +65,9 @@ public class Missile : Object
     /// <summary>
     /// Get what this missile struck (if anything).
     /// </summary>
-    public Being? GetStruck()
+    public Object? GetStruck()
     {
-        return StruckTarget;
+        return struck;
     }
     
     /// <summary>
@@ -47,37 +75,60 @@ public class Missile : Object
     /// </summary>
     public bool HitTarget()
     {
-        return StruckTarget != null;
+        return hit;
     }
     
     /// <summary>
-    /// Animate missile flight from origin to target.
-    /// For Task 15, this is simplified - just checks if we hit.
-    /// Full animation implementation will come in Task 18 (Missiles and Projectiles).
+    /// Called by Screen.AnimateProjectile() as missile enters each tile.
+    /// Returns false to stop the missile (hit something).
     /// </summary>
-    /// <param name="originX">Starting X</param>
-    /// <param name="originY">Starting Y</param>
-    /// <param name="targetX">Ending X</param>
-    /// <param name="targetY">Ending Y</param>
-    /// <param name="flags">Animation flags (ignored for now)</param>
-    /// <returns>True if animation completed</returns>
-    public bool Animate(int originX, int originY, int targetX, int targetY, int flags)
+    /// <param name="place">The place/map</param>
+    /// <param name="x">Tile X coordinate</param>
+    /// <param name="y">Tile Y coordinate</param>
+    /// <returns>True to continue flying, false to stop</returns>
+    public bool EnterTile(Place place, int x, int y)
     {
-        // TODO: Implement actual missile flight animation.
-        // For now, just check if there's a being at the target.
-        
-        if (Position?.Place == null)
-            return false;
-        
-        // Check for being at target location.
-        var target = Position.Place.GetBeingAt(targetX, targetY);
-        if (target != null)
+        // Check line of sight (unless IGNORE_LOS flag is set).
+        // This prevents missiles from going through walls/trees.
+        if ((flags & (int)MissileFlags.IgnoreLineOfSight) == 0)
         {
-            StruckTarget = target;
-            return true;
+            if (place.GetVisibility(x, y) == 0)
+            {
+                // Hit an obstacle.
+                return false;
+            }
         }
         
-        StruckTarget = null;
-        return true; // Animation "completed" even if nothing hit.
+        // Check for party members (if HIT_PARTY flag is set).
+        // This allows cannons to damage the player party.
+        if ((flags & (int)MissileFlags.HitParty) != 0)
+        {
+            // Check for any party member at this location.
+            var person = place.GetBeingAt(x, y); //.GetPartyAt(x, y);
+            foreach (Character member in Phantasma.MainSession.Party.Members)
+            {
+                if (person == member)
+                {
+                    struck = person;
+                    hit = true;
+                    return false; // Stop - we hit the party
+                }
+            }
+
+            // Also check if player is at this exact location.
+            var playerParty = Phantasma.MainSession.Party;
+            if (playerParty != null && 
+                playerParty.GetPlace() == place &&
+                playerParty.GetX() == x && 
+                playerParty.GetY() == y)
+            {
+                struck = playerParty;
+                hit = true;
+                return false; // Stop - we hit the player
+            }
+        }
+        
+        // Continue flying.
+        return true;
     }
 }

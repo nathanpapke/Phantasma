@@ -169,6 +169,7 @@ public partial class Kernel
         DefineFunction("kern-mk-container", MakeContainer);
         DefineFunction("kern-mk-party", MakeParty);
         DefineFunction("kern-mk-player", MakePlayer);
+        DefineFunction("kern-fire-missile", FireMissile);
         DefineFunction("kern-mk-reagent-type", MakeReagentType);
         DefineFunction("kern-mk-spell", MakeSpell);
         DefineFunction("kern-mk-sound", MakeSound);
@@ -234,9 +235,9 @@ public partial class Kernel
         DefineFunction("kern-char-get-hp", CharacterGetHp);
         DefineFunction("kern-char-get-max-hp", CharacterGetMaxHp);
         DefineFunction("kern-char-get-level", CharacterGetLevel);
-        DefineFunction("kern-char-add-spell", CharacterAddSpell);
-        DefineFunction("kern-char-knows-spell", CharacterKnowsSpell);
-        DefineFunction("kern-cast-spell", CastSpell);
+        //DefineFunction("kern-char-add-spell", CharacterAddSpell);
+        //DefineFunction("kern-char-knows-spell", CharacterKnowsSpell);
+        //DefineFunction("kern-cast-spell", CastSpell);
         
         // ===================================================================
         // KERN-CONV API - Conversation Functions
