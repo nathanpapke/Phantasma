@@ -357,6 +357,13 @@ public partial class Kernel
         else
             movementMode = new MovementMode("mmode-walk", "Walking", 0);
         
+        
+        // Parse slots list into int array
+        int[]? slotsArray = ParseSlotsList(slots);
+        
+        // Parse spells list into string array
+        string[]? spellsArray = ParseSpellsList(spells);
+        
         var species = new Species
         {
             Tag = tagStr,
@@ -376,8 +383,9 @@ public partial class Kernel
             Visible = ConvertToBool(visible ?? true),
             // damageSound, walkingSound - TODO when sound system implemented
             // onDeath - TODO when closure system implemented
-            XpVal = Convert.ToInt32(xpval ?? 10)
-            // slots, spells - TODO: parse lists when needed
+            XpVal = Convert.ToInt32(xpval ?? 10),
+            Slots = slotsArray,
+            Spells = spellsArray
         };
         
         if (!string.IsNullOrEmpty(tagStr))
@@ -385,6 +393,7 @@ public partial class Kernel
             Phantasma.RegisterObject(tagStr, species);
         }
         
+        int slotCount = slotsArray?.Length ?? 0;
         Console.WriteLine($"  Created species: {species.Name} (str={species.Str}, dex={species.Dex}, hp={species.HpMod}+{species.HpMult}/lvl)");
         
         return species;

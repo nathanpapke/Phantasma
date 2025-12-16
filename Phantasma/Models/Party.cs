@@ -372,7 +372,7 @@ public class Party : Object
     /// </summary>
     public void TakeOut(Item item)
     {
-        Inventory.RemoveItem(item);
+        Inventory.RemoveItem(item.Type);
     }
     
     // ====================================================================

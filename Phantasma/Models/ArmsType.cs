@@ -13,6 +13,7 @@ public class ArmsType : ObjectType
     public int NumHands { get; protected set; }
     public int Range { get; protected set; }
     public int RequiredActionPoints { get; protected set; }
+    public int Weight { get; set; }
     
     // Dice Strings
     public string ToHitDice { get; protected set; } = "0";
@@ -188,6 +189,31 @@ public class ArmsType : ObjectType
     }
     
     /// <summary>
+    /// Set whether this is a thrown weapon.
+    /// </summary>
+    public void SetThrown(bool val)
+    {
+        if (val == IsThrown)
+            return;
+        
+        IsThrown = val;
+        
+        if (!val)
+        {
+            // No longer thrown, clear missile if it was self.
+            if (missileType == this)
+            {
+                missile = null;
+                missileType = null;
+            }
+            return;
+        }
+        
+        // Now thrown - use self as missile.
+        SetMissileType(this);
+    }
+    
+    /// <summary>
     /// Fire this weapon at a target.
     /// Just checks range and returns hit/miss.
     /// </summary>
@@ -333,6 +359,67 @@ public class ArmsType : ObjectType
     }
     
     /// <summary>
+    /// Create a ranged weapon (bow, crossbow, etc).
+    /// </summary>
+    public static ArmsType CreateRangedWeapon(
+        string tag,
+        string name,
+        string damageDice,
+        int range,
+        ArmsType ammoType,
+        int numHands = 2,
+        string toHitDice = "0",
+        int weight = 15)
+    {
+        return new ArmsType(
+            tag: tag,
+            name: name,
+            sprite: null,
+            slotMask: Slots.Weapon,
+            toHitDice: toHitDice,
+            toDefendDice: "0",
+            numHands: numHands,
+            range: range,
+            weight: weight,
+            damageDice: damageDice,
+            armorDice: "0",
+            requiredActionPoints: 1,
+            thrown: false,
+            ubiquitousAmmo: false,
+            missileType: ammoType
+        );
+    }
+    
+    /// <summary>
+    /// Create a thrown weapon.
+    /// </summary>
+    public static ArmsType CreateThrownWeapon(
+        string tag,
+        string name,
+        string damageDice,
+        int range,
+        string toHitDice = "0",
+        int weight = 5)
+    {
+        return new ArmsType(
+            tag: tag,
+            name: name,
+            sprite: null,
+            slotMask: Slots.Weapon,
+            toHitDice: toHitDice,
+            toDefendDice: "0",
+            numHands: 1,
+            range: range,
+            weight: weight,
+            damageDice: damageDice,
+            armorDice: "0",
+            requiredActionPoints: 1,
+            thrown: true,
+            ubiquitousAmmo: false
+        );
+    }
+    
+    /// <summary>
     /// Create a simple armor piece.
     /// </summary>
     public static ArmsType CreateArmor(
@@ -396,4 +483,15 @@ public class ArmsType : ObjectType
         public static ArmsType Shield => CreateArmor(
             "shield", "Shield", "1d3", Slots.Shield, "+2");
     }
+}
+
+/// <summary>
+/// Flags for missile behavior.
+/// </summary>
+[Flags]
+public enum MissileFlags
+{
+    None = 0,
+    IgnoreLOS = 1,
+    HitParty = 2
 }

@@ -42,10 +42,31 @@ public class Character : Being
     public object Conversation { get; set; }
     
     // Equipment Slots
-    private List<ArmsType> readiedArms;
+    private ArmsType?[]? readiedArms;
     private Container inventory;
     
-    private int currentArmsIndex = -1;
+    private int armsIndex = -1;
+    
+    /// <summary>
+    /// Current burden from equipped items (total weight).
+    /// Cannot exceed Strength.
+    /// </summary>
+    private int burden = 0;
+    
+    /// <summary>
+    /// Current arms during enumeration.
+    /// </summary>
+    private ArmsType? currentArms;
+    
+    /// <summary>
+    /// Defense bonus from spells/effects.
+    /// </summary>
+    private int defenseBonus = 0;
+    
+    /// <summary>
+    /// Flag indicating NPC needs to re-equip.
+    /// </summary>
+    private bool needsRearm = false;
     
     /// <summary>
     /// Spells known by this character.
@@ -76,12 +97,15 @@ public class Character : Being
 
     public Character() : base()
     {
-        readiedArms = new List<ArmsType>();
+        Species = new Species();
         Level = 1;
         Strength = 10;
         Intelligence = 10;
         Dexterity = 10;
         ArmorClass = 10;
+        
+        // Initialize equipment slots based on species.
+        InitializeEquipmentSlots();
     }
 
     public Character(string tag, string name,
@@ -112,98 +136,27 @@ public class Character : Being
         // Calculate max values.
         MaxHP = HpMod + (HpMult * Level);
         MaxMP = MpMod + (MpMult * Level);
+        
+        // Initialize equipment slots based on species.
+        InitializeEquipmentSlots();
     }
     
     /// <summary>
-    /// Create a simple test player character.
+    /// Initialize equipment slots array based on species definition.
     /// </summary>
-    public static Character CreateTestPlayer()
+    private void InitializeEquipmentSlots()
     {
-        var player = new Character();
-        player.SetName("Hero");
-        player.IsPlayer = true;
-        player.Level = 1;
-        player.HP = player.MaxHP = 100;
-        player.MP = player.MaxMP = 50;
-        player.ActionPoints = player.MaxActionPoints = 10;
-        player.ArmorClass = 10;
-        
-        // Try to load player sprite.
-        var playerSprite = SpriteManager.GetSprite("player");
-        if (playerSprite != null)
+        int nSlots = Species.NSlots;
+        if (nSlots > 0)
         {
-            player.CurrentSprite = playerSprite;
+            readiedArms = new ArmsType?[nSlots];
+            // All slots start empty (null).
         }
         else
         {
-            // Create a placeholder sprite.
-            player.CurrentSprite = new Sprite
-            {
-                Tag = "player",
-                DisplayChar = '@',  // Classic roguelike player symbol
-                SourceImage = null
-            };
+            readiedArms = null;
         }
-        
-        return player;
-    }
-
-    /// <summary>
-    /// Create a test NPC with conversation for testing.
-    /// </summary>
-    public static Character CreateTestNPC()
-    {
-        // Create NPC character.
-        var npc = new Character
-        {
-            //Name = "Guardsman Bob",
-            IsPlayer = false,
-            Level = 1,
-            HP = 50,
-            MaxHP = 50//,
-            //Conversation = conversationClosure
-        };
-        npc.SetName("Guardsman Bob");
-        
-        // Try to load NPC sprite.
-        var npcSprite = SpriteManager.GetSprite("npc") ?? SpriteManager.GetSprite("player");
-        if (npcSprite == null)
-        {
-            // Create placeholder sprite.
-            npcSprite = new Sprite
-            {
-                Tag = "npc",
-                DisplayChar = '@',
-                SourceImage = null
-            };
-        }
-        npc.CurrentSprite = npcSprite;
-
-        return npc;
-    }
-
-    /// <summary>
-    /// Create a test enemy for combat testing.
-    /// </summary>
-    public static Character CreateTestEnemy(string name, int hp = 50)
-    {
-        var enemy = new Character();
-        enemy.SetName(name);
-        enemy.IsPlayer = false;
-        enemy.Level = 1;
-        enemy.HP = enemy.MaxHP = hp;
-        enemy.MP = enemy.MaxMP = 20;
-        enemy.ActionPoints = enemy.MaxActionPoints = 10;
-        enemy.ArmorClass = 10;
-        enemy.Strength = 10;
-        enemy.Dexterity = 10;
-        enemy.Intelligence = 8;
-    
-        // Give enemy a weapon.
-        var weapon = ArmsType.TestWeapons.Club;
-        enemy.Ready(weapon);
-    
-        return enemy;
+        burden = 0;
     }
     
     public bool IsTurnEnded()
@@ -295,48 +248,430 @@ public class Character : Being
         }
     }
     
-    public ReadyResult Ready(ArmsType weapon)
+    // ========================================================================
+    // READY/UNREADY - Core equipment management
+    // Mirrors Nazghul's Character::ready() and Character::unready()
+    // ========================================================================
+    
+    /// <summary>
+    /// Ready (equip) an arms item.
+    /// Finds an appropriate empty slot and places the item there.
+    /// Handles two-handed weapons requiring two slots.
+    /// </summary>
+    /// <param name="arms">The weapon/armor to ready</param>
+    /// <returns>Result indicating success or failure reason</returns>
+    public ReadyResult Ready(ArmsType? arms)
     {
-        if (weapon == null)
+        if (arms == null)
             return ReadyResult.WrongType;
-    
-        // Check weight.
-        int currentBurden = CalculateBurden();
-        if (currentBurden + weapon.Weight > Strength)
+        
+        // No slots available for this species?
+        if (readiedArms == null || Species.Slots == null || Species.NSlots == 0)
+            return ReadyResult.WrongType;
+        
+        bool foundSlotType = false;
+        int slotMask = arms.SlotMask;
+        
+        // Check if adding this would exceed carrying capacity
+        if (burden + arms.Weight > Strength)
             return ReadyResult.TooHeavy;
-    
-        // Just add to list.
-        if (!readiedArms.Contains(weapon))
+        
+        // Search for an empty slot of the correct type
+        for (int i = 0; i < Species.NSlots; i++)
         {
-            readiedArms.Add(weapon);
+            // Is the slot the right type?
+            if ((slotMask & Species.Slots[i]) == 0)
+                continue;
+            
+            foundSlotType = true;
+            
+            // Is the slot occupied?
+            if (readiedArms[i] != null)
+                continue;
+            
+            // At this point we've found an empty slot of the correct type.
+            // If this is a two-handed item then we also need the next slot to be empty.
+            if (arms.NumHands == 2)
+            {
+                // Need another slot
+                if (i >= Species.NSlots - 1)
+                    continue;
+                
+                // Is the next slot occupied?
+                if (readiedArms[i + 1] != null)
+                    continue;
+                
+                // Is the next slot the right type?
+                if ((slotMask & Species.Slots[i + 1]) == 0)
+                    continue;
+                
+                // Two-handed: occupy both slots.
+                readiedArms[i + 1] = arms;
+            }
+            
+            // Ready the item.
+            readiedArms[i] = arms;
+            burden += arms.Weight;
             return ReadyResult.Readied;
         }
-    
-        return ReadyResult.Readied;
+        
+        // We found slots of the right type, but they were all occupied
+        if (foundSlotType)
+            return ReadyResult.NoAvailableSlot;
+        
+        // This species doesn't have slots for this type of equipment
+        return ReadyResult.WrongType;
     }
-
+    
     /// <summary>
-    /// Calculate total burden from equipped items.
+    /// Unready (unequip) an arms item.
+    /// Removes the item from its slot(s).
     /// </summary>
-    private int CalculateBurden()
+    /// <param name="arms">The weapon/armor to unready</param>
+    /// <returns>True if item was found and unreadied</returns>
+    public bool Unready(ArmsType? arms)
     {
-        int burden = 0;
-        foreach (var weapon in readiedArms)
+        if (arms == null || readiedArms == null || Species.NSlots == 0)
+            return false;
+        
+        for (int i = 0; i < Species.NSlots; i++)
         {
-            if (weapon != null)
-                burden += weapon.Weight;
+            // Is it in this slot?
+            if (readiedArms[i] != arms)
+                continue;
+            
+            // Is this a 2-handed item (in which case it should be in the next slot too)?
+            if (arms.NumHands == 2)
+            {
+                if (i < Species.NSlots - 1 && readiedArms[i + 1] == arms)
+                {
+                    readiedArms[i + 1] = null;
+                }
+            }
+            
+            // Unready the item.
+            readiedArms[i] = null;
+            burden -= arms.Weight;
+            
+            return true;
         }
-        return burden;
+        
+        return false;
     }
     
-    public bool Unready(ArmsType weapon)
+    /// <summary>
+    /// Check if an arms item is currently readied.
+    /// </summary>
+    public bool HasReadied(ArmsType? arms)
     {
-        return readiedArms.Remove(weapon);
+        if (arms == null || readiedArms == null)
+            return false;
+        
+        for (var weapon = EnumerateArms(); weapon != null; weapon = GetNextArms())
+        {
+            if (weapon == arms)
+                return true;
+        }
+        return false;
     }
     
-    public bool HasReadied(ArmsType weapon)
+    /// <summary>
+    /// Get the current burden (total weight of equipped items).
+    /// </summary>
+    public int GetBurden() => burden;
+    
+    /// <summary>
+    /// Get the number of equipment slots this character has.
+    /// </summary>
+    public int GetNumSlots() => Species.NSlots;
+    
+    /// <summary>
+    /// Get the equipment in a specific slot.
+    /// </summary>
+    public ArmsType? GetArmsInSlot(int slot)
     {
-        return readiedArms.Contains(weapon);
+        if (readiedArms == null || slot < 0 || slot >= Species.NSlots)
+            return null;
+        return readiedArms[slot];
+    }
+    
+    // ========================================================================
+    // ARMS ENUMERATION - Iterate through equipped items
+    // Mirrors Nazghul's Character::enumerateArms(), getNextArms(), etc.
+    // ========================================================================
+    
+    /// <summary>
+    /// Begin enumerating all equipped arms.
+    /// Call GetNextArms() repeatedly to iterate.
+    /// </summary>
+    /// <returns>First equipped arms, or null if none</returns>
+    public ArmsType? EnumerateArms()
+    {
+        armsIndex = -1;
+        currentArms = null;
+        return GetNextArms();
+    }
+    
+    /// <summary>
+    /// Get the next equipped arms in enumeration.
+    /// Skips duplicate entries for two-handed weapons.
+    /// </summary>
+    /// <returns>Next equipped arms, or null if done</returns>
+    public ArmsType? GetNextArms()
+    {
+        if (readiedArms == null || Species.NSlots == 0)
+        {
+            currentArms = null;
+            return null;
+        }
+        
+        // Advance to the next slot.
+        armsIndex++;
+        
+        // Search remaining slots for an item.
+        for (; armsIndex < Species.NSlots; armsIndex++)
+        {
+            // Is anything in this slot?
+            if (readiedArms[armsIndex] == null)
+                continue;
+            
+            // Is this just another slot for the same weapon (two-handed)?
+            if (currentArms == readiedArms[armsIndex] && currentArms?.NumHands == 2)
+                continue;
+            
+            currentArms = readiedArms[armsIndex];
+            return currentArms;
+        }
+        
+        currentArms = null;
+        return null;
+    }
+    
+    /// <summary>
+    /// Begin enumerating weapons (arms that can deal damage).
+    /// Falls back to species natural weapon if none equipped.
+    /// </summary>
+    public ArmsType? EnumerateWeapons()
+    {
+        armsIndex = -1;
+        currentArms = null;
+        var weapon = GetNextWeapon();
+        
+        // If no weapon equipped, use species natural weapon.
+        if (weapon == null)
+            weapon = Species.Weapon;
+        
+        return weapon;
+    }
+    
+    /// <summary>
+    /// Get the next weapon in enumeration.
+    /// Only returns arms with damage dice > 0.
+    /// </summary>
+    public ArmsType? GetNextWeapon()
+    {
+        do
+        {
+            GetNextArms();
+        }
+        while (currentArms != null && Dice.Average(currentArms.DamageDice) <= 0);
+        
+        return currentArms;
+    }
+    
+    /// <summary>
+    /// Get all weapons for IEnumerable iteration.
+    /// </summary>
+    public IEnumerable<ArmsType> GetAllWeapons()
+    {
+        for (var weapon = EnumerateWeapons(); weapon != null; weapon = GetNextWeapon())
+        {
+            yield return weapon;
+        }
+    }
+    
+    /// <summary>
+    /// Get all equipped arms for IEnumerable iteration.
+    /// </summary>
+    public IEnumerable<ArmsType> GetAllArms()
+    {
+        for (var arms = EnumerateArms(); arms != null; arms = GetNextArms())
+        {
+            yield return arms;
+        }
+    }
+    
+    /// <summary>
+    /// Get the current weapon (for combat).
+    /// </summary>
+    public ArmsType? GetCurrentWeapon()
+    {
+        return currentArms ?? Species.Weapon;
+    }
+    
+    // ========================================================================
+    // INVENTORY MANAGEMENT
+    // ========================================================================
+    
+    /// <summary>
+    /// Get this character's inventory container.
+    /// For player-controlled characters, returns party inventory.
+    /// For NPCs, returns personal inventory.
+    /// </summary>
+    public Container? GetInventoryContainer()
+    {
+        if (IsPlayer && Party?.Inventory != null)
+            return Party.Inventory;
+        return inventory;
+    }
+    
+    /// <summary>
+    /// Set this character's personal inventory container.
+    /// </summary>
+    public void SetInventoryContainer(Container? container)
+    {
+        inventory = container;
+    }
+    
+    /// <summary>
+    /// Check if character has ammo for a weapon.
+    /// Returns count of available ammo (0 = none, 1+ = has ammo).
+    /// </summary>
+    public bool HasAmmo(ArmsType weapon)
+    {
+        if (weapon.HasUbiquitousAmmo)
+            return true;  // Unlimited ammo
+        
+        var container = GetInventoryContainer();
+        if (container == null)
+            return false;
+        
+        if (weapon.IsMissileWeapon())
+        {
+            var ammoType = weapon.GetMissileType();
+            if (ammoType == null)
+                return false;
+            
+            var entry = container.Search(ammoType);
+            return entry?.Quantity > 0;
+        }
+        else if (weapon.IsThrown)
+        {
+            var entry = container.Search(weapon);
+            if (entry == null)
+            {
+                // No more in inventory, unready it.
+                Unready(weapon);
+                return false;
+            }
+            return entry.Quantity > 0;
+        }
+        
+        // Melee weapons don't need ammo.
+        return true;
+    }
+    
+    /// <summary>
+    /// Consume ammo for a weapon after firing.
+    /// </summary>
+    public int UseAmmo(ArmsType weapon)
+    {
+        if (weapon.HasUbiquitousAmmo)
+            return 0;
+        
+        var container = GetInventoryContainer();
+        if (container == null)
+            return 1;
+        
+        if (weapon.IsMissileWeapon())
+        {
+            var ammoType = weapon.GetMissileType();
+            if (ammoType != null)
+                return 0;
+            
+            var entry = container.Search(ammoType);
+            return entry?.Quantity ?? 0;
+        }
+        else if (weapon.IsThrown)
+        {
+            var entry = container.Search(weapon);
+            if (entry == null)
+            {
+                // No more in inventory, unready it
+                Unready(weapon);
+                return 0;
+            }
+            return entry.Quantity;
+        }
+        
+        // Melee weapons don't need ammo.
+        return 1;
+    }
+    
+    /// <summary>
+    /// Check if character has an item type in inventory.
+    /// </summary>
+    public bool HasInInventory(ObjectType type)
+    {
+        var container = GetInventoryContainer();
+        return container?.Search(type) != null;
+    }
+    
+    // ========================================================================
+    // NPC AUTO-EQUIP
+    // ========================================================================
+    
+    /// <summary>
+    /// Automatically equip best available items from inventory.
+    /// Used by NPCs to arm themselves.
+    /// Simplified version of Nazghul's knapsack algorithm.
+    /// </summary>
+    public void ArmThyself()
+    {
+        if (IsPlayer || inventory == null)
+            return;
+        
+        // Simple greedy approach: try to ready each arms item.
+        var armsItems = new List<ArmsType>();
+        
+        foreach (var entry in inventory.GetContents())
+        {
+            if (entry.Type is ArmsType arms)
+            {
+                armsItems.Add(arms);
+            }
+        }
+        
+        // Sort by value (damage + armor) descending.
+        armsItems.Sort((a, b) =>
+        {
+            int aValue = Dice.Average(a.DamageDice) * a.Range + Dice.Average(a.ArmorDice);
+            int bValue = Dice.Average(b.DamageDice) * b.Range + Dice.Average(b.ArmorDice);
+            return bValue.CompareTo(aValue);
+        });
+        
+        // Try to ready each item.
+        foreach (var arms in armsItems)
+        {
+            if (Ready(arms) == ReadyResult.Readied)
+            {
+                inventory.RemoveItem(arms, 1);
+            }
+        }
+        
+        needsRearm = false;
+    }
+    
+    /// <summary>
+    /// Check if NPC needs to re-equip (ran out of ammo, etc).
+    /// </summary>
+    public bool NeedsToRearm()
+    {
+        // Player party members don't auto-rearm.
+        if (Party != null && Party == Phantasma.MainSession.Party)
+            return false;
+        
+        return needsRearm;
     }
 
     /// <summary>
@@ -418,7 +753,7 @@ public class Character : Being
         // if (IsAsleep()) return -3;
     
         // Sum defense dice from all equipped weapons/armor.
-        for (int i = 0; i < readiedArms.Count; i++)
+        for (int i = 0; i < readiedArms.Length; i++)
         {
             var arms = readiedArms[i];
             if (arms != null && !string.IsNullOrEmpty(arms.ToDefendDice))
@@ -442,7 +777,7 @@ public class Character : Being
         int armor = 0;
     
         // Sum armor dice from all equipped weapons/armor.
-        for (int i = 0; i < readiedArms.Count; i++)
+        for (int i = 0; i < readiedArms.Length; i++)
         {
             var arms = readiedArms[i];
             if (arms != null && !string.IsNullOrEmpty(arms.ArmorDice))
@@ -456,13 +791,13 @@ public class Character : Being
     
         return armor;
     }
-
+    /*
     /// <summary>
     /// Iterate through equipped weapons.
     /// </summary>
     public ArmsType? EnumerateArms()
     {
-        currentArmsIndex = 0;
+        armsIndex = 0;
         if (readiedArms.Count == 0)
             return null;
         return readiedArms[0];
@@ -473,11 +808,11 @@ public class Character : Being
     /// </summary>
     public ArmsType? GetNextArms()
     {
-        if (currentArmsIndex < 0 || currentArmsIndex >= readiedArms.Count - 1)
+        if (armsIndex < 0 || armsIndex >= readiedArms.Count - 1)
             return null;
     
-        currentArmsIndex++;
-        return readiedArms[currentArmsIndex];
+        armsIndex++;
+        return readiedArms[armsIndex];
     }
 
     /// <summary>
@@ -492,7 +827,7 @@ public class Character : Being
                 yield return weapon;
         }
     }
-
+    */
     /// <summary>
     /// Get attack target for this character.
     /// For player characters, this would be set by targeting UI.
@@ -517,7 +852,7 @@ public class Character : Being
     {
         return IsDead || IsAsleep;
     }
-    
+    /*
     public bool HasAmmo(ArmsType weapon)
     {
         // Simplified - always have ammo for now
@@ -528,7 +863,7 @@ public class Character : Being
     {
         // Will implement when we add ammo tracking
     }
-    
+    */
     public void TakeOut(ArmsType weapon, int count)
     {
         // Will implement with inventory
@@ -538,12 +873,12 @@ public class Character : Being
     {
         // Will implement with inventory
     }
-    
+    /*
     public Container GetInventoryContainer()
     {
         return inventory;
     }
-
+    */
     /// <summary>
     /// Learn a new spell.
     /// </summary>
@@ -748,5 +1083,101 @@ public class Character : Being
         
         float cost = Position.Place.GetMovementCost(x, y, this);
         return (int)Math.Ceiling(cost);
+    }
+    
+    // ========================================================================
+    // STATIC FACTORY METHODS
+    // ========================================================================
+    
+    /// <summary>
+    /// Create a simple test player character.
+    /// </summary>
+    public static Character CreateTestPlayer()
+    {
+        var player = new Character();
+        player.SetName("Hero");
+        player.IsPlayer = true;
+        player.Level = 1;
+        player.HP = player.MaxHP = 100;
+        player.MP = player.MaxMP = 50;
+        player.ActionPoints = player.MaxActionPoints = 10;
+        player.ArmorClass = 10;
+        
+        // Try to load player sprite.
+        var playerSprite = SpriteManager.GetSprite("player");
+        if (playerSprite != null)
+        {
+            player.CurrentSprite = playerSprite;
+        }
+        else
+        {
+            // Create a placeholder sprite.
+            player.CurrentSprite = new Sprite
+            {
+                Tag = "player",
+                DisplayChar = '@',  // Classic roguelike player symbol
+                SourceImage = null
+            };
+        }
+        
+        return player;
+    }
+
+    /// <summary>
+    /// Create a test NPC with conversation for testing.
+    /// </summary>
+    public static Character CreateTestNPC()
+    {
+        // Create NPC character.
+        var npc = new Character
+        {
+            //Name = "Guardsman Bob",
+            IsPlayer = false,
+            Level = 1,
+            HP = 50,
+            MaxHP = 50//,
+            //Conversation = conversationClosure
+        };
+        npc.SetName("Guardsman Bob");
+        
+        // Try to load NPC sprite.
+        var npcSprite = SpriteManager.GetSprite("npc") ?? SpriteManager.GetSprite("player");
+        if (npcSprite == null)
+        {
+            // Create placeholder sprite.
+            npcSprite = new Sprite
+            {
+                Tag = "npc",
+                DisplayChar = '@',
+                SourceImage = null
+            };
+        }
+        npc.CurrentSprite = npcSprite;
+
+        return npc;
+    }
+
+    /// <summary>
+    /// Create a test enemy for combat testing.
+    /// </summary>
+    public static Character CreateTestEnemy(string name, int hp = 50)
+    {
+        var enemy = new Character();
+        enemy.SetName(name);
+        enemy.IsPlayer = false;
+        enemy.Level = 1;
+        enemy.HP = enemy.MaxHP = hp;
+        enemy.MP = enemy.MaxMP = 20;
+        enemy.ActionPoints = enemy.MaxActionPoints = 10;
+        enemy.ArmorClass = 10;
+        enemy.Strength = 10;
+        enemy.Dexterity = 10;
+        enemy.Intelligence = 8;
+    
+        // Give enemy a weapon.
+        var weapon = ArmsType.TestWeapons.Club;
+        enemy.Ready(weapon);
+    
+        return enemy;
     }
 }

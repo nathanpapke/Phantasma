@@ -235,9 +235,24 @@ public partial class Kernel
         DefineFunction("kern-char-get-hp", CharacterGetHp);
         DefineFunction("kern-char-get-max-hp", CharacterGetMaxHp);
         DefineFunction("kern-char-get-level", CharacterGetLevel);
-        //DefineFunction("kern-char-add-spell", CharacterAddSpell);
-        //DefineFunction("kern-char-knows-spell", CharacterKnowsSpell);
-        //DefineFunction("kern-cast-spell", CastSpell);
+        
+        // ===================================================================
+        // KERN-CHAR API - Character Equipment Functions
+        // ===================================================================
+        
+        DefineFunction("kern-char-get-weapons", CharacterGetWeapons);
+        DefineFunction("kern-char-arm-self", CharacterArmSelf);
+        DefineFunction("kern-char-get-inventory", CharacterGetInventory);
+        DefineFunction("kern-char-has-ammo?", CharacterHasAmmo);
+        DefineFunction("kern-char-ready", CharacterReady);
+        DefineFunction("kern-char-unready", CharacterUnready);
+        
+        // ===================================================================
+        // KERN-ARMS API - Arms Functions
+        // ===================================================================
+        
+        DefineFunction("kern-arms-type-get-range", ArmsTypeGetRange);
+        DefineFunction("kern-arms-type-get-ammo-type", ArmsTypeGetAmmoType);
         
         // ===================================================================
         // KERN-CONV API - Conversation Functions
@@ -468,6 +483,126 @@ public partial class Kernel
     }
     
     /// <summary>
+    /// Parse a Scheme list of slot values into an int[] array.
+    /// Each slot value is a bitmask indicating what type of equipment can go there.
+    /// Example: '(slot-weapon slot-weapon slot-body slot-helm)
+    /// </summary>
+    private static int[]? ParseSlotsList(object slots)
+    {
+        if (slots == null)
+            return null;
+        
+        var slotList = new List<int>();
+        
+        // Handle IronScheme Cons (linked list)
+        if (slots is Cons cons)
+        {
+            object? current = cons;
+            while (current is Cons c)
+            {
+                // Get the slot value
+                object slotValue = c.car;
+                int slotMask = ParseSlotValue(slotValue);
+                slotList.Add(slotMask);
+                
+                current = c.cdr;
+            }
+        }
+        // Handle C# List
+        else if (slots is IEnumerable<object> enumerable)
+        {
+            foreach (var item in enumerable)
+            {
+                int slotMask = ParseSlotValue(item);
+                slotList.Add(slotMask);
+            }
+        }
+        // Handle empty list
+        else if (slots.ToString() == "()" || slots.ToString() == "nil")
+        {
+            return Array.Empty<int>();
+        }
+        
+        return slotList.Count > 0 ? slotList.ToArray() : null;
+    }
+    
+    /// <summary>
+    /// Parse a single slot value (symbol or int) into a slot mask.
+    /// </summary>
+    private static int ParseSlotValue(object value)
+    {
+        // If it's already an int, use it directly
+        if (value is int i)
+            return i;
+        
+        // If it's a symbol or string, look it up
+        string? name = value?.ToString()?.ToLowerInvariant();
+        
+        return name switch
+        {
+            "slot-weapon" or "weapon" => ArmsType.Slots.Weapon,
+            "slot-shield" or "shield" => ArmsType.Slots.Shield,
+            "slot-body" or "body" => ArmsType.Slots.Body,
+            "slot-helm" or "helm" => ArmsType.Slots.Helm,
+            "slot-boots" or "boots" => ArmsType.Slots.Boots,
+            "slot-gloves" or "gloves" => ArmsType.Slots.Gloves,
+            "slot-amulet" or "amulet" => ArmsType.Slots.Amulet,
+            "slot-ring" or "ring" => ArmsType.Slots.Ring,
+            "slot-hand" or "hand" => ArmsType.Slots.Weapon,  // Alias
+            _ => TryParseInt(value, ArmsType.Slots.Weapon)
+        };
+    }
+    
+    /// <summary>
+    /// Parse a Scheme list of spell codes into a string[] array.
+    /// </summary>
+    private static string[]? ParseSpellsList(object spells)
+    {
+        if (spells == null)
+            return null;
+        
+        var spellList = new List<string>();
+        
+        // Handle IronScheme Cons (linked list)
+        if (spells is Cons cons)
+        {
+            object? current = cons;
+            while (current is Cons c)
+            {
+                string? spellCode = c.car?.ToString();
+                if (!string.IsNullOrEmpty(spellCode))
+                    spellList.Add(spellCode);
+                
+                current = c.cdr;
+            }
+        }
+        // Handle empty list
+        else if (spells.ToString() == "()" || spells.ToString() == "nil")
+        {
+            return Array.Empty<string>();
+        }
+        
+        return spellList.Count > 0 ? spellList.ToArray() : null;
+    }
+    
+    /// <summary>
+    /// Try to parse a value as an integer, returning default on failure.
+    /// </summary>
+    private static int TryParseInt(object? value, int defaultValue)
+    {
+        if (value == null)
+            return defaultValue;
+        
+        if (value is int i)
+            return i;
+        
+        if (int.TryParse(value.ToString(), out int result))
+            return result;
+        
+        return defaultValue;
+    }
+    
+    /// <summary>
     /// Convert various Scheme boolean representations to C# bool.
     /// </summary>
     private static bool ConvertToBool(object value)
@@ -477,5 +612,42 @@ public partial class Kernel
         if (value is string s) return s.ToLower() == "#t" || s.ToLower() == "true";
         // IronScheme uses specific boolean objects
         return value.ToString() != "#f" && value.ToString() != "False";
+    }
+    
+    /// <summary>
+    /// Register slot type symbols for use in Scheme scripts.
+    /// Call this during initialization.
+    /// </summary>
+    public static void RegisterSlotSymbols()
+    {
+        // Define slot constants in Scheme
+        $"(define slot-weapon {ArmsType.Slots.Weapon})".Eval();
+        $"(define slot-shield {ArmsType.Slots.Shield})".Eval();
+        $"(define slot-body {ArmsType.Slots.Body})".Eval();
+        $"(define slot-helm {ArmsType.Slots.Helm})".Eval();
+        $"(define slot-boots {ArmsType.Slots.Boots})".Eval();
+        $"(define slot-gloves {ArmsType.Slots.Gloves})".Eval();
+        $"(define slot-amulet {ArmsType.Slots.Amulet})".Eval();
+        $"(define slot-ring {ArmsType.Slots.Ring})".Eval();
+        
+        // Aliases
+        $"(define slot-hand {ArmsType.Slots.Weapon})".Eval();
+        
+        Console.WriteLine("  Slot type symbols registered");
+    }
+    
+    private static object ListToScheme(List<object> items)
+    {
+        if (items.Count == 0)
+            return Builtins.Unspecified;
+        
+        // Build list from end to start
+        object result = Builtins.Unspecified;
+        for (int i = items.Count - 1; i >= 0; i--)
+        {
+            result = new Cons(items[i], result);
+        }
+        
+        return result;
     }
 }

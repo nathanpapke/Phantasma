@@ -147,13 +147,13 @@ public class SpellType
                     if (itemQty <= remaining)
                     {
                         // Remove entire stack.
-                        inventory.RemoveItem(item);
+                        inventory.RemoveItem(item.Type);
                         remaining -= itemQty;
                     }
                     else
                     {
                         // Reduce stack.
-                        item.Quantity -= remaining;  //check if works
+                        item.Quantity -= remaining;
                         remaining = 0;
                     }
                 }
