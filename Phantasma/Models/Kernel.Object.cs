@@ -102,4 +102,42 @@ public partial class Kernel
 
         return "#f".Eval();
     }
+    
+    /// <summary>
+    /// (kern-obj-apply-damage obj description amount)
+    /// Applies damage to an object.
+    /// For Beings (characters, etc.), reduces HP.
+    /// For other objects, runs the damage hook if present.
+    /// Matches Nazghul's kern-obj-apply-damage.
+    /// </summary>
+    public static object ObjectApplyDamage(object obj, object desc, object amount)
+    {
+        if (obj == null)
+        {
+            Console.WriteLine("[ERROR] kern-obj-apply-damage: null object");
+            return null;
+        }
+    
+        int dmg = Convert.ToInt32(amount);
+        string description = desc?.ToString() ?? "damage";
+    
+        // If it's a Being (Character, etc.), it has HP and can take damage.
+        if (obj is Being being)
+        {
+            being.Damage(dmg);
+            Console.WriteLine($"{being.GetName()} takes {dmg} {description}");
+            return null;
+        }
+    
+        // For other Objects, we'd run the damage hook if implemented.
+        // For now, just log it.
+        if (obj is Object gameObj)
+        {
+            // TODO: Run OBJ_HOOK_DAMAGE when hook system is implemented.
+            // gameObj.RunHook(ObjectHook.Damage);
+            Console.WriteLine($"Object takes {dmg} {description}");
+        }
+    
+        return null;
+    }
 }

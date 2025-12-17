@@ -58,9 +58,10 @@ public struct Species
     // public Sound DamageSound;
     // public Sound WalkingSound;
     
-    // Callbacks
-    // TODO: implement when closure system is ready.
-    // public Closure OnDeath;
+    /// <summary>
+    /// Scheme closure to run when a creature of this species dies.
+    /// </summary>
+    public object? OnDeath { get; set; }
     
     /// <summary>
     /// Default constructor - creates a basic humanoid species.

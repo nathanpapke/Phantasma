@@ -388,6 +388,11 @@ public partial class Kernel
             Spells = spellsArray
         };
         
+        if (onDeath != null && !(onDeath is bool b && b == false))
+        {
+            species.OnDeath = onDeath;
+        }
+        
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, species);

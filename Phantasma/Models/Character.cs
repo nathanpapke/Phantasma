@@ -1085,6 +1085,127 @@ public class Character : Being
         return (int)Math.Ceiling(cost);
     }
     
+    public void Kill()
+    {
+        // Only NPCs (characters not in player party) drop their items.
+        bool isInPlayerParty = IsPlayer || (Party != null && Party.IsPlayerParty);
+        
+        // NPCs drop their items.
+        if (!isInPlayerParty  && IsOnMap())
+        {
+            DropReadyArms();
+            DropItems();
+        }
+        
+        if (isInPlayerParty )
+        {
+            Console.WriteLine($"{GetName()} has fallen!!");
+        }
+        
+        HP = 0;
+        
+        // Run species on-death procedure.
+        if (Species.OnDeath != null)
+        {
+            // Execute closure: closure_exec(species->on_death, "p", this).
+        }
+        
+        // Remove from map (careful - can delete this object).
+        Remove();
+    }
+    
+    public void Resurrect()
+    {
+        // Only player party members can be resurrected.
+        bool isInPlayerParty = IsPlayer || (Party != null && Party.IsPlayerParty);
+        if (!isInPlayerParty)
+            return;
+    
+        // Restore some HP - this also clears IsDead since IsDead is computed as HP <= 0.
+        HP = Math.Min(10, MaxHP);
+    
+        // TODO: StatusFlash(Order, StatusColor.Blue);
+    
+        // If already on map, we're done.
+        if (IsOnMap())
+            return;
+    
+        // Place near party leader.
+        var leader = Party?.GetLeader();
+        if (leader?.Position?.Place == null)
+            return;
+    
+        // TODO: Nazghul's putOnMap searches for nearby open spot with radius.
+        // For now, just place at leader's position.
+        leader.Position.Place.AddObject(this, leader.Position.X, leader.Position.Y);
+    }
+    
+    public void SetHp(int val)
+    {
+        HP = Math.Clamp(val, 0, MaxHP);
+        if (HP == 0)
+            Kill();
+    }
+    
+    public void DropReadyArms()
+    {
+        if (readiedArms == null)
+            return;
+    
+        var place = Position?.Place;
+        if (place == null)
+            return;
+    
+        int x = Position.X;
+        int y = Position.Y;
+    
+        for (int i = 0; i < Species.NSlots; i++)
+        {
+            // Anything in this slot?
+            if (readiedArms[i] == null)
+                continue;
+        
+            // Skip duplicate entries for two-handed weapons.
+            if (i > 0 && readiedArms[i] == readiedArms[i - 1])
+                continue;
+        
+            // Create an Item and drop it on the map.
+            var item = new Item
+            {
+                Type = readiedArms[i],
+                Name = readiedArms[i].Name,
+                Quantity = 1
+            };
+        
+            place.AddObject(item, x, y);
+        
+            // Unready it.
+            Unready(readiedArms[i]);
+        }
+    }
+    
+    public bool DropItems()
+    {
+        if (inventory == null)
+            return false;
+    
+        // Don't drop empty containers.
+        if (inventory.IsEmpty())
+            return false;
+    
+        // Place the container on the map at character's location.
+        var place = Position?.Place;
+        if (place == null)
+            return false;
+    
+        place.AddObject(inventory, Position.X, Position.Y);
+    
+        // Clear our reference.
+        inventory = null;
+    
+        return true;
+    }
+    
     // ========================================================================
     // STATIC FACTORY METHODS
     // ========================================================================

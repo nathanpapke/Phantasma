@@ -53,6 +53,37 @@ public partial class Kernel
     }
     
     /// <summary>
+    /// (kern-char-set-hp character value)
+    /// Sets the character's HP to the specified value.
+    /// Clamps to [0, MaxHP] and triggers kill() if HP reaches 0.
+    /// Matches Nazghul's Character::setHp() behavior.
+    /// </summary>
+    public static object CharacterSetHp(object character, object value)
+    {
+        if (character is not Character ch)
+        {
+            Console.WriteLine("[ERROR] kern-char-set-hp: not a character");
+            return false;
+        }
+    
+        int hp = Convert.ToInt32(value);
+    
+        // Clamp to valid range [0, MaxHP].
+        hp = Math.Clamp(hp, 0, ch.MaxHP);
+    
+        // Set the HP.
+        ch.HP = hp;
+    
+        // If HP reaches 0, kill the character.
+        if (ch.HP == 0)
+        {
+            ch.Kill();
+        }
+    
+        return true;
+    }
+    
+    /// <summary>
     /// (kern-char-get-weapons character)
     /// Returns a Scheme list of the character's readied weapons.
     /// </summary>
@@ -185,5 +216,37 @@ public partial class Kernel
         }
         
         return ch.Unready(arms);
+    }
+    
+    /// <summary>
+    /// (kern-char-kill character)
+    /// Kills the character.
+    /// </summary>
+    public static object CharacterKill(object character)
+    {
+        if (character is not Character ch)
+        {
+            Console.WriteLine("[ERROR] kern-char-kill: not a character");
+            return null;
+        }
+    
+        ch.Kill();
+        return null;
+    }
+
+    /// <summary>
+    /// (kern-char-resurrect character)
+    /// Resurrects a dead character.
+    /// </summary>
+    public static object CharacterResurrect(object character)
+    {
+        if (character is not Character ch)
+        {
+            Console.WriteLine("[ERROR] kern-char-resurrect: not a character");
+            return null;
+        }
+    
+        ch.Resurrect();
+        return null;
     }
 }

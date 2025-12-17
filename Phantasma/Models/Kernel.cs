@@ -227,6 +227,7 @@ public partial class Kernel
         DefineFunction("kern-obj-get-name", ObjectGetName);
         DefineFunction("kern-obj-get-location", ObjectGetLocation);
         DefineFunction("kern-obj-get-conversation", ObjectGetConversation);
+        DefineFunction("kern-obj-apply-damage", ObjectApplyDamage);
         
         // ===================================================================
         // KERN-CHAR API - Character Functions
@@ -235,6 +236,9 @@ public partial class Kernel
         DefineFunction("kern-char-get-hp", CharacterGetHp);
         DefineFunction("kern-char-get-max-hp", CharacterGetMaxHp);
         DefineFunction("kern-char-get-level", CharacterGetLevel);
+        DefineFunction("kern-char-set-hp", CharacterSetHp);
+        DefineFunction("kern-char-kill", CharacterKill);
+        DefineFunction("kern-char-resurrect", CharacterResurrect);
         
         // ===================================================================
         // KERN-CHAR API - Character Equipment Functions

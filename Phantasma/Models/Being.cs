@@ -24,8 +24,12 @@ public abstract class Being : Object
     public int MaxActionPoints { get; set; }
     
     // Effects
-    public bool IsDead
-    { get { return HP <= 0; } }
+    private bool isDead = false;
+    public bool IsDead 
+    { 
+        get => isDead || HP <= 0;
+        set => isDead = value;
+    }
     public bool IsAsleep { get; protected set; } = false;
     public bool IsCharmed
     { get { return false; } }
