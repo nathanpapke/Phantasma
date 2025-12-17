@@ -172,6 +172,7 @@ public partial class Kernel
         DefineFunction("kern-fire-missile", FireMissile);
         DefineFunction("kern-mk-reagent-type", MakeReagentType);
         DefineFunction("kern-mk-spell", MakeSpell);
+        DefineFunction("kern-mk-effect", MakeEffect);
         DefineFunction("kern-mk-sound", MakeSound);
         
         // ===================================================================
@@ -228,6 +229,10 @@ public partial class Kernel
         DefineFunction("kern-obj-get-location", ObjectGetLocation);
         DefineFunction("kern-obj-get-conversation", ObjectGetConversation);
         DefineFunction("kern-obj-apply-damage", ObjectApplyDamage);
+        DefineFunction("kern-obj-add-effect", ObjectAddEffect);
+        DefineFunction("kern-obj-remove-effect", ObjectRemoveEffect);
+        DefineFunction("kern-obj-has-effect?", ObjectHasEffect);
+        DefineFunction("kern-obj-remove", ObjectRemove);
         
         // ===================================================================
         // KERN-CHAR API - Character Functions
@@ -616,6 +621,17 @@ public partial class Kernel
         if (value is string s) return s.ToLower() == "#t" || s.ToLower() == "true";
         // IronScheme uses specific boolean objects
         return value.ToString() != "#f" && value.ToString() != "False";
+    }
+    
+    /// <summary>
+    /// Check if a Scheme value is nil/false/#f.
+    /// </summary>
+    private static bool IsNil(object? value)
+    {
+        if (value == null) return true;
+        if (value is bool b && !b) return true;
+        if (value is Cons cons && cons.car == null && cons.cdr == null) return true;
+        return false;
     }
     
     /// <summary>

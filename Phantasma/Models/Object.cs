@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Phantasma.Models;
 
@@ -18,10 +20,31 @@ public abstract class Object
     public int Count { get; set; } = 1;
     public Gob Gob { get; set; }  // Scheme object reference
     
+    /// <summary>
+    /// Array of hook lists, one per hook type.
+    /// Matches Nazghul's hooks[OBJ_NUM_HOOKS] array in object.h.
+    /// </summary>
+    protected List<Hook>[] hooks = new List<Hook>[(int)HookId.NumHooks];
+
+    /// <summary>
+    /// Condition string for status display ('G' good, 'P' poison, etc.).
+    /// </summary>
+    protected char[] condition = new char[8]; // OBJ_MAX_CONDITIONS
+
+    /// <summary>
+    /// Forces addEffect() to add without allowing "add-hook-hook" to block.
+    /// </summary>
+    protected bool forceEffect = false;
+    
     public Object()
     {
         Id = nextId++;
         Position = new Location(null, 0, 0);
+        
+        for (int i = 0; i < (int)HookId.NumHooks; i++)
+        {
+            hooks[i] = new List<Hook>();
+        }
     }
     
     public virtual bool Use(Being user)
@@ -113,5 +136,196 @@ public abstract class Object
         {
             Position.Place.RemoveObject(this);
         }
+    }
+    
+    /// <summary>
+    /// Add an effect to this object.
+    /// </summary>
+    public virtual bool AddEffect(Effect effect, object? gob = null)
+    {
+        if (effect == null)
+            return false;
+        
+        int hookId = (int)effect.HookId;
+        if (hookId < 0 || hookId >= (int)HookId.NumHooks)
+            return false;
+        
+        // Check if effect already exists and isn't cumulative.
+        if (!effect.Cumulative && HasEffect(effect))
+        {
+            RemoveEffect(effect);
+        }
+        
+        // Check if "add-hook" effects want to block this.
+        if (!forceEffect && hooks[(int)HookId.AddHook].Count > 0)
+        {
+            // TODO: Run add-hook callbacks - they can return false to block.
+        }
+        
+        // Calculate expiration.
+        int expiration = effect.Duration; // Simplified; full impl uses clock
+        
+        // Add the hook.
+        hooks[hookId].Add(new Hook(effect, gob, expiration));
+        
+        // Run the apply closure if present.
+        if (effect.ApplyClosure != null)
+        {
+            // TODO: Call Scheme closure with (effect, this, gob).
+        }
+        
+        // Update condition display.
+        if (effect.StatusCode != ' ')
+            SetCondition(effect.StatusCode);
+        
+        return true;
+    }
+
+    /// <summary>
+    /// Restore an effect (used during save/load).
+    /// </summary>
+    public virtual void RestoreEffect(Effect effect, object? gob, int flags, int expiration)
+    {
+        if (effect == null)
+            return;
+        
+        int hookId = (int)effect.HookId;
+        if (hookId < 0 || hookId >= (int)HookId.NumHooks)
+            return;
+        
+        hooks[hookId].Add(new Hook(effect, gob, expiration, flags));
+        
+        if (effect.RestartClosure != null)
+        {
+            // TODO: Call Scheme closure.
+        }
+    }
+
+    /// <summary>
+    /// Remove an effect from this object.
+    /// </summary>
+    public virtual bool RemoveEffect(Effect effect)
+    {
+        if (effect == null)
+            return false;
+        
+        int hookId = (int)effect.HookId;
+        if (hookId < 0 || hookId >= (int)HookId.NumHooks)
+            return false;
+        
+        var hookList = hooks[hookId];
+        int index = hookList.FindIndex(h => h.Effect == effect);
+        
+        if (index >= 0)
+        {
+            if (effect.RemoveClosure != null)
+            {
+                // TODO: Call Scheme closure.
+            }
+            
+            hookList.RemoveAt(index);
+            
+            if (effect.StatusCode != ' ')
+                ClearCondition(effect.StatusCode);
+            
+            return true;
+        }
+        
+        return false;
+    }
+
+    /// <summary>
+    /// Check if this object has a specific effect.
+    /// </summary>
+    public virtual bool HasEffect(Effect effect)
+    {
+        if (effect == null)
+            return false;
+        
+        int hookId = (int)effect.HookId;
+        if (hookId < 0 || hookId >= (int)HookId.NumHooks)
+            return false;
+        
+        return hooks[hookId].Any(h => h.Effect == effect);
+    }
+
+    /// <summary>
+    /// Run all effects for a specific hook.
+    /// Iterates over a copy to allow safe modification.
+    /// </summary>
+    public virtual void RunHook(HookId hookId)
+    {
+        int id = (int)hookId;
+        if (id < 0 || id >= (int)HookId.NumHooks)
+            return;
+        
+        // Iterate over copy to allow modification during iteration.
+        foreach (var hook in hooks[id].ToList())
+        {
+            if (hook.Effect.ExecClosure != null)
+            {
+                // TODO: Call Scheme closure with (effect, this, gob).
+            }
+            
+            // TODO: Check expiration and remove if expired.
+        }
+    }
+
+    /// <summary>
+    /// Iterate over all hooks for a specific hook type.
+    /// </summary>
+    public virtual void HookForEach(HookId hookId, Action<Hook> callback)
+    {
+        int id = (int)hookId;
+        if (id < 0 || id >= (int)HookId.NumHooks)
+            return;
+        
+        // Iterate over copy for safety.
+        foreach (var hook in hooks[id].ToList())
+        {
+            callback(hook);
+        }
+    }
+
+    // ===================================================================
+    // CONDITION METHODS
+    // ===================================================================
+    
+    protected void SetCondition(char code)
+    {
+        for (int i = 0; i < condition.Length; i++)
+        {
+            if (condition[i] == '\0' || condition[i] == code)
+            {
+                condition[i] = code;
+                return;
+            }
+        }
+    }
+
+    protected void ClearCondition(char code)
+    {
+        for (int i = 0; i < condition.Length; i++)
+        {
+            if (condition[i] == code)
+            {
+                for (int j = i; j < condition.Length - 1; j++)
+                    condition[j] = condition[j + 1];
+                condition[condition.Length - 1] = '\0';
+                return;
+            }
+        }
+    }
+
+    public virtual string GetCondition()
+    {
+        int len = Array.IndexOf(condition, '\0');
+        return len < 0 ? new string(condition) : new string(condition, 0, len);
+    }
+
+    public virtual void SetDefaultCondition()
+    {
+        Array.Clear(condition);
+        condition[0] = 'G';
     }
 }

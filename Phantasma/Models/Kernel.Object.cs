@@ -140,4 +140,91 @@ public partial class Kernel
     
         return null;
     }
+    
+    /// <summary>
+    /// (kern-obj-add-effect object effect gob)
+    /// Adds an effect to an object.
+    /// </summary>
+    public static object ObjectAddEffect(object obj, object effect, object gob)
+    {
+        if (obj is not Object gameObj)
+        {
+            RuntimeError("kern-obj-add-effect: not a game object");
+            return false;
+        }
+        
+        if (effect is not Effect eff)
+        {
+            RuntimeError("kern-obj-add-effect: not an effect");
+            return false;
+        }
+        
+        gameObj.AddEffect(eff, gob);
+        return true;
+    }
+    
+    /// <summary>
+    /// (kern-obj-remove-effect object effect)
+    /// Removes an effect from an object.
+    /// </summary>
+    public static object ObjectRemoveEffect(object obj, object effect)
+    {
+        if (obj is not Object gameObj)
+        {
+            RuntimeError("kern-obj-remove-effect: not a game object");
+            return false;
+        }
+        
+        if (effect is not Effect eff)
+        {
+            RuntimeError("kern-obj-remove-effect: not an effect");
+            return false;
+        }
+        
+        gameObj.RemoveEffect(eff);
+        return true;
+    }
+    
+    /// <summary>
+    /// (kern-obj-has-effect? object effect)
+    /// Checks if an object has a specific effect.
+    /// </summary>
+    public static object ObjectHasEffect(object obj, object effect)
+    {
+        if (obj is not Object gameObj)
+        {
+            RuntimeError("kern-obj-has-effect?: not a game object");
+            return false;
+        }
+        
+        if (effect is not Effect eff)
+        {
+            RuntimeError("kern-obj-has-effect?: not an effect");
+            return false;
+        }
+        
+        return gameObj.HasEffect(eff);
+    }
+    
+    /// <summary>
+    /// (kern-obj-remove object)
+    /// Removes an object from the map.
+    /// </summary>
+    public static object ObjectRemove(object obj)
+    {
+        if (obj is not Object gameObj)
+        {
+            RuntimeError("kern-obj-remove: not a game object");
+            return Builtins.Unspecified;
+        }
+        
+        // Remove from place.
+        var place = gameObj.Position?.Place;
+        if (place != null)
+        {
+            place.RemoveObject(gameObj);
+        }
+        
+        return Builtins.Unspecified;
+    }
 }

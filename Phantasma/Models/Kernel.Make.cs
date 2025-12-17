@@ -490,16 +490,16 @@ public partial class Kernel
         int hpPerLevel = Convert.ToInt32(hpmult ?? 5);
         int currentHp = Convert.ToInt32(hp ?? 0);
         int level = Convert.ToInt32(lvl ?? 1);
-        
-        character.MaxHP = baseHpMod + (hpPerLevel * level);
+
+        character.MaxHP = character.GetMaxHp();
         character.HP = currentHp > 0 ? currentHp : character.MaxHP;
         
         // MP Calculation
         int baseMpMod = Convert.ToInt32(mpmod ?? 5);
         int mpPerLevel = Convert.ToInt32(mpmult ?? 2);
         int currentMp = Convert.ToInt32(mp ?? 0);
-        
-        character.MaxMP = baseMpMod + (mpPerLevel * level);
+
+        character.MaxMP = character.GetMaxMana();
         character.MP = currentMp > 0 ? currentMp : character.MaxMP;
         
         // XP and Level
@@ -936,6 +936,76 @@ public partial class Kernel
         }
         
         return spell;
+    }
+    
+    /// <summary>
+    /// (kern-mk-effect tag name description 
+    ///                exec-proc apply-proc remove-proc restart-proc
+    ///                hook-name status-code detect-dc sprite cumulative duration)
+    /// Creates an effect type.
+    /// </summary>
+    public static object MakeEffect(
+        object tag, object name, object description,
+        object execProc, object applyProc, object removeProc, object restartProc,
+        object hookName,
+        object statusCode, object detectDc, object sprite, 
+        object cumulative, object duration)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
+        string nameStr = name?.ToString() ?? "Unknown Effect";
+        string descStr = description?.ToString() ?? "";
+        string hookStr = hookName?.ToString() ?? "start-of-turn";
+        
+        // Convert hook name to ID.
+        HookId? hookId = hookStr.ToLowerInvariant() switch
+        {
+            "start-of-turn" => HookId.StartOfTurn,
+            "on-add-hook" => HookId.AddHook,
+            "on-damage" => HookId.Damage,
+            "on-keystroke" => HookId.Keystroke,
+            _ => null
+        };
+        
+        if (hookId == null)
+        {
+            LoadError($"kern-mk-effect: bad hook '{hookStr}'");
+            return Builtins.Unspecified;
+        }
+        
+        var effect = new Effect
+        {
+            Tag = tagStr,
+            Name = nameStr,
+            Description = descStr,
+            HookId = hookId.Value,
+            DetectDC = Convert.ToInt32(detectDc ?? 0),
+            Cumulative = ConvertToBool(cumulative),
+            Duration = Convert.ToInt32(duration ?? -1)
+        };
+        
+        // Store closures (nil becomes null).
+        effect.ExecClosure = IsNil(execProc) ? null : execProc;
+        effect.ApplyClosure = IsNil(applyProc) ? null : applyProc;
+        effect.RemoveClosure = IsNil(removeProc) ? null : removeProc;
+        effect.RestartClosure = IsNil(restartProc) ? null : restartProc;
+        
+        // Status code is a single character string.
+        string statusStr = statusCode?.ToString() ?? " ";
+        effect.StatusCode = statusStr.Length > 0 ? statusStr[0] : ' ';
+        
+        // Sprite (may be nil).
+        if (sprite is Sprite s)
+            effect.Sprite = s;
+        
+        // Register the effect.
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, effect);
+        }
+        
+        Console.WriteLine($"  Created effect: {tagStr} - {nameStr} (hook={hookStr}, dur={effect.Duration})");
+        
+        return effect;
     }
     
     public static object MakeSound(object args)

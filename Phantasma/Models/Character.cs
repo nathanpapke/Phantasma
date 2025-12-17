@@ -134,8 +134,8 @@ public class Character : Being
         Level = lvl;
         
         // Calculate max values.
-        MaxHP = HpMod + (HpMult * Level);
-        MaxMP = MpMod + (MpMult * Level);
+        MaxHP = GetMaxHp();
+        MaxMP = GetMaxMana();
         
         // Initialize equipment slots based on species.
         InitializeEquipmentSlots();
@@ -227,6 +227,37 @@ public class Character : Being
         }
     }
     
+    public int GetMaxHp()
+    {
+        int baseMod = HpMod + Species.HpMod;
+        int mult = HpMult + Species.HpMult;
+    
+        // Add occupation if present
+        if (Occupation.Tag != null)  // Check if occupation is set
+        {
+            baseMod += Occupation.HpMod;
+            mult += Occupation.HpMult;
+        }
+    
+        mult = Math.Max(0, mult);
+        return baseMod + (Level * mult);
+    }
+
+    public int GetMaxMana()
+    {
+        int baseMod = MpMod + Species.MpMod;
+        int mult = MpMult + Species.MpMult;
+    
+        if (Occupation.Tag != null)
+        {
+            baseMod += Occupation.MpMod;
+            mult += Occupation.MpMult;
+        }
+    
+        mult = Math.Max(0, mult);
+        return baseMod + (Level * mult);
+    }
+    
     public void AddExperience(int xp)
     {
         Experience += xp;
@@ -235,16 +266,18 @@ public class Character : Being
     
     private void CheckLevelUp()
     {
-        int xpNeeded = Level * 100;
-        if (Experience >= xpNeeded)
+        // Nazghul formula: 2^(level+7)
+        double xpNeeded = Math.Pow(2, Level + 7);
+    
+        while (Experience >= xpNeeded)
         {
             Level++;
-            Experience -= xpNeeded;
-            MaxHP = HpMod + (HpMult * Level);
-            MaxMP = MpMod + (MpMult * Level);
+            MaxHP = GetMaxHp();
+            MaxMP = GetMaxMana();
             HP = MaxHP;
             MP = MaxMP;
-            Console.WriteLine($"{GetName()} reached level {Level}!");
+            Console.WriteLine($"{GetName()} gains level {Level}!");
+            xpNeeded = Math.Pow(2, Level + 7);
         }
     }
     
