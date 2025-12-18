@@ -967,9 +967,10 @@ public class Character : Being
             return false;
         }
         
-        if (Position.Place == null)
+        var place = Position.Place;
+        if (place == null)
         {
-            Console.WriteLine($"{Name} has a position but no place!");
+            Console.WriteLine($"{Name} has no place!");
             return false;
         }
         
@@ -977,11 +978,38 @@ public class Character : Being
         int newX = Position.X + dx;
         int newY = Position.Y + dy;
         
-        // Check if destination is passable.
-        if (!Position.Place.IsPassable(newX, newY, this, checkBeings: true))
+        // =========================================================
+        // NEW: Check for place transitions BEFORE passability
+        // =========================================================
+        var moveResult = CheckMoveTo(place, newX, newY, dx, dy);
+        
+        switch (moveResult)
         {
-            // Movement blocked - get reason for feedback.
-            string reason = Position.Place.GetBlockageReason(newX, newY);
+            case MoveResult.EnterSubplace:
+                var subplace = place.GetSubplace(newX, newY);
+                if (subplace != null)
+                {
+                    return EnterSubplace(subplace, dx, dy);
+                }
+                return false;
+                
+            case MoveResult.OffMap:
+                return ExitToParentPlace(dx, dy);
+                
+            case MoveResult.Ok:
+                // Continue with normal movement below
+                break;
+                
+            default:
+                // Impassable, Occupied, etc. - fall through to normal check
+                break;
+        }
+        // =========================================================
+        
+        // Check if destination is passable.
+        if (!place.IsPassable(newX, newY, this, checkBeings: true))
+        {
+            string reason = place.GetBlockageReason(newX, newY);
             Console.WriteLine($"{Name} can't move there: {reason}");
             return false;
         }
@@ -994,10 +1022,9 @@ public class Character : Being
         }
         
         // Get movement cost for destination terrain.
-        float cost = Position.Place.GetMovementCost(newX, newY, this);
-        int apCost = (int)Math.Ceiling(cost); // Round up.
+        float cost = place.GetMovementCost(newX, newY, this);
+        int apCost = (int)Math.Ceiling(cost);
         
-        // Check if we can afford the movement.
         if (ActionPoints < apCost)
         {
             Console.WriteLine($"{Name} needs {apCost} AP but only has {ActionPoints} AP!");
@@ -1007,7 +1034,7 @@ public class Character : Being
         // For diagonal movement, check if path is clear.
         if (dx != 0 && dy != 0)
         {
-            if (!Position.Place.CanMoveTo(Position.X, Position.Y, newX, newY, this))
+            if (!place.CanMoveTo(Position.X, Position.Y, newX, newY, this))
             {
                 Console.WriteLine($"{Name} can't squeeze through diagonally!");
                 return false;
@@ -1015,15 +1042,14 @@ public class Character : Being
         }
         
         // Perform the actual move.
-        Position.Place.MoveObject(this, newX, newY);
+        place.MoveObject(this, newX, newY);
         
-        // Consume action points based on terrain cost.
+        // Consume action points.
         DecreaseActionPoints(apCost);
         
-        // Provide feedback about movement cost.
         if (apCost > 1)
         {
-            var terrain = Position.Place.GetTerrain(newX, newY);
+            var terrain = place.GetTerrain(newX, newY);
             Console.WriteLine($"{Name} moved to ({newX},{newY}) through {terrain?.Name} (cost: {apCost} AP, {ActionPoints} AP remaining)");
         }
         else
@@ -1032,12 +1058,10 @@ public class Character : Being
         }
         
         // Check for hazardous terrain.
-        if (Position.Place.IsHazardous(newX, newY))
+        if (place.IsHazardous(newX, newY))
         {
-            var terrain = Position.Place.GetTerrain(newX, newY);
+            var terrain = place.GetTerrain(newX, newY);
             Console.WriteLine($"⚠️  {Name} steps onto hazardous {terrain?.Name}!");
-            
-            // Apply hazard damage/effects.
             ApplyHazardEffects(terrain);
         }
         

@@ -228,8 +228,8 @@ public partial class Command
             return false;
     
         // Get target.
-        int dx = DirectionToDx(direction);
-        int dy = DirectionToDy(direction);
+        int dx = Common.DirectionToDx(direction);
+        int dy = Common.DirectionToDy(direction);
         int targetX = player.GetX() + dx;
         int targetY = player.GetY() + dy;
     
@@ -265,8 +265,8 @@ public partial class Command
     
         foreach (var dir in directions)
         {
-            int dx = DirectionToDx(dir);
-            int dy = DirectionToDy(dir);
+            int dx = Common.DirectionToDx(dir);
+            int dy = Common.DirectionToDy(dir);
             int targetX = player.GetX() + dx;
             int targetY = player.GetY() + dy;
         
@@ -367,7 +367,7 @@ public partial class Command
             callback(direction);
         }
     }
-    
+    /*
     /// <summary>
     /// Convert direction to X offset.
     /// Equivalent to Nazghul's directionToDx().
@@ -397,7 +397,7 @@ public partial class Command
         Direction.SouthWest => 1,
         _ => 0
     };
-    
+    */
     // Logging helpers - connect to your actual log system
     private void Log(string message)
     {
@@ -430,21 +430,4 @@ public partial class Command
     {
         session.SetCommandPrompt("");
     }
-}
-
-/// <summary>
-/// Direction enumeration for movement and targeting.
-/// Matches Nazghul's direction system.
-/// </summary>
-public enum Direction
-{
-    None,
-    North,
-    South,
-    East,
-    West,
-    NorthEast,
-    NorthWest,
-    SouthEast,
-    SouthWest
 }

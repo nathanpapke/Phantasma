@@ -55,8 +55,8 @@ public partial class Command
         if (direction.HasValue)
         {
             // Direct attack in direction.
-            int dx = DirectionToDx(direction.Value);
-            int dy = DirectionToDy(direction.Value);
+            int dx = Common.DirectionToDx(direction.Value);
+            int dy = Common.DirectionToDy(direction.Value);
             int targetX = player.GetX() + dx;
             int targetY = player.GetY() + dy;
             

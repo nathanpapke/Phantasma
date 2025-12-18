@@ -275,11 +275,6 @@ public partial class Kernel
         string nameStr = name?.ToString() ?? "Unnamed Place";
 
         var terrainMap = map is TerrainMap ? (TerrainMap)map : default;
-        //if (terrainMap == null)
-        {
-            //Console.WriteLine($"[ERROR] kern-mk-place {tagStr}: invalid terrain map");
-            //return Builtins.Unspecified;
-        }
         
         Console.WriteLine($"  Creating place: {tagStr} - {nameStr}");
         
@@ -288,16 +283,99 @@ public partial class Kernel
             Tag = tagStr,
             Name = nameStr,
             Sprite = sprite as Sprite,
-            Width = terrainMap.Width,
-            Height = terrainMap.Height,
+            Width = terrainMap.Width, // ?? 32,
+            Height = terrainMap.Height, // ?? 32,
             TerrainGrid = terrainMap.TerrainGrid,
             Wraps = Convert.ToBoolean(wraps),
-            IsUnderground = Convert.ToBoolean(underground),
-            IsWilderness = Convert.ToBoolean(wild),
+            Underground = Convert.ToBoolean(underground),
+            Wilderness = Convert.ToBoolean(wild),
             CombatEnabled = Convert.ToBoolean(combat)
         };
         
+        // Initialize default edge entrances based on map size.
+        place.SetDefaultEdgeEntrances();
+        
         Console.WriteLine($"    Place created ({place.Width}x{place.Height})");
+        
+        // Load subplaces: list of (subplace x y)
+        for (var list = subplaces as Cons; list != null; list = list.cdr as Cons)
+        {
+            if (list.car is Cons entry)
+            {
+                var subplace = entry.car as Place;
+                var rest = entry.cdr as Cons;
+                
+                if (subplace != null && rest != null)
+                {
+                    int x = Convert.ToInt32(rest.car);
+                    int y = rest.cdr is Cons rest2 ? Convert.ToInt32(rest2.car) : 0;
+                    
+                    if (place.AddSubplace(subplace, x, y))
+                        Console.WriteLine($"    Added subplace {subplace.Tag} at ({x}, {y})");
+                }
+            }
+        }
+        
+        // Load neighbors: list of (neighbor direction) - UP/DOWN only.
+        for (var list = neighbors as Cons; list != null; list = list.cdr as Cons)
+        {
+            if (list.car is Cons entry)
+            {
+                var neighbor = entry.car as Place;
+                var rest = entry.cdr as Cons;
+                
+                if (neighbor != null && rest != null)
+                {
+                    int dir = Convert.ToInt32(rest.car);
+                    
+                    if (dir == Common.UP)
+                    {
+                        place.Above = neighbor;
+                        neighbor.Below = place;
+                        Console.WriteLine($"    Linked {neighbor.Tag} above");
+                    }
+                    else if (dir == Common.DOWN)
+                    {
+                        place.Below = neighbor;
+                        neighbor.Above = place;
+                        Console.WriteLine($"    Linked {neighbor.Tag} below");
+                    }
+                }
+            }
+        }
+        
+        // Load hooks: pre-entry closure.
+        if (hooks is Callable callable)
+        {
+            place.PreEntryHook = callable;
+            Console.WriteLine($"    Set pre-entry hook");
+        }
+        else if (hooks is Cons hookList && hookList.car is Callable hookCallable)
+        {
+            place.PreEntryHook = hookCallable;
+            Console.WriteLine($"    Set pre-entry hook from list");
+        }
+        
+        // Load entrances: list of (direction x y).
+        for (var list = entrances as Cons; list != null; list = list.cdr as Cons)
+        {
+            if (list.car is Cons entry)
+            {
+                int dir = Convert.ToInt32(entry.car);
+                var rest = entry.cdr as Cons;
+                
+                if (rest != null)
+                {
+                    int x = Convert.ToInt32(rest.car);
+                    int y = rest.cdr is Cons rest2 ? Convert.ToInt32(rest2.car) : 0;
+                    
+                    if (place.SetEdgeEntrance((Direction)dir, x, y))
+                        Console.WriteLine($"    Set entrance for {Common.DirectionToString(dir)} at ({x}, {y})");
+                }
+            }
+        }
+        
+        // Note: contents typically handled by kern-obj-put-at after place creation.
         
         if (!string.IsNullOrEmpty(tagStr))
         {

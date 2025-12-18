@@ -219,6 +219,11 @@ public partial class Kernel
         DefineFunction("kern-place-set-terrain", PlaceSetTerrain);
         DefineFunction("kern-place-get-terrain", PlaceGetTerrain);
         DefineFunction("kern-place-set-current", PlaceSetCurrent);
+        DefineFunction("kern-place-get-name", PlaceGetName);
+        DefineFunction("kern-place-get-location", PlaceGetLocation);
+        DefineFunction("kern-place-get-neighbor", PlaceGetNeighbor);
+        DefineFunction("kern-place-is-wilderness", PlaceIsWilderness);
+        DefineFunction("kern-place-is-wrapping", PlaceIsWrapping);
         
         // ===================================================================
         // KERN-OBJ API - Object Manipulation Functions
@@ -233,6 +238,7 @@ public partial class Kernel
         DefineFunction("kern-obj-remove-effect", ObjectRemoveEffect);
         DefineFunction("kern-obj-has-effect?", ObjectHasEffect);
         DefineFunction("kern-obj-remove", ObjectRemove);
+        DefineFunction("kern-obj-relocate", ObjectRelocate);
         
         // ===================================================================
         // KERN-CHAR API - Character Functions

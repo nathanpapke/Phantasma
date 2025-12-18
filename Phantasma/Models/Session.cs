@@ -471,6 +471,15 @@ public class Session
         
     private void Update()
     {
+        // Check if player moved to a different place
+        var playerPlace = playerCharacter?.Position?.Place;
+        if (playerPlace != null && playerPlace != currentPlace)
+        {
+            Console.WriteLine($"[Session] Player moved to: {playerPlace.Name}");
+            currentPlace = playerPlace;
+            map?.SetPlace(currentPlace);
+        }
+        
         // Update camera to follow player.
         map?.UpdateCamera();
         

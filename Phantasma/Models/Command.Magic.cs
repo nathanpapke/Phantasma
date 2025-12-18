@@ -107,8 +107,8 @@ public partial class Command
                 return false;
             }
             
-            int targetX = pc.GetX() + DirectionToDx(dir);
-            int targetY = pc.GetY() + DirectionToDy(dir);
+            int targetX = pc.GetX() + Common.DirectionToDx(dir);
+            int targetY = pc.GetY() + Common.DirectionToDy(dir);
             target = session.CurrentPlace?.GetBeingAt(targetX, targetY);
             
             if (target == null && !selectedSpell.CanTargetEmpty)
@@ -266,8 +266,8 @@ public partial class Command
             if (dir == null)
                 return null;
             
-            int targetX = startX + DirectionToDx(dir);
-            int targetY = startY + DirectionToDy(dir);
+            int targetX = startX + Common.DirectionToDx(dir);
+            int targetY = startY + Common.DirectionToDy(dir);
             return session.CurrentPlace?.GetBeingAt(targetX, targetY);
         }
         

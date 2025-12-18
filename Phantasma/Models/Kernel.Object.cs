@@ -227,4 +227,47 @@ public partial class Kernel
         
         return Builtins.Unspecified;
     }
+    
+    /// <summary>
+    /// (kern-obj-relocate obj location [cutscene])
+    /// Moves an object to a new location, optionally running a cutscene.
+    /// Location is a list: (place x y)
+    /// Cutscene can be a closure or #f/nil for no cutscene.
+    /// </summary>
+    public static object ObjectRelocate(object obj, object location, object cutscene)
+    {
+        if (obj is not Object gameObj)
+        {
+            Console.WriteLine("[WARNING] kern-obj-relocate: null or invalid object");
+            return "#f".Eval();
+        }
+    
+        // Unpack location list: (place x y)
+        if (location is not Cons locList)
+        {
+            Console.WriteLine("[WARNING] kern-obj-relocate: location must be a list");
+            return "#f".Eval();
+        }
+    
+        var place = locList.car as Place;
+        var rest = locList.cdr as Cons;
+    
+        if (place == null || rest == null)
+        {
+            Console.WriteLine("[WARNING] kern-obj-relocate: invalid location format");
+            return "#f".Eval();
+        }
+    
+        int x = Convert.ToInt32(rest.car);
+        var rest2 = rest.cdr as Cons;
+        int y = rest2 != null ? Convert.ToInt32(rest2.car) : 0;
+    
+        // Get cutscene closure if provided (ignore #f, nil, etc.).
+        Callable? cutsceneCallable = cutscene as Callable;
+    
+        // Perform the relocation.
+        gameObj.Relocate(place, x, y, cutsceneCallable);
+        
+        return "#t".Eval();
+    }
 }

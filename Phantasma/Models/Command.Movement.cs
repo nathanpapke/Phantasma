@@ -17,7 +17,6 @@ public partial class Command
     
     /// <summary>
     /// Search Command - search for hidden objects in a direction.
-    /// Mirrors Nazghul's cmdSearch().
     /// 
     /// Flow:
     /// 1. Prompt for direction
@@ -37,8 +36,8 @@ public partial class Command
             return false;
         }
 
-        int dx = DirectionToDx(dir);
-        int dy = DirectionToDy(dir);
+        int dx = Common.DirectionToDx(dir);
+        int dy = Common.DirectionToDy(dir);
         
         int targetX = x + dx;
         int targetY = y + dy;

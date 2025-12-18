@@ -171,4 +171,81 @@ public abstract class Being : Object
         being.Position.X = tempX;
         being.Position.Y = tempY;
     }
+    
+    // =========================================================
+    // NEW: Transition helper methods
+    // =========================================================
+
+    /// <summary>
+    /// Check what kind of move this is - normal, subplace entry, or off-map.
+    /// </summary>
+    protected MoveResult CheckMoveTo(Place place, int newX, int newY, int dx, int dy)
+    {
+        // Check if moving off map.
+        if (place.IsOffMap(newX, newY))
+        {
+            // If place has a parent, we can exit.
+            if (place.Location.Place != null)
+                return MoveResult.OffMap;
+            
+            // If map wraps, adjust coordinates.
+            if (place.Wraps)
+            {
+                // Coordinates will be wrapped in actual movement.
+                return MoveResult.Ok;
+            }
+            
+            // Can't go off edge of non-wrapping map with no parent.
+            return MoveResult.Impassable;
+        }
+        
+        // Check if stepping onto a subplace.
+        var subplace = place.GetSubplace(newX, newY);
+        if (subplace != null)
+        {
+            return MoveResult.EnterSubplace;
+        }
+        
+        return MoveResult.Ok;
+    }
+
+    /// <summary>
+    /// Enter a subplace from the parent map.
+    /// </summary>
+    protected bool EnterSubplace(Place subplace, int dx, int dy)
+    {
+        int entryDir = Common.DeltaToDirection(-dx, -dy);
+    
+        if (!subplace.GetEdgeEntrance((Direction)entryDir, out int entryX, out int entryY))
+        {
+            entryX = subplace.Width / 2;
+            entryY = subplace.Height / 2;
+        }
+    
+        Console.WriteLine($"{GetName()} enters {subplace.Name}");
+        Relocate(subplace, entryX, entryY);
+        return true;
+    }
+
+    /// <summary>
+    /// Exit to parent place when walking off map edge.
+    /// </summary>
+    protected bool ExitToParentPlace(int dx, int dy)
+    {
+        var currentPlace = Position?.Place;
+        var parentPlace = currentPlace?.Location.Place;
+    
+        if (parentPlace == null)
+        {
+            Console.WriteLine($"{GetName()} can't leave - no parent place!");
+            return false;
+        }
+    
+        int parentX = currentPlace.Location.X;
+        int parentY = currentPlace.Location.Y;
+    
+        Console.WriteLine($"{GetName()} exits {currentPlace.Name} to {parentPlace.Name}");
+        Relocate(parentPlace, parentX, parentY);
+        return true;
+    }
 }

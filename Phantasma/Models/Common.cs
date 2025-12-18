@@ -238,12 +238,12 @@ public class Common
     /// <summary>
     /// Get the X delta for a direction.
     /// </summary>
-    public static int DirectionToDx(int dir)
+    public static int DirectionToDx(Direction dir)
     {
         return dir switch
         {
-            NORTHWEST or WEST or SOUTHWEST => -1,
-            NORTHEAST or EAST or SOUTHEAST => 1,
+            Direction.NorthWest or Direction.West or Direction.SouthWest => -1,
+            Direction.NorthEast or Direction.East or Direction.SouthEast => 1,
             _ => 0
         };
     }
@@ -251,12 +251,12 @@ public class Common
     /// <summary>
     /// Get the Y delta for a direction.
     /// </summary>
-    public static int DirectionToDy(int dir)
+    public static int DirectionToDy(Direction dir)
     {
         return dir switch
         {
-            NORTHWEST or NORTH or NORTHEAST => -1,
-            SOUTHWEST or SOUTH or SOUTHEAST => 1,
+            Direction.NorthWest or Direction.North or Direction.NorthEast => -1,
+            Direction.SouthWest or Direction.South or Direction.SouthEast => 1,
             _ => 0
         };
     }

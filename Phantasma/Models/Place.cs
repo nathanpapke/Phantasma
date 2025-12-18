@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
@@ -9,24 +10,42 @@ public class Place
     public string Tag { get; set; } = "";
     public string Name { get; set; }
     public Sprite? Sprite { get; set; }
+    
     public Terrain[,] TerrainGrid { get; set; }
+    public int Width { get; set; } //  => TerrainGrid?.GetLength(0) ?? 0;
+    public int Height { get; set; } // => TerrainGrid?.GetLength(1) ?? 0;
+    
+    public Location Location { get; set; }      // Parent location (for subplaces)
+    public Place? Above { get; set; }           // Vertical neighbor (stairs up)
+    public Place? Below { get; set; }           // Vertical neighbor (stairs down)
+    public List<Place> Subplaces { get; set; } = new();     // Child places (towns in wilderness)
+    
+    // Scale for time passage (wilderness = larger scale)
+    public int Scale { get; set; } = 1;  // Nazghul: WILDERNESS_SCALE vs NON_WILDERNESS_SCALE
+    
+    public int[,] EdgeEntrances { get; } = new int[9, 2];   // [9 directions][x/y]
+    
+    // Pre-entry hook (Scheme closure called before entering)
+    public object? PreEntryHook { get; set; }
+    
+    // Dirty flag for rendering optimization
+    public bool Dirty { get; set; } = true;
+    
+    // For save/load system
+    public int SavedSessionId { get; set; } = 0;
+    
     public bool Wraps { get; set; } = false;
-    public bool IsUnderground { get; set; } = false;
-    public bool IsWilderness { get; set; } = false;
+    public bool Underground { get; set; } = false;
+    public bool Wilderness { get; set; } = false;
     public bool CombatEnabled { get; set; } = true;
-    public List<Place> SubPlaces { get; set; } = new();
-    public Dictionary<string, Place> Neighbors { get; set; } = new();
         
     // Object Tracking
     public List<Object> Objects;
     
     // Object Layers - Multiple objects can exist at same location in different layers.
     private Dictionary<(int x, int y, ObjectLayer layer), Object> objectsByLocation;
-    
+    private Dictionary<(int x, int y), Place> subplacesByLocation = new();
     public List<(int x, int y, Place? destination)> Entrances { get; set; } = new();
-    
-    public int Width { get; set; }
-    public int Height { get; set; }
 
     // Magic number for type checking (from Nazghul).
     public int Magic { get; set; } = 0x1234ABCD;
@@ -39,6 +58,7 @@ public class Place
         TerrainGrid = new Terrain[Width, Height];
         objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
         Objects = new List<Object>(0);
+        SetDefaultEdgeEntrances();
     }
     
     // Constructor for Scheme/Kernel (kern-mk-place)
@@ -52,30 +72,7 @@ public class Place
         TerrainGrid = new Terrain[Width, Height];
         objectsByLocation = new Dictionary<(int, int, ObjectLayer), Object>();
         Objects = new List<Object>();
-    }
-    
-    /// <summary>
-    /// Wraps X coordinate for maps that wrap around
-    /// </summary>
-    public int WrapX(int x)
-    {
-        if (!Wraps) return x;
-        
-        while (x < 0) x += Width;
-        while (x >= Width) x -= Width;
-        return x;
-    }
-    
-    /// <summary>
-    /// Wraps Y coordinate for maps that wrap around
-    /// </summary>
-    public int WrapY(int y)
-    {
-        if (!Wraps) return y;
-        
-        while (y < 0) y += Height;
-        while (y >= Height) y -= Height;
-        return y;
+        SetDefaultEdgeEntrances();
     }
     
     /// <summary>
@@ -209,13 +206,242 @@ public class Place
             System.Console.WriteLine($"No sprite found for '{spriteTag}'; will use colored tile.");
         }
     }
-
-    public bool IsOffMap(int x, int y)
+    
+    // ============================================================================
+    // COORDINATE WRAPPING
+    // ============================================================================
+    
+    /// <summary>
+    /// Wraps X coordinate for maps that wrap around.
+    /// </summary>
+    public int WrapX(int x)
     {
-        return x < 0 || x >= Width || y < 0 || y >= Height;
+        if (Wraps && Width > 0)
+            return ((x % Width) + Width) % Width;
+        return x;
     }
     
-    // Object Management Methods
+    /// <summary>
+    /// Wraps Y coordinate for maps that wrap around.
+    /// </summary>
+    public int WrapY(int y)
+    {
+        if (Wraps && Height > 0)
+            return ((y % Height) + Height) % Height;
+        return y;
+    }
+    
+    /// <summary>
+    /// Check if coordinates are off the map.
+    /// </summary>
+    public bool IsOffMap(int x, int y)
+    {
+        if (Wraps)
+            return false;
+        return x < 0 || x >= Width || y < 0 || y >= Height;
+    }
+
+// ============================================================================
+// SUBPLACE MANAGEMENT
+// ============================================================================
+
+    /// <summary>
+    /// Get subplace at the given coordinates.
+    /// </summary>
+    public Place? GetSubplace(int x, int y)
+    {
+        // Wrap coordinates if needed
+        x = WrapX(x);
+        y = WrapY(y);
+    
+        if (subplacesByLocation.TryGetValue((x, y), out var subplace))
+            return subplace;
+    
+        return null;
+    }
+
+    /// <summary>
+    /// Add a subplace at the given coordinates.
+    /// </summary>
+    /// <returns>True if successful, false if failed</returns>
+    public bool AddSubplace(Place subplace, int x, int y)
+    {
+        if (subplace == null)
+            return false;
+    
+        // Check bounds.
+        if (IsOffMap(x, y))
+            return false;
+    
+        // Check if location already has a subplace.
+        if (subplacesByLocation.ContainsKey((x, y)))
+            return false;
+    
+        // Add to dictionary.
+        subplacesByLocation[(x, y)] = subplace;
+    
+        // Set the subplace's parent location.
+        subplace.Location = new Location(this, x, y);
+    
+        // Add to subplaces list.
+        if (!Subplaces.Contains(subplace))
+            Subplaces.Add(subplace);
+    
+        return true;
+    }
+
+    /// <summary>
+    /// Remove a subplace from this place.
+    /// </summary>
+    public void RemoveSubplace(Place subplace)
+    {
+        if (subplace == null)
+            return;
+    
+        var key = (subplace.Location.X, subplace.Location.Y);
+    
+        // Remove from dictionary if it matches.
+        if (subplacesByLocation.TryGetValue(key, out var existing) && existing == subplace)
+        {
+            subplacesByLocation.Remove(key);
+        }
+    
+        // Remove from subplaces list.
+        Subplaces.Remove(subplace);
+    
+        // Clear parent reference.
+        subplace.Location = new Location(null, 0, 0);
+    }
+
+    // ============================================================================
+    // EDGE ENTRANCES
+    // ============================================================================
+
+    /// <summary>
+    /// Set default edge entrances based on map dimensions.
+    /// When entering from a direction, player appears on the opposite edge.
+    /// </summary>
+    public void SetDefaultEdgeEntrances()
+    {
+        int centerX = Width / 2;
+        int centerY = Height / 2;
+        int maxX = Width - 1;
+        int maxY = Height - 1;
+        
+        // Enter from NORTH (player appears at south edge, center).
+        EdgeEntrances[(int)Direction.North, 0] = centerX;
+        EdgeEntrances[(int)Direction.North, 1] = maxY;
+        
+        // Enter from NORTHEAST (player appears at southwest corner).
+        EdgeEntrances[(int)Direction.NorthEast, 0] = 0;
+        EdgeEntrances[(int)Direction.NorthEast, 1] = maxY;
+        
+        // Enter from EAST (player appears at west edge, center).
+        EdgeEntrances[(int)Direction.East, 0] = 0;
+        EdgeEntrances[(int)Direction.East, 1] = centerY;
+        
+        // Enter from SOUTHEAST (player appears at northwest corner).
+        EdgeEntrances[(int)Direction.SouthEast, 0] = 0;
+        EdgeEntrances[(int)Direction.SouthEast, 1] = 0;
+        
+        // Enter from SOUTH (player appears at north edge, center).
+        EdgeEntrances[(int)Direction.South, 0] = centerX;
+        EdgeEntrances[(int)Direction.South, 1] = 0;
+        
+        // Enter from SOUTHWEST (player appears at northeast corner).
+        EdgeEntrances[(int)Direction.SouthWest, 0] = maxX;
+        EdgeEntrances[(int)Direction.SouthWest, 1] = 0;
+        
+        // Enter from WEST (player appears at east edge, center).
+        EdgeEntrances[(int)Direction.West, 0] = maxX;
+        EdgeEntrances[(int)Direction.West, 1] = centerY;
+        
+        // Enter from NORTHWEST (player appears at southeast corner).
+        EdgeEntrances[(int)Direction.NorthWest, 0] = maxX;
+        EdgeEntrances[(int)Direction.NorthWest, 1] = maxY;
+        
+        // Enter from HERE/CENTER (player appears at center).
+        EdgeEntrances[(int)Direction.Here, 0] = centerX;
+        EdgeEntrances[(int)Direction.Here, 1] = centerY;
+    }
+
+    /// <summary>
+    /// Get the entrance coordinates for a given direction.
+    /// </summary>
+    /// <param name="dir">Direction entering from</param>
+    /// <param name="x">Output X coordinate</param>
+    /// <param name="y">Output Y coordinate</param>
+    /// <returns>True if valid direction, false otherwise</returns>
+    public bool GetEdgeEntrance(Direction dir, out int x, out int y)
+    {
+        int dirIndex = (int)dir;
+        
+        if (dirIndex < 0 || dirIndex >= 9)
+        {
+            x = 0;
+            y = 0;
+            return false;
+        }
+        
+        x = EdgeEntrances[dirIndex, 0];
+        y = EdgeEntrances[dirIndex, 1];
+        return true;
+    }
+
+    /// <summary>
+    /// Set the entrance coordinates for a given direction.
+    /// </summary>
+    /// <param name="dir">Direction entering from</param>
+    /// <param name="x">X coordinate where player should appear</param>
+    /// <param name="y">Y coordinate where player should appear</param>
+    /// <returns>True if successful</returns>
+    public bool SetEdgeEntrance(Direction dir, int x, int y)
+    {
+        int dirIndex = (int)dir;
+        
+        if (dirIndex < 0 || dirIndex >= 9)
+            return false;
+        
+        // Validate coordinates are on map.
+        if (IsOffMap(x, y))
+            return false;
+        
+        EdgeEntrances[dirIndex, 0] = x;
+        EdgeEntrances[dirIndex, 1] = y;
+        return true;
+    }
+
+    // ============================================================================
+    // PLACE ENTRY/EXIT
+    // ============================================================================
+
+    /// <summary>
+    /// Called when a party/object enters this place.
+    /// </summary>
+    public void Enter()
+    {
+        // Execute pre-entry hook if defined and callable.
+        if (PreEntryHook is Callable callable)
+        {
+            callable.Call();
+        }
+        
+        // Mark as dirty for rendering.
+        Dirty = true;
+    }
+
+    /// <summary>
+    /// Called when leaving this place.
+    /// </summary>
+    public void Exit()
+    {
+        // Currently just marks dirty - can be extended for cleanup.
+        Dirty = true;
+    }
+    
+    // ============================================================================
+    // OBJECT MANAGEMENT
+    // ============================================================================
     
     /// <summary>
     /// Get object at a specific location and layer.
@@ -649,4 +875,31 @@ public class Place
         
         return "Unknown obstruction";
     }
+
+// ============================================================================
+// HELPER METHODS
+// ============================================================================
+/*
+    /// <summary>
+    /// Get tile at coordinates, or null if none exists.
+    /// </summary>
+    private Tile? GetTileAt(int x, int y)
+    {
+        if (tiles.TryGetValue((x, y), out var tile))
+            return tile;
+        return null;
+    }
+    
+    /// <summary>
+    /// Get or create tile at coordinates.
+    /// </summary>
+    private Tile GetOrCreateTileAt(int x, int y)
+    {
+        if (!tiles.TryGetValue((x, y), out var tile))
+        {
+            tile = new Tile();
+            tiles[(x, y)] = tile;
+        }
+        return tile;
+    }*/
 }

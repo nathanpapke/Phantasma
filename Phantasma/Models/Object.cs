@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
@@ -129,12 +130,47 @@ public abstract class Object
         
         return null;
     }
-    
+
     public virtual void Remove()
     {
         if (Position.Place != null)
         {
             Position.Place.RemoveObject(this);
+        }
+    }
+
+    /// <summary>
+    /// Relocate this object to a new place and position.
+    /// Based on Object::relocate() in object.c:316
+    /// </summary>
+    /// <param name="newPlace">Destination place</param>
+    /// <param name="newX">Destination X coordinate</param>
+    /// <param name="newY">Destination Y coordinate</param>
+    /// <param name="cutscene">Optional cutscene closure to run during transition</param>
+    public virtual void Relocate(Place newPlace, int newX, int newY, Callable? cutscene = null)
+    {
+        // Remove from current place.
+        var oldPlace = GetPlace();
+        if (oldPlace != null)
+        {
+            oldPlace.RemoveObject(this);
+            oldPlace.Exit();
+        }
+    
+        // Run cutscene if provided.
+        if (cutscene != null)
+        {
+            cutscene.Call();
+        }
+    
+        // Set new position.
+        SetPosition(newPlace, newX, newY);
+    
+        // Add to new place.
+        if (newPlace != null)
+        {
+            newPlace.AddObject(this, newX, newY);
+            newPlace.Enter();
         }
     }
     

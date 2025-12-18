@@ -33,6 +33,8 @@ public class Tile
     /// Total count of objects on this tile.
     /// </summary>
     public int ObjectCount { get; private set; }
+    
+    public Place? Subplace { get; set; }
 
     /// <summary>
     /// Create a new tile at the specified coordinates.

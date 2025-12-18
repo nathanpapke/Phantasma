@@ -45,8 +45,8 @@ public partial class Command
         if (place == null)
             return false;
 
-        int dx = DirectionToDx(dir);
-        int dy = DirectionToDy(dir);
+        int dx = Common.DirectionToDx(dir);
+        int dy = Common.DirectionToDy(dir);
         int targetX = player.GetX() + dx;
         int targetY = player.GetY() + dy;
         
@@ -247,8 +247,8 @@ public partial class Command
             return false;
         }
         
-        int dx = DirectionToDx(dir);
-        int dy = DirectionToDy(dir);
+        int dx = Common.DirectionToDx(dir);
+        int dy = Common.DirectionToDy(dir);
         
         int x = pc.GetX() + dx;
         int y = pc.GetY() + dy;
@@ -311,8 +311,8 @@ public partial class Command
             return false;
         }
 
-        int dx = DirectionToDx(dir);
-        int dy = DirectionToDy(dir);
+        int dx = Common.DirectionToDx(dir);
+        int dy = Common.DirectionToDy(dir);
         
         int x = pc.GetX() + dx;
         int y = pc.GetY() + dy;
