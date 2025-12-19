@@ -97,65 +97,63 @@ public partial class Kernel
         return Builtins.Unspecified;
     }
     
-    public static object SetClock(object hourObj)
+    /// <summary>
+    /// (kern-set-clock year month week day hour minute)
+    /// Sets the game clock to a specific time.
+    /// Matches Nazghul's 6-parameter signature exactly.
+    /// </summary>
+    /// <param name="yearObj"></param>
+    /// <param name="monthObj"></param>
+    /// <param name="weekObj"></param>
+    /// <param name="dayObj"></param>
+    /// <param name="hourObj"></param>
+    /// <param name="minObj"></param>
+    /// <returns></returns>
+    public static object SetClock(object yearObj, object monthObj, object weekObj, 
+        object dayObj, object hourObj, object minObj)
     {
-        // (kern-set-clock hour)
-        // Sets the game clock to the specified hour (0-23).
-        // Time is stored internally as minutes (0-1439).
-        
-        try
+        int year = Convert.ToInt32(yearObj ?? 0);
+        int month = Convert.ToInt32(monthObj ?? 0);
+        int week = Convert.ToInt32(weekObj ?? 0);
+        int day = Convert.ToInt32(dayObj ?? 0);
+        int hour = Convert.ToInt32(hourObj ?? 0);
+        int min = Convert.ToInt32(minObj ?? 0);
+    
+        var session = Phantasma.MainSession;
+        if (session == null)
         {
-            int hour = Convert.ToInt32(hourObj ?? 0);
-            hour = Math.Max(0, Math.Min(23, hour));  // Clamp to 0-23
-            
-            var session = Phantasma.MainSession;
-            if (session != null)
-            {
-                session.GameClock = hour * 60;  // Convert to minutes
-                Console.WriteLine($"[SetClock] Game clock set to {hour}:00");
-            }
-            else
-            {
-                Console.WriteLine("[SetClock] Warning: No main session");
-            }
-            
+            Console.WriteLine("[SetClock] Warning: No main session.");
             return Builtins.Unspecified;
         }
-        catch (Exception ex)
-        {
-            RuntimeError($"kern-set-clock: {ex.Message}");
-            return Builtins.Unspecified;
-        }
+    
+        session.Clock.Set(year, month, week, day, hour, min);
+    
+        return Builtins.Unspecified;
     }
     
+    /// <summary>
+    /// (kern-set-time-accel multiplier)
+    /// Sets how fast time passes (1 = normal, 2 = double speed, etc.).
+    /// Used for camping/resting.
+    /// </summary>
+    /// <param name="accelObj"></param>
+    /// <returns></returns>
     public static object SetTimeAcceleration(object accelObj)
     {
-        // (kern-set-time-accel multiplier)
-        // Sets how fast time passes (1 = normal, 2 = double speed, etc.).
-        
-        try
+        int accel = Convert.ToInt32(accelObj ?? 1);
+        accel = Math.Max(1, accel);  // Minimum 1x speed
+    
+        var session = Phantasma.MainSession;
+        if (session == null)
         {
-            int accel = Convert.ToInt32(accelObj ?? 1);
-            accel = Math.Max(1, accel);  // Minimum 1x speed
-            
-            var session = Phantasma.MainSession;
-            if (session != null)
-            {
-                session.TimeAcceleration = accel;
-                Console.WriteLine($"[SetTimeAccel] Time acceleration set to {accel}x");
-            }
-            else
-            {
-                Console.WriteLine("[SetTimeAccel] Warning: No main session");
-            }
-            
+            Console.WriteLine("[SetTimeAccel] Warning: No main session.");
             return Builtins.Unspecified;
         }
-        catch (Exception ex)
-        {
-            RuntimeError($"kern-set-time-accel: {ex.Message}");
-            return Builtins.Unspecified;
-        }
+    
+        session.TimeAcceleration = accel;
+        Console.WriteLine($"[SetTimeAccel] Time acceleration set to {accel}x.");
+    
+        return Builtins.Unspecified;
     }
 
     /// <summary>
@@ -181,5 +179,29 @@ public partial class Kernel
         }
 
         return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-set-wind direction duration)
+    /// Sets wind direction and duration.
+    /// </summary>
+    /// <param name="dirObj"></param>
+    /// <param name="durObj"></param>
+    /// <returns></returns>
+    public static object SetWind(object dirObj, object durObj)
+    {
+        int direction = Convert.ToInt32(dirObj ?? Common.NORTH);
+        int duration = Convert.ToInt32(durObj ?? 0);
+        
+        var session = Phantasma.MainSession;
+        if (session == null)
+        {
+            Console.WriteLine("[SetWind] Warning: No main session");
+            return "#f".Eval();
+        }
+        
+        session.Wind.SetDirection(direction, duration);
+        
+        return "#t".Eval();
     }
 }

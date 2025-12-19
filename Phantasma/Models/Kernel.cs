@@ -173,6 +173,7 @@ public partial class Kernel
         DefineFunction("kern-mk-reagent-type", MakeReagentType);
         DefineFunction("kern-mk-spell", MakeSpell);
         DefineFunction("kern-mk-effect", MakeEffect);
+        DefineFunction("kern-mk-astral-body", MakeAstralBody);
         DefineFunction("kern-mk-sound", MakeSound);
         
         // ===================================================================
@@ -193,6 +194,7 @@ public partial class Kernel
         DefineFunction("kern-set-clock", SetClock);
         DefineFunction("kern-set-time-accel", SetTimeAcceleration);
         DefineFunction("kern-set-spell-words", SetSpellWords);
+        DefineFunction("kern-set-wind", SetWind);
         
         // ===================================================================
         // KERN-ADD API - Status Effect Functions
@@ -279,6 +281,14 @@ public partial class Kernel
         DefineFunction("kern-conv-get-amount", ConversationGetAmount);
         DefineFunction("kern-conv-trade", ConversationTrade);
         DefineFunction("kern-conv-end", ConversationEnd);
+        
+        // ===================================================================
+        // KERN-ASTRAL-BODY API
+        // ===================================================================
+        
+        DefineFunction("kern-astral-body-get-phase", AstralBodyGetPhase);
+        DefineFunction("kern-astral-body-get-gob", AstralBodyGetGob);
+        DefineFunction("kern-astral-body-set-gob", AstralBodySetGob);
         
         // ===================================================================
         // MISC API - Utility Functions

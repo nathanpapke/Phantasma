@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         gameView = this.GetControl<GameView>("GameViewControl");
         if (gameView != null)
         {
-            gameView.GameSession = gameSession;
+            gameView.GetScreen().BindToSession(gameSession);
         }
         // Status View
         var statusView = this.FindControl<StatusView>("StatusViewControl");

@@ -4,35 +4,28 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 
-using Phantasma.Models;
 using Phantasma.Binders;
 
 namespace Phantasma.Views;
 
+/// <summary>
+/// View for the game map area.
+/// IMPORTANT: This View only knows about Screen (the Binder).
+/// It NEVER references any classes from Phantasma.Models.
+/// </summary>
 public class GameView : Control
 {
-    private Session gameSession;  //Maybe Phantasma, instead?
     private Screen screen;
-
-    public Session GameSession
-    {
-        get => gameSession;
-        set
-        {
-            gameSession = value;
-            InvalidateVisual();  // Redraw when session changes.
-        }
-    }
 
     public GameView()
     {
-        // Initialize screen renderer.
+        // Initialize screen renderer (our Binder).
         screen = new Screen();
         screen.Initialize();
         
         // Set control size based on map.
-        Width = 20 * Dimensions.TILE_W;  // 20 tiles wide
-        Height = 20 * Dimensions.TILE_H; // 20 tiles high
+        Width = 20 * screen.TileWidth;
+        Height = 20 * screen.TileHeight;
             
         screen.SetScreenSize((int)Width, (int)Height);
         
@@ -43,6 +36,11 @@ public class GameView : Control
         timer.Start();
     }
 
+    /// <summary>
+    /// Get the Screen binder so it can be bound to a Session externally.
+    /// </summary>
+    public Screen GetScreen() => screen;
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
@@ -50,66 +48,39 @@ public class GameView : Control
         // Clear background.
         context.FillRectangle(Brushes.Black, new Rect(0, 0, Bounds.Width, Bounds.Height));
         
-        if (gameSession?.CurrentPlace == null)
-            return;
-            
-        // Use the Screen class to render.
-        screen.DrawMap(context, gameSession.CurrentPlace, 
-            gameSession.Player.GetX(), gameSession.Player.GetY());
-            
-        // Draw grid lines (optional, helps visualize tiles).
+        // Let the Screen binder handle all rendering.
+        screen.Render(context, Bounds);
+        
+        // Draw grid lines if in fallback mode.
         if (screen.CurrentRenderMode == Screen.RenderMode.ColoredSquares)
         {
-            DrawGrid(context, gameSession.CurrentPlace.Width, gameSession.CurrentPlace.Height);
+            DrawGrid(context);
         }
     }
 
-    private void DrawTile(DrawingContext context, int x, int y, Terrain terrain)
+    private void DrawGrid(DrawingContext context)
     {
-        // Calculate pixel position.
-        var rect = new Rect(x * Dimensions.TILE_W, y * Dimensions.TILE_H,
-            Dimensions.TILE_W, Dimensions.TILE_H);
+        int tilesWide = screen.TilesWide;
+        int tilesHigh = screen.TilesHigh;
+        int tileWidth = screen.TileWidth;
+        int tileHeight = screen.TileHeight;
         
-        // Parse color and create brush.
-        var color = Color.Parse(terrain.Color);
-        var brush = new SolidColorBrush(color);
-        
-        // Fill tile with terrain color.
-        context.FillRectangle(brush, rect);
-        
-        // Draw character in center of tile.
-        var text = new FormattedText(
-            terrain.DisplayChar.ToString(),
-            System.Globalization.CultureInfo.CurrentCulture,
-            FlowDirection.LeftToRight,
-            new Typeface("Consolas", FontStyle.Normal, FontWeight.Bold),
-            20,
-            Brushes.White);
-            
-        var textX = x * Dimensions.TILE_W + (Dimensions.TILE_W - text.Width) / 2;
-        var textY = y * Dimensions.TILE_H + (Dimensions.TILE_H - text.Height) / 2;
-        
-        context.DrawText(text, new Point(textX, textY));
-    }
-
-    private void DrawGrid(DrawingContext context, int width, int height)
-    {
         var pen = new Pen(new SolidColorBrush(Color.FromArgb(32, 255, 255, 255)), 1);
         
         // Draw vertical lines.
-        for (int x = 0; x <= width; x++)
+        for (int x = 0; x <= tilesWide; x++)
         {
             context.DrawLine(pen, 
-                new Point(x * Dimensions.TILE_W, 0), 
-                new Point(x * Dimensions.TILE_W, height * Dimensions.TILE_H));
+                new Point(x * tileWidth, 0), 
+                new Point(x * tileWidth, tilesHigh * tileHeight));
         }
         
         // Draw horizontal lines.
-        for (int y = 0; y <= height; y++)
+        for (int y = 0; y <= tilesHigh; y++)
         {
             context.DrawLine(pen, 
-                new Point(0, y * Dimensions.TILE_H), 
-                new Point(width * Dimensions.TILE_W, y * Dimensions.TILE_H));
+                new Point(0, y * tileHeight), 
+                new Point(tilesWide * tileWidth, y * tileHeight));
         }
     }
 }

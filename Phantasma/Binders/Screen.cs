@@ -13,11 +13,19 @@ namespace Phantasma.Binders;
 /// </summary>
 public class Screen
 {
+    // Session Binding
+    private Session _session;
+    
     private int screenWidth;
     private int screenHeight;
     private int tileWidth;
     private int tileHeight;
     private VisibilityMask visibilityCache = new VisibilityMask();
+    
+    // Lightmap for per-tile Shading (matches viewport size)
+    private byte[] lightmap;
+    private int lightmapWidth;
+    private int lightmapHeight;
     
     // UI State
     private Cursor cursor;      // For blinking text cursor sprite
@@ -34,6 +42,12 @@ public class Screen
     }
 
     public RenderMode CurrentRenderMode { get; private set; }
+    
+    // Expose tile dimensions for the View.
+    public int TileWidth => tileWidth;
+    public int TileHeight => tileHeight;
+    public int TilesWide => screenWidth / tileWidth;
+    public int TilesHigh => screenHeight / tileHeight;
 
     public Screen()
     {
@@ -65,6 +79,25 @@ public class Screen
             RenderMode.Sprites : RenderMode.ColoredSquares;
             
         Console.WriteLine($"Screen initialized in {CurrentRenderMode} mode.");
+    }
+    
+    /// <summary>
+    /// Bind to a Session for rendering.
+    /// </summary>
+    public void BindToSession(Session session)
+    {
+        _session = session;
+    
+        // Subscribe to sky changes if available.
+        if (_session?.Sky != null)
+        {
+            _session.Sky.AmbientLightChanged += OnAmbientLightChanged;
+        }
+    }
+
+    private void OnAmbientLightChanged(int light)
+    {
+        // Lightmap will be rebuilt on next render.
     }
     
     /// <summary>
@@ -566,6 +599,121 @@ public class Screen
         
         return 0; // Default to North
     }
+    
+    /// <summary>
+    /// Build the per-tile lightmap.
+    /// Each tile starts at ambient light, then point sources are merged in.
+    /// </summary>
+    private void BuildLightmap(Place place, int centerX, int centerY)
+    {
+        int tilesWide = screenWidth / tileWidth;
+        int tilesHigh = screenHeight / tileHeight;
+        
+        // Resize lightmap if needed.
+        if (lightmap == null || lightmapWidth != tilesWide || lightmapHeight != tilesHigh)
+        {
+            lightmapWidth = tilesWide;
+            lightmapHeight = tilesHigh;
+            lightmap = new byte[lightmapWidth * lightmapHeight];
+        }
+        
+        // Get base ambient light.
+        int ambientLight;
+        if (place.Underground)
+        {
+            ambientLight = 0;  // Underground starts dark
+        }
+        else
+        {
+            ambientLight = _session?.Sky?.GetAmbientLight() ?? Common.MAX_AMBIENT_LIGHT;
+        }
+        
+        // Initialize all tiles to ambient light.
+        for (int i = 0; i < lightmap.Length; i++)
+        {
+            lightmap[i] = (byte)ambientLight;
+        }
+        
+        // If at max ambient, skip point light processing.
+        if (!place.Underground && ambientLight >= Common.MAX_AMBIENT_LIGHT)
+            return;
+        
+        // Merge in point light sources (torches, spells, etc.).
+        int viewStartX = centerX - tilesWide / 2;
+        int viewStartY = centerY - tilesHigh / 2;
+        
+        // Check all beings for light output.
+        var beings = place.GetAllBeings();
+        foreach (var being in beings)
+        {
+            if (being.Light <= 0)
+                continue;
+            
+            MergeLightSource(being.GetX(), being.GetY(), being.Light, viewStartX, viewStartY);
+        }
+        
+        // Check all items for light output (torches, lanterns on ground).
+        var items = place.GetAllItems();
+        foreach (var item in items)
+        {
+            if (item.Light <= 0)
+                continue;
+    
+            MergeLightSource(item.GetX(), item.GetY(), item.Light, viewStartX, viewStartY);
+        }
+        
+        // Check terrain for light (glowing tiles, lava, etc.).
+        for (int viewY = 0; viewY < tilesHigh; viewY++)
+        {
+            for (int viewX = 0; viewX < tilesWide; viewX++)
+            {
+                int mapX = viewStartX + viewX;
+                int mapY = viewStartY + viewY;
+                
+                var terrain = place.GetTerrain(mapX, mapY);
+                if (terrain != null && terrain.Light > 0)
+                {
+                    MergeLightSource(mapX, mapY, terrain.Light, viewStartX, viewStartY);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Merge a point light source into the lightmap.
+    /// Light falls off with distance squared.
+    /// </summary>
+    private void MergeLightSource(int sourceX, int sourceY, int lightLevel, int viewStartX, int viewStartY)
+    {
+        int radius = (int)Math.Sqrt(lightLevel);
+        
+        for (int dy = -radius; dy <= radius; dy++)
+        {
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                int viewX = sourceX + dx - viewStartX;
+                int viewY = sourceY + dy - viewStartY;
+                
+                // Check bounds.
+                if (viewX < 0 || viewX >= lightmapWidth || viewY < 0 || viewY >= lightmapHeight)
+                    continue;
+                
+                // Calculate light at this distance.
+                int distSq = dx * dx + dy * dy;
+                if (distSq > radius * radius)
+                    continue;
+                
+                int light = lightLevel - distSq;
+                if (light <= 0)
+                    continue;
+                
+                // Merge (add) light into lightmap.
+                int index = viewY * lightmapWidth + viewX;
+                int newLight = lightmap[index] + light;
+                lightmap[index] = (byte)Math.Min(newLight, Common.MAX_AMBIENT_LIGHT);
+            }
+        }
+    }
 
     /// <summary>
     /// Draw the complete map view.
@@ -686,6 +834,66 @@ public class Screen
                 DrawCrosshair(context, viewX, viewY, cursor);
             }
         }
+    }
+    
+    /// <summary>
+    /// Apply the lightmap as darkness overlays on each tile.
+    /// </summary>
+    private void ApplyLightmap(DrawingContext context)
+    {
+        if (lightmap == null)
+            return;
+    
+        for (int viewY = 0; viewY < lightmapHeight; viewY++)
+        {
+            for (int viewX = 0; viewX < lightmapWidth; viewX++)
+            {
+                int index = viewY * lightmapWidth + viewX;
+                int light = lightmap[index];
+            
+                // Skip fully lit tiles.
+                if (light >= Common.MAX_AMBIENT_LIGHT)
+                    continue;
+            
+                // Calculate darkness (inverse of light).
+                int darkness = Common.MAX_AMBIENT_LIGHT - light;
+            
+                // Clamp to leave some visibility
+                darkness = Math.Min(darkness, 220);
+            
+                // Draw dark overlay.
+                var rect = new Rect(
+                    viewX * tileWidth,
+                    viewY * tileHeight,
+                    tileWidth,
+                    tileHeight);
+            
+                var overlayBrush = new SolidColorBrush(Color.FromArgb((byte)darkness, 0, 0, 0));
+                context.FillRectangle(overlayBrush, rect);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Main render entry point called by GameView.
+    /// </summary>
+    public void Render(DrawingContext context, Rect bounds)
+    {
+        if (_session?.CurrentPlace == null || _session?.Player == null)
+            return;
+    
+        var place = _session.CurrentPlace;
+        int centerX = _session.Player.GetX();
+        int centerY = _session.Player.GetY();
+    
+        // Build the lightmap for this frame.
+        BuildLightmap(place, centerX, centerY);
+    
+        // Draw the map layers.
+        DrawMap(context, place, centerX, centerY);
+    
+        // Apply per-tile lighting overlay.
+        ApplyLightmap(context);
     }
 
     /// <summary>

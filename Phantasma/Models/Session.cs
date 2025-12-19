@@ -28,8 +28,10 @@ public class Session
     private DispatcherTimer gameTimer;
     private Status status;
     
-    // Clock and Time System
-    private int gameClock = 0;  // Game time in minutes (0-1439, wraps daily)
+    // Clock, Sky, and Wind System
+    private readonly Clock clock = new();
+    private readonly Sky sky = new();
+    private readonly Wind wind = new();
     private int timeAcceleration = 1;  // Time speed multiplier
     
     // Targeting
@@ -78,7 +80,6 @@ public class Session
     
     /// <summary>
     /// List of objects registered for save/load/destroy.
-    /// Mirrors Nazghul's Session->data_objects linked list.
     /// Order is preserved - objects are saved in the order they were registered.
     /// </summary>
     private readonly List<SaveEntry> saveEntries = new();
@@ -99,7 +100,10 @@ public class Session
     public Map Map => map;
     public bool IsRunning => isRunning;
     public Status Status => status;
-    public int GameClock { get => gameClock; set => gameClock = value % 1440; }  // Wrap at 24 hours
+    public Clock Clock => clock;
+    public Sky Sky => sky;
+    public Wind Wind => wind;
+    public int GameClockMinutes => (int)clock.TimeOfDay;
     public int TimeAcceleration { get => timeAcceleration; set => timeAcceleration = Math.Max(1, value); }
     
     /// <summary>
@@ -166,6 +170,11 @@ public class Session
         {
             map.AttachCamera(playerCharacter);
         }
+        
+        // Initialize time systems
+        clock.Reset();
+        sky.Init(clock);
+        wind.Init();
     }
         
     private void CreatePlayer()
@@ -372,14 +381,18 @@ public class Session
     private void SaveSessionState(SaveWriter writer)
     {
         writer.WriteComment("Session State");
-        
-        // Save clock (convert minutes to hours for readability).
-        int hours = gameClock / 60;
-        int minutes = gameClock % 60;
-        writer.WriteLine($"(kern-set-clock {hours})");
-        
+    
+        // Save clock using full 6-parameter format.
+        clock.Save(writer);
+    
         // Save time acceleration.
         writer.WriteLine($"(kern-set-time-accel {timeAcceleration})");
+    
+        // Save wind.
+        wind.Save(writer);
+    
+        // Save sky (astral bodies).
+        sky.Save(writer);
         
         // Save player status effects if active.
         if (playerCharacter != null)
@@ -430,10 +443,12 @@ public class Session
     
     /// <summary>
     /// Dispose of the session and clean up all registered objects.
-    /// Mirrors Nazghul's session_del() function.
     /// </summary>
     public void Dispose()
     {
+        // Clean up sky (deletes astral bodies).
+        sky.EndSession();
+        
         ClearSaveRegistry();
     }
     
@@ -471,7 +486,7 @@ public class Session
         
     private void Update()
     {
-        // Check if player moved to a different place
+        // Check if player moved to a different place.
         var playerPlace = playerCharacter?.Position?.Place;
         if (playerPlace != null && playerPlace != currentPlace)
         {
@@ -482,6 +497,17 @@ public class Session
         
         // Update camera to follow player.
         map?.UpdateCamera();
+    
+        // Advance time systems (scaled by time acceleration)
+        for (int i = 0; i < timeAcceleration; i++)
+        {
+            clock.Advance(1);
+            wind.AdvanceTurns();
+        }
+    
+        // Update sky (only needs visual update once per tick, not per accel)
+        bool skyVisible = currentPlace != null && !currentPlace.Underground;
+        sky.Advance(skyVisible);
         
         // Game update logic will go here.
         // For now just ensure player has action points.
@@ -674,7 +700,6 @@ public class Session
 
     /// <summary>
     /// Push a key handler onto the stack.
-    /// Mirrors Nazghul's eventPushKeyHandler().
     /// </summary>
     public void PushKeyHandler(IKeyHandler handler)
     {
@@ -687,7 +712,6 @@ public class Session
 
     /// <summary>
     /// Pop the top key handler from the stack.
-    /// Mirrors Nazghul's eventPopKeyHandler().
     /// </summary>
     public void PopKeyHandler()
     {

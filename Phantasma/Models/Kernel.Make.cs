@@ -1086,6 +1086,104 @@ public partial class Kernel
         return effect;
     }
     
+    /// <summary>
+    /// (kern-mk-astral-body tag name distance min_per_phase min_per_degree 
+    ///                      initial_arc initial_phase callback phase_list)
+    /// Creates a celestial body (sun, moon, star).
+    /// </summary>
+    /// <param name="tagObj"></param>
+    /// <param name="nameObj"></param>
+    /// <param name="distanceObj"></param>
+    /// <param name="minPerPhaseObj"></param>
+    /// <param name="minPerDegreeObj"></param>
+    /// <param name="initialArcObj"></param>
+    /// <param name="initialPhaseObj"></param>
+    /// <param name="callbackObj"></param>
+    /// <param name="phaseListObj"></param>
+    /// <returns></returns>
+    public static object MakeAstralBody(
+        object tagObj, object nameObj, object distanceObj,
+        object minPerPhaseObj, object minPerDegreeObj,
+        object initialArcObj, object initialPhaseObj,
+        object callbackObj, object phaseListObj)
+    {
+        string tag = tagObj?.ToString()?.TrimStart('\'') ?? "unknown";
+        string name = nameObj?.ToString() ?? "Unknown";
+        int distance = Convert.ToInt32(distanceObj ?? 0);
+        int minPerPhase = Convert.ToInt32(minPerPhaseObj ?? 0);
+        int minPerDegree = Convert.ToInt32(minPerDegreeObj ?? 1);
+        int initialArc = Convert.ToInt32(initialArcObj ?? 0);
+        int initialPhase = Convert.ToInt32(initialPhaseObj ?? 0);
+        
+        // Convert phase list to array.
+        var phaseVector = Builtins.ListToVector(phaseListObj);
+        if (phaseVector is not object[] phases || phases.Length == 0)
+        {
+            Console.WriteLine($"[MakeAstralBody] Error: {tag} has no phases");
+            return Builtins.Unspecified;
+        }
+        
+        var body = new AstralBody(tag, name, phases.Length)
+        {
+            Distance = distance,
+            MinutesPerPhase = minPerPhase,
+            MinutesPerDegree = minPerDegree,
+            InitialArc = initialArc,
+            InitialPhase = initialPhase,
+            Arc = initialArc,
+            PhaseIndex = initialPhase
+        };
+        
+        // Store callback if provided.
+        if (callbackObj != null && callbackObj is not bool b)
+        {
+            body.PhaseChangeCallback = callbackObj;
+        }
+        else if (callbackObj is bool bVal && bVal == false)
+        {
+            // nil in Scheme becomes false - no callback
+            body.PhaseChangeCallback = null;
+        }
+        
+        // Parse each phase: (list sprite maxlight "phase_name")
+        for (int i = 0; i < phases.Length; i++)
+        {
+            var phaseData = Builtins.ListToVector(phases[i]);
+            if (phaseData is object[] pd && pd.Length >= 3)
+            {
+                body.Phases[i] = new Phase
+                {
+                    Sprite = pd[0] as Sprite,
+                    MaxLight = Convert.ToInt32(pd[1] ?? 0),
+                    Name = pd[2]?.ToString() ?? $"Phase {i}"
+                };
+            }
+            else
+            {
+                Console.WriteLine($"[MakeAstralBody] Warning: {tag} phase {i} malformed");
+                body.Phases[i] = new Phase { Name = $"Phase {i}", MaxLight = 0 };
+            }
+        }
+        
+        // Add to sky.
+        var session = Phantasma.MainSession;
+        if (session != null)
+        {
+            session.Sky.AddAstralBody(body);
+        }
+        else
+        {
+            Console.WriteLine("[MakeAstralBody] Warning: No main session");
+        }
+        
+        // Register in global namespace so Scheme can reference by tag.
+        Phantasma.RegisterObject(tag, body);
+        
+        Console.WriteLine($"  Created astral body: {tag} '{name}' (distance={distance}, phases={phases.Length})");
+        
+        return body;
+    }
+    
     public static object MakeSound(object args)
     {
         // TODO: Implement

@@ -19,11 +19,11 @@ public abstract class Object
     public string Name { get; set; }
     public Location Position { get; set; }
     public int Count { get; set; } = 1;
+    public int Light { get; set; } = 0;
     public Gob Gob { get; set; }  // Scheme object reference
     
     /// <summary>
     /// Array of hook lists, one per hook type.
-    /// Matches Nazghul's hooks[OBJ_NUM_HOOKS] array in object.h.
     /// </summary>
     protected List<Hook>[] hooks = new List<Hook>[(int)HookId.NumHooks];
 
@@ -141,7 +141,6 @@ public abstract class Object
 
     /// <summary>
     /// Relocate this object to a new place and position.
-    /// Based on Object::relocate() in object.c:316
     /// </summary>
     /// <param name="newPlace">Destination place</param>
     /// <param name="newX">Destination X coordinate</param>

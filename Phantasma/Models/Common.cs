@@ -201,6 +201,47 @@ public class Common
     public const int TURNS_PER_FOOD = 8;  // Simplified from TURNS_PER_DAY/3
     
     // ===================================================================
+    // TIME CONSTANTS
+    // ===================================================================
+
+    // Base Time Units
+    public const int TURNS_PER_MINUTE = 60;
+    public const int MINUTES_PER_HOUR = 60;
+    public const int HOURS_PER_DAY = 24;
+    public const int DAYS_PER_WEEK = 7;
+    public const int WEEKS_PER_MONTH = 4;
+    public const int MONTHS_PER_YEAR = 13;
+
+    // Derived Time Units
+    public const int TURNS_PER_HOUR = TURNS_PER_MINUTE * MINUTES_PER_HOUR;      // 3600
+    public const int TURNS_PER_DAY = TURNS_PER_HOUR * HOURS_PER_DAY;            // 86400
+    public const int MINUTES_PER_DAY = MINUTES_PER_HOUR * HOURS_PER_DAY;        // 1440
+    public const int MINUTES_PER_WEEK = MINUTES_PER_DAY * DAYS_PER_WEEK;        // 10080
+    public const int MINUTES_PER_MONTH = MINUTES_PER_WEEK * WEEKS_PER_MONTH;    // 40320
+    public const int MINUTES_PER_YEAR = MINUTES_PER_MONTH * MONTHS_PER_YEAR;    // 524160
+    public const int DAYS_PER_MONTH = DAYS_PER_WEEK * WEEKS_PER_MONTH;          // 28
+    public const int DAYS_PER_YEAR = DAYS_PER_MONTH * MONTHS_PER_YEAR;          // 364
+
+    // Day/Night Cycle
+    public const int HOURS_OF_NIGHT = 8;
+    public const int HOURS_OF_SUNLIGHT = HOURS_PER_DAY - HOURS_OF_NIGHT;        // 16
+    public const int SUNRISE_HOUR = 4;
+    public const int SUNSET_HOUR = SUNRISE_HOUR + HOURS_OF_SUNLIGHT;            // 20
+    public const int NOON_HOUR = 12;
+    public const int MIDNIGHT_HOUR = 0;
+
+    // Arc Degrees (for sun/moon positioning)
+    public const int DEGREES_PER_HOUR = 360 / HOURS_PER_DAY;                    // 15
+    public const int MINUTES_PER_DEGREE = MINUTES_PER_DAY / 360;                // 4
+    public const int SUNRISE_DEGREE = SUNRISE_HOUR * DEGREES_PER_HOUR;          // 60
+    public const int SUNSET_DEGREE = SUNSET_HOUR * DEGREES_PER_HOUR;            // 300
+    public const int NOON_DEGREE = NOON_HOUR * DEGREES_PER_HOUR;                // 180
+    public const int MIDNIGHT_DEGREE = MIDNIGHT_HOUR * DEGREES_PER_HOUR;        // 0
+
+    // Clock Ticks
+    public const int CLOCK_TICKS_PER_MINUTE = TURNS_PER_MINUTE; 
+    
+    // ===================================================================
     // LIGHTING
     // ===================================================================
     
