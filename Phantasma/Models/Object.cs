@@ -73,17 +73,17 @@ public abstract class Object
         Position = new Location(place, x, y);
     }
     
-    public int GetX()
+    public virtual int GetX()
     {
         return Position.X;
     }
     
-    public int GetY()
+    public virtual int GetY()
     {
         return Position.Y;
     }
     
-    public Place GetPlace()
+    public virtual Place? GetPlace()
     {
         return Position.Place;
     }

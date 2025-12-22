@@ -174,6 +174,8 @@ public partial class Kernel
         DefineFunction("kern-mk-spell", MakeSpell);
         DefineFunction("kern-mk-effect", MakeEffect);
         DefineFunction("kern-mk-astral-body", MakeAstralBody);
+        DefineFunction("kern-mk-vehicle-type", MakeVehicleType);
+        DefineFunction("kern-mk-vehicle", MakeVehicle);
         DefineFunction("kern-mk-sound", MakeSound);
         
         // ===================================================================

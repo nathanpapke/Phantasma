@@ -201,6 +201,43 @@ public class Screen
         }
     }
     
+    public void DrawVehicle(DrawingContext context, int x, int y, Vehicle vehicle)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        var sprite = vehicle.GetSprite();
+    
+        if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
+        {
+            sprite.SetFacing(vehicle.Facing);  // Computes Sequence
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            DrawVehicleTile(context, destRect, vehicle);
+        }
+    }
+
+    /// <summary>
+    /// Draw a vehicle as a simple tile with direction indicator.
+    /// </summary>
+    private void DrawVehicleTile(DrawingContext context, Rect rect, Vehicle vehicle)
+    {
+        // Brown rectangle for the vehicle body.
+        context.FillRectangle(Brushes.SaddleBrown, rect);
+    
+        // White line indicating facing direction.
+        var centerX = rect.X + rect.Width / 2;
+        var centerY = rect.Y + rect.Height / 2;
+        var dx = Common.DirectionToDx((Direction)vehicle.Facing) * (rect.Width / 3);
+        var dy = Common.DirectionToDy((Direction)vehicle.Facing) * (rect.Height / 3);
+    
+        var pen = new Pen(Brushes.White, 2);
+        context.DrawLine(pen, 
+            new Point(centerX, centerY),
+            new Point(centerX + dx, centerY + dy));
+    }
+
+    
     /// <summary>
     /// Draw a missile (arrow, bolt, etc. in flight).
     /// </summary>
@@ -279,19 +316,15 @@ public class Screen
     public void DrawSprite(DrawingContext context, Sprite sprite, Rect destRect)
     {
         if (sprite.SourceImage == null) return;
-        
-        // Source rectangle from the sprite sheet.
-        var sourceRect = new Rect(
-            sprite.SourceX, 
-            sprite.SourceY, 
-            sprite.WPix, 
-            sprite.HPix);
-        
-        // Draw the sprite.
-        context.DrawImage(
-            sprite.SourceImage,
-            sourceRect,
-            destRect);
+    
+        // Calculate frame offset: sequence * frames_per_sequence
+        int frameOffset = sprite.Sequence * sprite.NFrames;
+        // TODO: Add animation frame cycling here
+    
+        int sourceX = sprite.SourceX + (frameOffset * sprite.WPix);
+    
+        var sourceRect = new Rect(sourceX, sprite.SourceY, sprite.WPix, sprite.HPix);
+        context.DrawImage(sprite.SourceImage, sourceRect, destRect);
     }
 
     /// <summary>
@@ -725,11 +758,11 @@ public class Screen
         // Get visibility mask.
         byte[] vmask = visibilityCache.Get(place, centerX, centerY);
     
-        // Calculate how many tiles fit in the viewport
+        // Calculate how many tiles fit in the viewport.
         int tilesWide = screenWidth / tileWidth;
         int tilesHigh = screenHeight / tileHeight;
     
-        // Calculate the top-left corner of our view in map coordinates
+        // Calculate the top-left corner of our view in map coordinates.
         int viewStartX = centerX - tilesWide / 2;
         int viewStartY = centerY - tilesHigh / 2;
         
@@ -741,17 +774,17 @@ public class Screen
         {
             for (viewX = 0; viewX < tilesWide; viewX++)
             {
-                // Calculate map coordinates
+                // Calculate map coordinates.
                 int mapX = viewStartX + viewX;
                 int mapY = viewStartY + viewY;
                 
                 var terrain = place.GetTerrain(mapX, mapY);
             
-                // Calculate screen position (where to draw on screen)
+                // Calculate screen position (where to draw on screen).
                 int screenX = viewX * tileWidth;
                 int screenY = viewY * tileHeight;
                 
-                // Check if this map position is valid
+                // Check if this map position is valid.
                 if (mapX < 0 || mapX >= place.Width || mapY < 0 || mapY >= place.Height)
                 {
                     // Draw fog for out of bounds.
@@ -769,8 +802,40 @@ public class Screen
                 }
             }
         }
+    
+        // Layer 2: Draw landmarks (bridges, built-in doors).
+        // TODO: Implement terrain features
+    
+        // Layer 3: Draw mechanisms (levers, buttons, switches, doors).
+        // TODO: Implement mechanisms
+    
+        // Layer 4: Draw portals (stairs, ladders, exits).
+        // TODO: Implement portals
+    
+        // Layer 5: Draw vehicles (boats, horses, carts).
+        var vehicles = place.GetAllVehicles();
+        foreach (var vehicle in vehicles)
+        {
+            viewX = vehicle.GetX() - viewStartX;
+            viewY = vehicle.GetY() - viewStartY;
         
-        // Layer 2: Draw objects (items, containers, etc.).
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawVehicle(context, viewX, viewY, vehicle);
+                }
+            }
+        }
+    
+        // Layer 6: Draw beds (for sleeping/resting).
+        // TODO: Implement beds.
+    
+        // Layer 7: Draw containers (chests, barrels, crates).
+        // TODO: Implement containers.
+    
+        // Layer 8: Draw objects (items, weapons, armor, potions, gold).
         var items = place.GetAllItems();
         foreach (var item in items)
         {
@@ -786,8 +851,11 @@ public class Screen
                 }
             }
         }
-        
-        // Layer 3: Draw beings (player, NPCs, monsters).
+    
+        // Layer 9: Draw fields (fire, poison gas, energy fields).
+        // TODO: Implement fields.
+    
+        // Layer 10: Draw beings (characters, NPCs, monsters).
         var beings = place.GetAllBeings();
         foreach (var being in beings)
         {
@@ -803,8 +871,8 @@ public class Screen
                 }
             }
         }
-        
-        // Layer 4: Draw missiles (arrows in flight)
+    
+        // Layer 11: Draw missiles (arrows, spells in flight).
         var missiles = place.GetAllMissiles();
         foreach (var missile in missiles)
         {
@@ -821,8 +889,7 @@ public class Screen
             }
         }
         
-        // Layer 5: Draw cursor if active.
-        // Add this after the beings loop ends and before the closing brace of DrawMap()
+        // Layer 12: Draw cursor if active.
         if (crosshair != null && crosshair.IsActive())
         {
             viewX = crosshair.GetX() - viewStartX;

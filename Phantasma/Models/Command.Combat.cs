@@ -94,9 +94,39 @@ public partial class Command
     /// </summary>
     public bool Fire()
     {
-        // TODO: Implement.
-        Log("Fire command not yet implemented");
-        Log("Will be implemented in Task 24: Vehicles");
-        return false;
+        var party = session.Party;
+    
+        if (party?.Vehicle == null || party.Vehicle.GetOrdnance() == null)
+        {
+            Log("Fire-No cannons available!");
+            return false;
+        }
+    
+        var vehicle = party.Vehicle;
+        var ordnance = vehicle.GetOrdnance();
+    
+        Log($"Fire {ordnance.Name}-");
+        ShowPrompt("Fire-<direction>");
+    
+        var dir = PromptForDirection();
+        if (dir == Direction.None)
+        {
+            Log("None!");
+            return false;
+        }
+    
+        int dx = Common.DirectionToDx(dir);
+        int dy = Common.DirectionToDy(dir);
+    
+        Log($"{DirectionToString(dir)}-");
+    
+        if (!vehicle.FireWeapon(dx, dy, party))
+        {
+            Log(vehicle.GetFiringRestrictionMessage());
+            return false;
+        }
+    
+        Log("Hits away!");
+        return true;
     }
 }

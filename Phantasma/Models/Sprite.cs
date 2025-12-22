@@ -7,21 +7,21 @@ namespace Phantasma.Models;
 /// </summary>
 public class Sprite
 {
-    public string Tag { get; set; }          // Script variable name for the sprite
-    public int NFrames { get; set; }         // per sequence (1 for static)
-    public int NTotalFrames { get; set; }    // n_frames x # facings
-    public int Facing { get; set; }          // current facing sequence
-    public int Facings { get; set; }         // bitmap of supported facing sequences
-    public int Sequence { get; set; }        // current animation sequence
-    public string Decor { get; set; }        // decoration sprites
-    public int WPix { get; set; }            // frame width in pixels
-    public int HPix { get; set; }            // frame height in pixels
-    public int Faded { get; set; }           // render sprite semi-transparent
-    public int Wave { get; set; }            // vertical roll effect
+    public string Tag { get; set; }             // Script variable name for the sprite
+    public int NFrames { get; set; }            // per sequence (1 for static)
+    public int NTotalFrames { get; set; }       // n_frames x # facings
+    public int Facing { get; set; }             // current facing sequence
+    public int Facings { get; set; }            // bitmap of supported facing sequences
+    public int Sequence { get; private set; }   // current animation sequence
+    public string Decor { get; set; }           // decoration sprites
+    public int WPix { get; set; }               // frame width in pixels
+    public int HPix { get; set; }               // frame height in pixels
+    public int Faded { get; set; }              // render sprite semi-transparent
+    public int Wave { get; set; }               // vertical roll effect
     
-    public Bitmap SourceImage { get; set; }  // The loaded image
-    public int SourceX { get; set; }         // X position in sprite sheet
-    public int SourceY { get; set; }         // Y position in sprite sheet
+    public Bitmap SourceImage { get; set; }     // The loaded image
+    public int SourceX { get; set; }            // X position in sprite sheet
+    public int SourceY { get; set; }            // Y position in sprite sheet
     
     // ASCII Fallback Character
     public char DisplayChar { get; set; }
@@ -76,5 +76,27 @@ public class Sprite
             SourceX = x,
             SourceY = y
         };
+    }
+
+    /// <summary>
+    /// Set the facing direction and compute the sequence index.
+    /// Returns false if the facing is not supported.
+    /// </summary>
+    public bool SetFacing(int direction)
+    {
+        if (Facings != 0 && (Facings & (1 << direction)) == 0)
+            return false;  // Direction not supported
+    
+        Facing = direction;
+    
+        // Count set bits before this direction.
+        Sequence = 0;
+        for (int i = 0; i < direction; i++)
+        {
+            if ((Facings & (1 << i)) != 0)
+                Sequence++;
+        }
+    
+        return true;
     }
 }

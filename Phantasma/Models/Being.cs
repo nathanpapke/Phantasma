@@ -116,6 +116,15 @@ public abstract class Being : Object
         HP = Math.Max(0, HP - amount);
     }
     
+    /// <summary>
+    /// Kill this being.  Override in derived classes for specific behavior.
+    /// </summary>
+    public virtual void Kill()
+    {
+        HP = 0;
+        Remove();
+    }
+    
     public void Heal(int amount)
     {
         HP = Math.Min(MaxHP, HP + amount);

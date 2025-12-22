@@ -1184,6 +1184,122 @@ public partial class Kernel
         return body;
     }
     
+    /// <summary>
+    /// (kern-mk-vehicle-type tag name sprite map ordnance
+    ///                       vulnerable kills-occupants must-turn
+    ///                       mv-desc mv-sound
+    ///                       tailwind-penalty headwind-penalty crosswind-penalty
+    ///                       max-hp speed mmode)
+    /// Creates a vehicle type definition.
+    /// </summary>
+    public static object MakeVehicleType(
+        object tag, object name, object sprite, object map, object ordnance,
+        object vulnerable, object killsOccupants, object mustTurn,
+        object mvDesc, object mvSound,
+        object tailwindPenalty, object headwindPenalty, object crosswindPenalty,
+        object maxHp, object speed, object mmode)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "";
+        
+        if (string.IsNullOrEmpty(tagStr))
+        {
+            Console.WriteLine("kern-mk-vehicle-type: missing tag");
+            return "#f".Eval();
+        }
+        
+        // Resolve sprite.
+        Sprite? spr = null;
+        if (sprite is Sprite s)
+            spr = s;
+        else if (sprite is string sprTag && !string.IsNullOrEmpty(sprTag) && sprTag != "nil")
+            spr = Phantasma.GetRegisteredObject(sprTag) as Sprite;
+        
+        // Resolve terrain map (for combat) - TerrainMap is a struct.
+        TerrainMap? combatMap = null;
+        if (map is TerrainMap tm)
+            combatMap = tm;
+        else if (map is string mapTag && !string.IsNullOrEmpty(mapTag) && mapTag != "nil")
+        {
+            var mapObj = Phantasma.GetRegisteredObject(mapTag);
+            if (mapObj is TerrainMap tmResolved)
+                combatMap = tmResolved;
+        }
+        
+        // Resolve ordnance (weapon).
+        ArmsType? arms = null;
+        if (ordnance is ArmsType at)
+            arms = at;
+        else if (ordnance is string armsTag && !string.IsNullOrEmpty(armsTag) && armsTag != "nil")
+            arms = Phantasma.GetRegisteredObject(armsTag) as ArmsType;
+        
+        // Resolve movement mode - MovementMode is a struct.
+        MovementMode? movementMode = null;
+        if (mmode is MovementMode mm)
+            movementMode = mm;
+        else if (mmode is string mmTag && !string.IsNullOrEmpty(mmTag) && mmTag != "nil")
+        {
+            var mmObj = Phantasma.GetRegisteredObject(mmTag);
+            if (mmObj is MovementMode mmResolved)
+                movementMode = mmResolved;
+        }
+        
+        // Create the vehicle type using the full constructor.
+        var vehicleType = new VehicleType(
+            tag: tagStr,
+            name: name?.ToString() ?? tagStr,
+            sprite: spr,
+            combatMap: combatMap,
+            ordnance: arms,
+            vulnerable: ConvertToBool(vulnerable),
+            killsOccupants: ConvertToBool(killsOccupants),
+            mustTurn: ConvertToBool(mustTurn),
+            mvDesc: mvDesc?.ToString() ?? "rides",
+            mvSound: mvSound,  // TODO: Implement sound.
+            tailwindPenalty: Convert.ToInt32(tailwindPenalty ?? 1),
+            headwindPenalty: Convert.ToInt32(tailwindPenalty ?? 1),
+            crosswindPenalty: Convert.ToInt32(crosswindPenalty ?? 1),
+            maxHp: Convert.ToInt32(maxHp ?? 100),
+            speed: Convert.ToInt32(speed ?? 1),
+            mmode: movementMode
+        );
+        
+        // Register with Phantasma.
+        Phantasma.RegisterObject(tagStr, vehicleType);
+        
+        Console.WriteLine($"  Created vehicle type: {tagStr} '{vehicleType.Name}'");
+        
+        return vehicleType;
+    }
+    
+    /// <summary>
+    /// (kern-mk-vehicle type facing hp)
+    /// </summary>
+    public static object MakeVehicle(object type, object facing, object hp)
+    {
+        // Resolve vehicle type.
+        VehicleType? vehicleType = type as VehicleType;
+    
+        if (type is VehicleType vt)
+            vehicleType = vt;
+        else if (type is string typeTag && !string.IsNullOrEmpty(typeTag) && typeTag != "nil")
+            vehicleType = Phantasma.GetRegisteredObject(typeTag) as VehicleType;
+            
+        if (vehicleType == null)
+        {
+            Console.WriteLine("[kern-mk-vehicle] Error: null vehicle type.");
+            return "#f".Eval();
+        }
+            
+        int facingInt = Convert.ToInt32(facing ?? Common.NORTH);
+        int hpInt = Convert.ToInt32(hp ?? vehicleType.MaxHp);
+            
+        var vehicle = vehicleType.CreateInstance(facingInt, hpInt);
+            
+        Console.WriteLine($"  Created vehicle: {vehicleType.Name} (facing={facingInt}, hp={hpInt})");
+            
+        return vehicle;
+    }
+    
     public static object MakeSound(object args)
     {
         // TODO: Implement

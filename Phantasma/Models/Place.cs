@@ -630,6 +630,24 @@ public class Place
             .FirstOrDefault(b => b.GetX() == x && b.GetY() == y);
     }
     
+    /// <summary>
+    /// Get all vehicles in this place.
+    /// </summary>
+    public List<Vehicle> GetAllVehicles()
+    {
+        var vehicles = new List<Vehicle>();
+    
+        foreach (var kvp in objectsByLocation)
+        {
+            if (kvp.Key.layer == ObjectLayer.Vehicle && kvp.Value is Vehicle vehicle)
+            {
+                vehicles.Add(vehicle);
+            }
+        }
+    
+        return vehicles;
+    }
+    
     public List<Item> GetAllItems()
     {
         return Objects.OfType<Item>().ToList();
