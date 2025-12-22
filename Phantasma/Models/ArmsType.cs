@@ -29,8 +29,11 @@ public class ArmsType : ObjectType
     protected Missile? missile;
     protected ArmsType? missileType;
     
-    // Sound Effect for Firing (stub for now)
-    // protected Sound? fireSound;
+    // Sound Effect for Firing
+    /// <summary>
+    /// Sound played when this weapon fires.
+    /// </summary>
+    public Sound? FireSound { get; set; }
     
     /// <summary>
     /// Equipment Slot Masks (bitfield)
@@ -292,9 +295,11 @@ public class ArmsType : ObjectType
         if (!IsMissileWeapon() && !IsThrownWeapon())
             return false;
         
-        // TODO: Play fire sound when sound system is implemented (Task 25)
-        // if (fireSound != null)
-        //     Sound.Play(fireSound, Sound.MaxVolume);
+        // Play fire sound.
+        if (FireSound != null)
+        {
+            SoundManager.Instance.Play(FireSound, SoundManager.MaxVolume);
+        }
         
         // Calculate target at maximum range in this direction.
         int targetX = dx * Range + originX;

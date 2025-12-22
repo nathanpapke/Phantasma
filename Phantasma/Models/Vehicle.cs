@@ -133,7 +133,10 @@ public class Vehicle : Object
         return Type?.MovementDescription ?? "rides";
     }
     
-    public object? GetMovementSound()
+    /// <summary>
+    /// Gets the movement sound for this vehicle.
+    /// </summary>
+    public Sound? GetMovementSound()
     {
         return Type?.MovementSound;
     }

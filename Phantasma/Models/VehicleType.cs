@@ -77,9 +77,9 @@ public class VehicleType : ObjectType
     public string MovementDescription { get; set; } = "rides";
     
     /// <summary>
-    /// Sound effect played when moving.
+    /// Sound played when this vehicle moves.
     /// </summary>
-    public object? MovementSound { get; set; }
+    public Sound? MovementSound { get; set; }
     
     // ===================================================================
     // WIND PENALTIES (for sailing ships)
@@ -145,7 +145,7 @@ public class VehicleType : ObjectType
         this.KillsOccupants = killsOccupants;
         this.MustTurn = mustTurn;
         this.MovementDescription = mvDesc ?? "rides";
-        this.MovementSound = mvSound;
+        this.MovementSound = mvSound as Sound;
         this.TailwindPenalty = tailwindPenalty;
         this.HeadwindPenalty = headwindPenalty;
         this.CrosswindPenalty = crosswindPenalty;

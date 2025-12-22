@@ -45,6 +45,7 @@ public class Phantasma
     private Common common;
     private Dimensions dimensions;
     private Kernel kernel;
+    private static readonly CombatSounds combatSounds = new();
     
     // Object Registry - maps Scheme tags to C# objects.
     // This is global so all sessions can access defined types.
@@ -54,6 +55,7 @@ public class Phantasma
     public static Common Common => _instance.common;
     public static Dimensions Dimensions => _instance.dimensions;
     public static Kernel Kernel => _instance.kernel;
+    public static CombatSounds CombatSounds => combatSounds;
     
     // ===================================================================
     // STATIC CONVENIENCE METHODS (Avoid typing .Instance everywhere)

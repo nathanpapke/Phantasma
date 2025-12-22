@@ -1299,10 +1299,45 @@ public partial class Kernel
             
         return vehicle;
     }
-    
-    public static object MakeSound(object args)
+    /// <summary>
+    /// (kern-mk-sound tag filename)
+    /// Creates a sound from a WAV file.
+    /// </summary>
+    /// <param name="tag">Scheme symbol identifier (e.g., 'snd-footstep)</param>
+    /// <param name="filename">Path to WAV file (e.g., "sounds/footstep.wav")</param>
+    /// <returns>The Sound object, or unspecified if loading failed.</returns>
+    /// <example>
+    /// Scheme usage:
+    /// (define snd-footstep (kern-mk-sound 'snd-footstep "sounds/footstep.wav"))
+    /// </example>
+    public static object MakeSound(object tag, object filename)
     {
-        // TODO: Implement
-        return Builtins.Unspecified;
+        // Extract tag string.
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown-sound";
+        
+        // Extract filename string.
+        string? filenameStr = filename?.ToString();
+        
+        if (string.IsNullOrEmpty(filenameStr))
+        {
+            Console.WriteLine($"[kern-mk-sound] {tagStr}: null or empty filename");
+            return IronScheme.Runtime.Builtins.Unspecified;
+        }
+        
+        // Load the sound.
+        var sound = SoundManager.Instance.LoadSound(tagStr, filenameStr);
+        
+        if (sound == null)
+        {
+            Console.WriteLine($"[kern-mk-sound] {tagStr}: failed to load '{filenameStr}'");
+            return IronScheme.Runtime.Builtins.Unspecified;
+        }
+        
+        // Register with Phantasma for lookup by tag.
+        Phantasma.RegisterObject(tagStr, sound);
+        
+        Console.WriteLine($"  Created sound: {tagStr} ('{filenameStr}')");
+        
+        return sound;
     }
 }

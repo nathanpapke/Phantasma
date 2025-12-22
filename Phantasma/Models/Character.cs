@@ -87,6 +87,12 @@ public class Character : Being
     public bool IsLeader => Party?.GetLeader() == this;
     public bool CanBeLeader => !IsDead && !IsAsleep && !IsCharmed && Position?.Place != null;
     
+    
+    /// <summary>
+    /// Sound played when this character takes damage (overrides species).
+    /// </summary>
+    public Sound? DamageSound { get; set; }
+    
     public enum ReadyResult
     {
         Readied,
@@ -1261,6 +1267,60 @@ public class Character : Being
         inventory = null;
     
         return true;
+    }
+    
+    // ========================================================================
+    // SOUND METHODS
+    // ========================================================================
+    
+    /// <summary>
+    /// Gets the damage sound for this character.
+    /// Returns character-specific sound if set, otherwise falls back to species.
+    /// </summary>
+    public Sound? GetDamageSound()
+    {
+        if (DamageSound != null)
+            return DamageSound;
+        
+        if (Species.DamageSound != null)
+            return Species.DamageSound;
+        
+        return null;
+    }
+    
+    /// <summary>
+    /// Gets the movement sound for this character.
+    /// Returns species movement sound.
+    /// </summary>
+    public Sound? GetMovementSound()
+    {
+        return Species.MovementSound;
+    }
+    
+    /// <summary>
+    /// Plays the damage sound.
+    /// Called when character takes damage.
+    /// </summary>
+    public void PlayDamageSound()
+    {
+        var sound = GetDamageSound();
+        if (sound != null)
+        {
+            SoundManager.Instance.Play(sound, SoundManager.MaxVolume);
+        }
+    }
+    
+    /// <summary>
+    /// Plays the movement sound.
+    /// Called when character moves.
+    /// </summary>
+    public void PlayMovementSound()
+    {
+        var sound = GetMovementSound();
+        if (sound != null)
+        {
+            SoundManager.Instance.Play(sound, SoundManager.MaxVolume);
+        }
     }
     
     // ========================================================================

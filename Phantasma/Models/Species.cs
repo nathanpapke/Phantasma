@@ -54,9 +54,16 @@ public struct Species
     public int Stationary;      // Doesn't move?
     
     // Sounds
-    // TODO: implement when sound system is ready.
-    // public Sound DamageSound;
-    // public Sound WalkingSound;
+    
+    /// <summary>
+    /// Sound played when this species takes damage.
+    /// </summary>
+    public Sound? DamageSound { get; set; }
+    
+    /// <summary>
+    /// Sound played when this species moves.
+    /// </summary>
+    public Sound? MovementSound { get; set; }
     
     /// <summary>
     /// Scheme closure to run when a creature of this species dies.

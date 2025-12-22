@@ -34,6 +34,11 @@ public class Session
     private readonly Wind wind = new();
     private int timeAcceleration = 1;  // Time speed multiplier
     
+    /// <summary>
+    /// Current combat state for this session.
+    /// </summary>
+    private CombatState combatState = CombatState.Done;
+    
     // Targeting
     public bool IsTargeting { get; private set; }
     public int TargetOriginX { get; private set; }
@@ -116,6 +121,11 @@ public class Session
     /// True if there's an active key handler (not in normal input mode).
     /// </summary>
     public bool HasActiveKeyHandler => keyHandlers.Count > 0;
+    
+    /// <summary>
+    /// Gets the current combat state.
+    /// </summary>
+    public CombatState CombatState => combatState;
     
     // ===================================================================
     // INITIALIZATION
@@ -829,5 +839,65 @@ public class Session
     
         TargetX = newX;
         TargetY = newY;
+    }
+    
+    /// <summary>
+    /// Sets the combat state and plays appropriate sound.
+    /// </summary>
+    public void SetCombatState(CombatState newState)
+    {
+        if (combatState == newState)
+            return;
+        
+        var oldState = combatState;
+        combatState = newState;
+        
+        // Get combat sounds from Phantasma (game-wide config).
+        var sounds = Phantasma.CombatSounds;
+        
+        // Play sounds based on transition.
+        switch (oldState)
+        {
+            case CombatState.Done:
+                if (newState == CombatState.Fighting)
+                {
+                    ShowMessage("*** COMBAT ***");
+                    sounds.PlayEnterSound();
+                }
+                else if (newState == CombatState.Camping)
+                {
+                    ShowMessage("*** CAMPING ***");
+                }
+                break;
+                
+            case CombatState.Fighting:
+                if (newState == CombatState.Looting)
+                {
+                    ShowMessage("*** VICTORY ***");
+                    sounds.PlayVictorySound();
+                }
+                else if (newState == CombatState.Done)
+                {
+                    ShowMessage("*** DEFEAT ***");
+                    sounds.PlayDefeatSound();
+                }
+                break;
+                
+            case CombatState.Looting:
+                if (newState == CombatState.Fighting)
+                {
+                    // Hostiles entered during looting.
+                    sounds.PlayEnterSound();
+                }
+                break;
+                
+            case CombatState.Camping:
+                if (newState == CombatState.Fighting)
+                {
+                    // Ambush!
+                    sounds.PlayEnterSound();
+                }
+                break;
+        }
     }
 }

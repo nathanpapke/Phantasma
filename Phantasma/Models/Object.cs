@@ -321,7 +321,32 @@ public abstract class Object
             callback(hook);
         }
     }
-
+    
+    // ===================================================================
+    // SOUND METHODS
+    // ===================================================================
+    
+    /// <summary>
+    /// Gets the movement sound for this object.
+    /// Override in derived classes.
+    /// </summary>
+    public virtual Sound? GetMovementSound()
+    {
+        return null;
+    }
+    
+    /// <summary>
+    /// Plays movement sound at the given volume.
+    /// </summary>
+    public void PlayMovementSound(int volume)
+    {
+        var sound = GetMovementSound();
+        if (sound != null)
+        {
+            SoundManager.Instance.Play(sound, volume);
+        }
+    }
+    
     // ===================================================================
     // CONDITION METHODS
     // ===================================================================

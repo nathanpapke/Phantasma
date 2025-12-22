@@ -688,4 +688,32 @@ public class Party : Object
     {
         return GetLeader()?.CurrentSprite;
     }
+    
+    // ====================================================================
+    // SOUND METHOD
+    // ====================================================================
+    
+    /// <summary>
+    /// Gets the movement sound for the party.
+    /// If in a vehicle, returns vehicle sound.
+    /// Otherwise, returns first member's movement sound.
+    /// </summary>
+    public Sound? GetMovementSound()
+    {
+        // If in vehicle, use vehicle sound.
+        if (Vehicle != null)
+        {
+            return Vehicle.GetMovementSound();
+        }
+        
+        // Otherwise use first member's sound.
+        foreach (var member in Members)
+        {
+            var sound = member.GetMovementSound();
+            if (sound != null)
+                return sound;
+        }
+        
+        return null;
+    }
 }

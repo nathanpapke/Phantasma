@@ -298,6 +298,7 @@ public partial class Kernel
         
         DefineFunction("kern-print", Print);
         DefineFunction("kern-include", Include);
+        DefineFunction("kern-sound-play", SoundPlay);
         
         // TODO: Add remaining kern-* functions as needed.
         // The full Nazghul kern.c has ~150 functions.
@@ -368,6 +369,48 @@ public partial class Kernel
             RuntimeError($"kern-include: {ex.Message}");
             return "#f".Eval();
         }
+    }
+    /// <summary>
+    /// (kern-sound-play sound)
+    /// Plays a sound at maximum volume.
+    /// Equivalent to Nazghul's kern_sound_play() in kern.c lines 3359-3368.
+    /// </summary>
+    /// <param name="sound">The Sound object to play.</param>
+    /// <returns>Unspecified (void in Nazghul).</returns>
+    /// <example>
+    /// Scheme usage:
+    /// (kern-sound-play snd-footstep)
+    /// </example>
+    public static object SoundPlay(object sound)
+    {
+        Sound? soundObj = null;
+        
+        // Handle different input types.
+        if (sound is Sound s)
+        {
+            soundObj = s;
+        }
+        else if (sound is string tag)
+        {
+            // Look up by tag.
+            soundObj = SoundManager.Instance.GetSound(tag);
+            if (soundObj == null)
+            {
+                // Try registered objects.
+                soundObj = Phantasma.GetRegisteredObject(tag) as Sound;
+            }
+        }
+        
+        if (soundObj == null)
+        {
+            // Silent fail.
+            return IronScheme.Runtime.Builtins.Unspecified;
+        }
+        
+        // Play at max volume.
+        SoundManager.Instance.Play(soundObj, SoundManager.MaxVolume);
+        
+        return IronScheme.Runtime.Builtins.Unspecified;
     }
     
     // ===================================================================
