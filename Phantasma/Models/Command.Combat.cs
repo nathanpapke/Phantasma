@@ -85,7 +85,6 @@ public partial class Command
     
     /// <summary>
     /// Fire Command - fire vehicle-mounted weapons.
-    /// Mirrors Nazghul's cmdFire().
     /// 
     /// Flow:
     /// 1. Check if vehicle has ordnance

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Phantasma.Models;
 
@@ -9,11 +10,15 @@ public abstract class Being : Object
 {
     public override ObjectLayer Layer => ObjectLayer.Being;
     
-    public AStarNode CachedPath;
-    public Place CachedPathPlace;
     private string name;
     private int baseFaction;
     private int currentFaction;
+    public AStarNode CachedPath;
+    public Place CachedPathPlace;
+    
+    // Cached Path for Multi-turn Movement
+    protected LinkedList<AStarNode>? cachedPath;
+    protected Place? cachedPathPlace;
     
     // Stats
     public int HP { get; set; }
@@ -36,7 +41,6 @@ public abstract class Being : Object
     
     // Visual
     public Sprite CurrentSprite { get; set; }
-    
     
     public Being() : base()
     {
@@ -95,10 +99,68 @@ public abstract class Being : Object
         return true;
     }
 
-    public bool PathFindTo(Place place, int x, int y, int flags = 0)
+    public virtual bool PathFindTo(Place place, int destX, int destY, int flags = 0)
     {
-        // Pathfinding
-        return false;
+        if (Position?.Place == null || Position.Place != place)
+            return false;
+    
+        // Already there?
+        if (Position.X == destX && Position.Y == destY)
+            return true;
+    
+        // Invalidate cache if place changed.
+        if (cachedPathPlace != place)
+            cachedPath = null;
+    
+        // Find path if we don't have one.
+        if (cachedPath == null)
+        {
+            cachedPath = AStar.Search(
+                Position.X, Position.Y,
+                destX, destY,
+                place.Width, place.Height,
+                (x, y) => place.IsPassable(x, y, this)
+            );
+            cachedPathPlace = place;
+        }
+    
+        if (cachedPath == null || cachedPath.Count < 2)
+            return false;
+    
+        // First node is current position, remove it.
+        cachedPath.RemoveFirst();
+    
+        // Get next step.
+        var next = cachedPath.First?.Value;
+        if (next == null)
+            return false;
+    
+        // Take one step.
+        int dx = next.X - Position.X;
+        int dy = next.Y - Position.Y;
+    
+        return Move(dx, dy);
+    }
+    
+    /// <summary>
+    /// Get path to destination, using cache if valid.
+    /// </summary>
+    protected virtual LinkedList<AStarNode>? GetPathTo(Place place, int destX, int destY)
+    {
+        // Invalidate cache if place changed.
+        if (cachedPathPlace != place)
+            cachedPath = null;
+        
+        // Compute fresh path.
+        cachedPath = AStar.Search(
+            Position.X, Position.Y,
+            destX, destY,
+            place.Width, place.Height,
+            (x, y) => place.IsPassable(x, y, this)
+        );
+        cachedPathPlace = place;
+        
+        return cachedPath;
     }
 
     public void SetName(string newName)
@@ -154,11 +216,47 @@ public abstract class Being : Object
         if (hpPercent > 0) return "nearly dead";
         return "dead";
     }
+    
+    /// <summary>
+    /// Get vision radius. Override in Character.
+    /// </summary>
+    public virtual int GetVisionRadius()
+    {
+        return 5;  // Default for animals/simple beings
+    }
+    
+    /// <summary>
+    /// Check if this being is visible to others.
+    /// </summary>
+    public virtual bool IsVisible()
+    {
+        return true;  // Default visible; can be overridden for invisibility
+    }
 
+    /// <summary>
+    /// Check if this being can wander to a location.
+    /// Unlike pathfinding, wandering avoids hazardous terrain.
+    /// </summary>
+    public virtual bool CanWanderTo(int x, int y)
+    {
+        var place = GetPlace();
+        if (place == null)
+            return false;
+    
+        if (!place.IsPassable(x, y, this))
+            return false;
+    
+        var terrain = place.GetTerrain(x, y);
+        if (terrain != null && terrain.IsHazardous)
+            return false;
+    
+        return true;
+    }
+    
     protected void SetDefaults()
     {
         name = "";
-        CachedPath = new AStarNode();
+        CachedPath = null; // new AStarNode();
         CachedPathPlace = null;
         HP = MaxHP = 100;
         MP = MaxMP = 50;

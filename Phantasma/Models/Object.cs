@@ -93,6 +93,14 @@ public abstract class Object
         return Position.Place != null && 
                !Position.Place.IsOffMap(Position.X, Position.Y);
     }
+
+    /// <summary>
+    /// Check if this object is visible.
+    /// </summary>
+    public virtual bool IsVisible()
+    {
+        return true;
+    }
     
     public bool IsItem()
     {

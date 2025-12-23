@@ -24,6 +24,7 @@ public class Session
     private Place currentPlace;
     private Character playerCharacter;
     private Party playerParty;
+    private DiplomacyTable diplomacyTable;
     private Map map;
     private DispatcherTimer gameTimer;
     private Status status;
@@ -102,6 +103,7 @@ public class Session
     public Place CurrentPlace => currentPlace;
     public Character Player => playerCharacter;
     public Party Party => playerParty;
+    public DiplomacyTable DiplomacyTable => diplomacyTable;
     public Map Map => map;
     public bool IsRunning => isRunning;
     public Status Status => status;

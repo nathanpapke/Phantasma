@@ -249,4 +249,45 @@ public partial class Kernel
         ch.Resurrect();
         return null;
     }
+
+    /// <summary>
+    /// (kern-char-set-ai char closure)
+    /// </summary>
+    public static object CharacterSetAI(object charArg, object closureArg)
+    {
+        if (charArg is not Character character) return false;
+        character.AIBehavior = (closureArg == null || (closureArg is bool b && !b)) ? null : closureArg;
+        return true;
+    }
+
+    /// <summary>
+    /// (kern-char-get-mana char)
+    /// </summary>
+    public static object CharacterGetMana(object charArg)
+    {
+        if (charArg is not Character character) return 0;
+        return character.MP;
+    }
+
+    /// <summary>
+    /// (kern-char-dec-mana char amount)
+    /// </summary>
+    public static object CharacterDecreaseMana(object charArg, object amountArg)
+    {
+        if (charArg is not Character character) return false;
+        character.MP = Math.Max(0, character.MP - Convert.ToInt32(amountArg));
+        return character;
+    }
+
+    /// <summary>
+    /// (kern-char-attack attacker weapon defender)
+    /// </summary>
+    public static object CharacterAttack(object attackerArg, object weaponArg, object defenderArg)
+    {
+        if (attackerArg is not Character attacker) return false;
+        if (defenderArg is not Character defender) return false;
+        ArmsType? weapon = weaponArg as ArmsType;
+        if (weapon == null) return false;
+        return attacker.Attack(weapon, defender);
+    }
 }

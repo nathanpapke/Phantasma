@@ -213,6 +213,9 @@ public partial class Kernel
         // ===================================================================
         
         DefineFunction("kern-get-player", GetPlayer);
+        DefineFunction("kern-in-los?", InLineOfSight);
+        DefineFunction("kern-get-distance", GetDistance);
+        DefineFunction("kern-get-objects-at", GetObjectsAt);
         
         // ===================================================================
         // KERN-PLACE API - Map/Place Manipulation Functions
@@ -228,6 +231,9 @@ public partial class Kernel
         DefineFunction("kern-place-get-neighbor", PlaceGetNeighbor);
         DefineFunction("kern-place-is-wilderness", PlaceIsWilderness);
         DefineFunction("kern-place-is-wrapping", PlaceIsWrapping);
+        DefineFunction("kern-place-get-beings", PlaceGetBeings);
+        DefineFunction("kern-place-is-passable", PlaceIsPassable);
+        DefineFunction("kern-place-is-hazardous", PlaceIsHazardous);
         
         // ===================================================================
         // KERN-OBJ API - Object Manipulation Functions
@@ -243,6 +249,25 @@ public partial class Kernel
         DefineFunction("kern-obj-has-effect?", ObjectHasEffect);
         DefineFunction("kern-obj-remove", ObjectRemove);
         DefineFunction("kern-obj-relocate", ObjectRelocate);
+        DefineFunction("kern-obj-find-path", ObjectFindPath);
+        DefineFunction("kern-obj-wander", ObjectWander);
+        DefineFunction("kern-obj-is-visible?", ObjectIsVisible);
+        DefineFunction("kern-obj-move", ObjectMove);
+        DefineFunction("kern-obj-get-ap", ObjectGetActionPoints);
+        DefineFunction("kern-obj-set-ap", ObjectSetActionPoints);
+        DefineFunction("kern-obj-dec-ap", ObjectDecreaseActionPoints);
+        DefineFunction("kern-obj-is-being?", ObjectIsBeing);
+        
+        // ===================================================================
+        // KERN-BEING API - Being Functions
+        // ===================================================================
+        
+        DefineFunction("kern-being-pathfind-to", BeingPathfindTo);
+        DefineFunction("kern-being-is-hostile?", BeingIsHostile);
+        DefineFunction("kern-being-get-visible-hostiles", BeingGetVisibleHostiles);
+        DefineFunction("kern-being-set-base-faction", BeingSetBaseFaction);
+        DefineFunction("kern-being-get-base-faction", BeingGetBaseFaction);
+        DefineFunction("kern-being-get-current-faction", BeingGetCurrentFaction);
         
         // ===================================================================
         // KERN-CHAR API - Character Functions
@@ -254,6 +279,10 @@ public partial class Kernel
         DefineFunction("kern-char-set-hp", CharacterSetHp);
         DefineFunction("kern-char-kill", CharacterKill);
         DefineFunction("kern-char-resurrect", CharacterResurrect);
+        DefineFunction("kern-char-set-ai", CharacterSetAI);
+        DefineFunction("kern-char-get-mana", CharacterGetMana);
+        DefineFunction("kern-char-dec-mana", CharacterDecreaseMana);
+        DefineFunction("kern-char-attack", CharacterAttack);
         
         // ===================================================================
         // KERN-CHAR API - Character Equipment Functions
@@ -265,6 +294,15 @@ public partial class Kernel
         DefineFunction("kern-char-has-ammo?", CharacterHasAmmo);
         DefineFunction("kern-char-ready", CharacterReady);
         DefineFunction("kern-char-unready", CharacterUnready);
+        
+        // ===================================================================
+        // KERN-DIPLOMACY API - Diplomacy Functions
+        // ===================================================================
+        
+        DefineFunction("kern-dtable-get", DiplomacyTableGet);
+        DefineFunction("kern-dtable-set", DiplomacyTableSet);
+        DefineFunction("kern-dtable-inc", DiplomacyTableIncrement);
+        DefineFunction("kern-dtable-dec", DiplomacyTableDecrement);
         
         // ===================================================================
         // KERN-ARMS API - Arms Functions
@@ -730,5 +768,22 @@ public partial class Kernel
         }
         
         return result;
+    }
+
+    /// <summary>
+    /// Convert LinkedList of AStarNode to Scheme list of (x y) pairs.
+    /// </summary>
+    private static object ConvertPathToSchemeList(LinkedList<AStarNode> path)
+    {
+        var result = new List<object>();
+
+        foreach (var node in path)
+        {
+            // Create (x y) pair as a Cons.
+            var pair = new Cons(node.X, new Cons(node.Y, null));
+            result.Add(pair);
+        }
+
+        return Cons.FromList(result);
     }
 }

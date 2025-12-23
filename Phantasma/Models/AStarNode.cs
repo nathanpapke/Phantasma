@@ -1,16 +1,23 @@
-using System.Collections.Generic;
-
 namespace Phantasma.Models;
 
-public struct AStarNode
+/// <summary>
+/// Represents a node in an A* pathfinding search.
+/// </summary>
+public class AStarNode
 {
-    public Tree Order;
-    public LinkedListNode<AStarNode> Next;
-    public int Cost;
-    public int Goodness;
-    public int Len;
-    public int X;
-    public int Y;
-    public int Depth;
-    public byte Scheduled; //scheduled:1;
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int G { get; set; }              // Cost from start
+    public int H { get; set; }              // Heuristic to goal
+    public int F => G + H;                  // Total estimated cost
+    public AStarNode? Parent { get; set; }  // Previous node in path
+    
+    public AStarNode(int x, int y, int g = 0, int h = 0, AStarNode? parent = null)
+    {
+        X = x;
+        Y = y;
+        G = g;
+        H = h;
+        Parent = parent;
+    }
 }

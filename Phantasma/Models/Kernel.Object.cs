@@ -270,4 +270,152 @@ public partial class Kernel
         
         return "#t".Eval();
     }
+    
+    /// <summary>
+    /// (kern-obj-find-path obj place x y)
+    /// Find path from object's current location to destination.
+    /// Returns Scheme list of (x y) pairs, or nil if no path.
+    /// </summary>
+    public static object ObjectFindPath(object objArg, object placeArg, object xArg, object yArg)
+    {
+        if (objArg is not Object obj)
+        {
+            Console.WriteLine("[kern-obj-find-path] Invalid object");
+            return false;
+        }
+
+        if (placeArg is not Place place)
+        {
+            Console.WriteLine("[kern-obj-find-path] Invalid place");
+            return false;
+        }
+
+        // Can't pathfind between places.
+        if (obj.GetPlace() != place)
+        {
+            Console.WriteLine("[kern-obj-find-path] Object not in target place");
+            return false;
+        }
+
+        int destX = Convert.ToInt32(xArg);
+        int destY = Convert.ToInt32(yArg);
+
+        // Find the path.
+        var path = AStar.Search(
+            obj.GetX(), obj.GetY(),
+            destX, destY,
+            place.Width, place.Height,
+            (x, y) => place.IsPassable(x, y, obj)
+        );
+
+        if (path == null || path.Count == 0)
+            return false;
+
+        // Convert to Scheme list of (x y) pairs.
+        return ConvertPathToSchemeList(path);
+    }
+
+    /// <summary>
+    /// (kern-obj-is-visible? obj)
+    /// Check if object is visible.
+    /// </summary>
+    public static object ObjIsVisible(object objArg)
+    {
+        if (objArg is not Object obj)
+        {
+            Console.WriteLine("[kern-obj-is-visible?] Invalid object");
+            return false;
+        }
+
+        return obj.IsVisible();
+    }
+    
+    /// <summary>
+    /// (kern-obj-wander obj)
+    /// Make object wander in a random direction.
+    /// </summary>
+    public static object ObjectWander(object objArg)
+    {
+        if (objArg is not Being being)
+        {
+            Console.WriteLine("[kern-obj-wander] Object is not a being");
+            return false;
+        }
+
+        var random = new Random();
+        int[] dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        int[] dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
+
+        int startDir = random.Next(8);
+
+        for (int i = 0; i < 8; i++)
+        {
+            int dir = (startDir + i) % 8;
+            int newX = being.GetX() + dx[dir];
+            int newY = being.GetY() + dy[dir];
+
+            if (being.CanWanderTo(newX, newY))
+            {
+                being.Move(dx[dir], dy[dir]);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// (kern-obj-is-visible? obj)
+    /// </summary>
+    public static object ObjectIsVisible(object objArg)
+    {
+        if (objArg is not Being being) return true; // Non-beings default visible
+        return being.IsVisible();
+    }
+
+    /// <summary>
+    /// (kern-obj-move obj dx dy)
+    /// </summary>
+    public static object ObjectMove(object objArg, object dxArg, object dyArg)
+    {
+        if (objArg is not Being being) return false;
+        return being.Move(Convert.ToInt32(dxArg), Convert.ToInt32(dyArg));
+    }
+
+    /// <summary>
+    /// (kern-obj-get-ap obj)
+    /// </summary>
+    public static object ObjectGetActionPoints(object objArg)
+    {
+        if (objArg is not Being being) return 0;
+        return being.ActionPoints;
+    }
+
+    /// <summary>
+    /// (kern-obj-set-ap obj ap)
+    /// </summary>
+    public static object ObjectSetActionPoints(object objArg, object apArg)
+    {
+        if (objArg is not Being being) return false;
+        being.ActionPoints = Convert.ToInt32(apArg);
+        return being;
+    }
+
+    /// <summary>
+    /// (kern-obj-dec-ap obj amount)
+    /// </summary>
+    public static object ObjectDecreaseActionPoints(object objArg, object amountArg)
+    {
+        if (objArg is not Being being) return false;
+        being.ActionPoints = Math.Max(0, being.ActionPoints - Convert.ToInt32(amountArg));
+        return being;
+    }
+
+    /// <summary>
+    /// (kern-obj-is-being? obj)
+    /// </summary>
+    public static object ObjectIsBeing(object objArg)
+    {
+        return objArg is Being;
+    }
 }

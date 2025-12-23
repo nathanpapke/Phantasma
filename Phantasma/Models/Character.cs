@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using IronScheme;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
@@ -15,6 +15,16 @@ public class Character : Being
     public Occupation Occupation { get; set; }
     public bool IsClone { get; set; }
     public bool IsPlayer { get; set; }
+
+    /// <summary>
+    /// AI behavior closure. Called each turn to control this character.
+    /// </summary>
+    public object? AIBehavior { get; set; }
+
+    /// <summary>
+    /// Check if this character has AI control.
+    /// </summary>
+    public bool HasAI => AIBehavior != null;
 
     // Stats
     public int HpMod { get; set; }
@@ -1074,6 +1084,25 @@ public class Character : Being
         return true;
     }
     
+    public override bool PathFindTo(Place place, int destX, int destY, int flags = 0)
+    {
+        bool moved = base.PathFindTo(place, destX, destY);
+    
+        // If blocked, check for mechanism we can handle.
+        if (!moved && cachedPath?.First?.Value is AStarNode next)
+        {
+            var mech = place.GetMechanismAt(next.X, next.Y);
+            if (mech != null && mech.CanHandle())
+            {
+                mech.Handle(this);
+                cachedPath = null;  // Clear cache, path may have changed.
+                moved = base.PathFindTo(place, destX, destY);
+            }
+        }
+    
+        return moved;
+    }
+    
     /// <summary>
     /// Apply effects from hazardous terrain.
     /// </summary>
@@ -1320,6 +1349,24 @@ public class Character : Being
         if (sound != null)
         {
             SoundManager.Instance.Play(sound, SoundManager.MaxVolume);
+        }
+    }
+
+    /// <summary>
+    /// Execute the AI behavior for this character.
+    /// </summary>
+    public void ExecuteAI()
+    {
+        if (AIBehavior is Callable callable)
+        {
+            try
+            {
+                callable.Call(this);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AI Error] {Name}: {ex.Message}");
+            }
         }
     }
     

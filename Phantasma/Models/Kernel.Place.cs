@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using IronScheme;
 using IronScheme.Runtime;
 
@@ -175,5 +176,36 @@ public partial class Kernel
         
         Console.WriteLine("[WARNING] kern-place-is-wrapping: null or invalid place");
         return "#f".Eval();
+    }
+
+    /// <summary>
+    /// (kern-place-get-beings place)
+    /// </summary>
+    public static object PlaceGetBeings(object placeObj)
+    {
+        if (placeObj is not Place place) return Cons.FromList(new List<object>());
+        var beings = new List<object>();
+        foreach (var obj in place.Objects)
+            if (obj is Being being) beings.Add(being);
+        return Cons.FromList(beings);
+    }
+
+    /// <summary>
+    /// (kern-place-is-passable place x y obj)
+    /// </summary>
+    public static object PlaceIsPassable(object placeObj, object xObj, object yObj, object objArg)
+    {
+        if (placeObj is not Place place) return false;
+        return place.IsPassable(Convert.ToInt32(xObj), Convert.ToInt32(yObj), objArg as Object);
+    }
+
+    /// <summary>
+    /// (kern-place-is-hazardous place x y)
+    /// </summary>
+    public static object PlaceIsHazardous(object placeObj, object xObj, object yObj)
+    {
+        if (placeObj is not Place place) return false;
+        var terrain = place.GetTerrain(Convert.ToInt32(xObj), Convert.ToInt32(yObj));
+        return terrain?.IsHazardous ?? false;
     }
 }
