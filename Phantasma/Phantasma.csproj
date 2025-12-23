@@ -41,7 +41,6 @@
         </Content>
     </ItemGroup>
     <ItemGroup>
-      <Folder Include="Scripts\dialogs\" />
-      <Folder Include="Scripts\npcs\" />
+      <Folder Include="Assets\Sprites\" />
     </ItemGroup>
 </Project>

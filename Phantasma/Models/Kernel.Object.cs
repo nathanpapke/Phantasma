@@ -418,4 +418,74 @@ public partial class Kernel
     {
         return objArg is Being;
     }
+    
+    /// <summary>
+    /// (kern-obj-get-gob obj)
+    /// Returns the Scheme data attached to an object via its gob.
+    /// 
+    /// This is how scripts access quest state, NPC memory, etc.
+    /// Returns the raw Scheme data (list, pair, symbol, etc.) that
+    /// was previously attached via kern-obj-set-gob.
+    /// </summary>
+    /// <param name="objArg">The game object to get the gob from</param>
+    /// <returns>The Scheme data, or NIL if no gob attached</returns>
+    public static object ObjectGetGob(object objArg)
+    {
+        // Handle the object argument.
+        Object? obj = objArg as Object;
+        
+        if (obj == null)
+        {
+            RuntimeError("kern-obj-get-gob: bad args");
+            return Builtins.Unspecified;
+        }
+        
+        if (obj.Gob == null || obj.Gob?.SchemeData == null)
+        {
+            RuntimeError($"kern-obj-get-gob: no gob for {obj.Name ?? "unknown"}");
+            return Builtins.Unspecified;
+        }
+        
+        // Return the Scheme data directly - it's already an IronScheme object.
+        return obj.Gob?.SchemeData;
+    }
+    
+    /// <summary>
+    /// (kern-obj-set-gob obj gob-data)
+    /// Attaches Scheme data to an object via a gob.
+    /// 
+    /// The gob-data can be any Scheme value: a list for complex state,
+    /// a symbol, a number, etc. This data persists with the object
+    /// and is saved/loaded with the game.
+    /// 
+    /// </summary>
+    /// <param name="objArg">The game object to attach gob to</param>
+    /// <param name="gobData">The Scheme data to attach</param>
+    /// <returns>Unspecified</returns>
+    public static object ObjectSetGob(object objArg, object gobData)
+    {
+        // Handle the object argument.
+        Object? obj = objArg as Object;
+        
+        if (obj == null)
+        {
+            RuntimeError("kern-obj-set-gob: bad args");
+            return Builtins.Unspecified;
+        }
+        
+        if (gobData == null)
+        {
+            RuntimeError("kern-obj-set-gob: no gob specified");
+            return Builtins.Unspecified;
+        }
+        
+        // Create a new Gob with the Scheme data.
+        // Set GOB_SAVECAR flag so the entire data structure is saved.
+        obj.Gob = new Gob(gobData)
+        {
+            Flags = Gob.GOB_SAVECAR
+        };
+        
+        return Builtins.Unspecified;
+    }
 }

@@ -20,7 +20,7 @@ public abstract class Object
     public Location Position { get; set; }
     public int Count { get; set; } = 1;
     public int Light { get; set; } = 0;
-    public Gob Gob { get; set; }  // Scheme object reference
+    public Gob? Gob { get; set; }  // Scheme object reference
     
     /// <summary>
     /// Array of hook lists, one per hook type.

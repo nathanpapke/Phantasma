@@ -31,12 +31,26 @@ public partial class Kernel
     public const string KEY_PLAYER_CHARACTER = "player-character";
     public const string KEY_PLAYER_PARTY = "player-party";
     
+    private static Kernel? instance;
+
+    /// <summary>
+    /// The current Kernel instance. Available during initialization.
+    /// </summary>
+    public static Kernel? Instance => instance;
+    
+    private static readonly HashSet<string> loadedFiles = new(StringComparer.OrdinalIgnoreCase);
     
     /// <summary>
     /// Initialize the Scheme interpreter and register all kern-* API functions.
     /// </summary>
     public Kernel()
     {
+        // Set instance first so Include can access LoadSchemeFile during init.
+        instance = this;
+        
+        // Load R5RS compatibility layer first.
+        LoadCompatibilityLayer();
+        
         try
         {
             // Register all kern-* API functions.
@@ -48,89 +62,6 @@ public partial class Kernel
         {
             throw new Exception($"Failed to initialize Scheme interpreter: {ex.Message}", ex);
         }
-        
-        string dataDir = Phantasma.Configuration.GetValueOrDefault("include-dirname", "Data");
-        string nazPath = Path.Combine(dataDir, "naz.scm");
-        
-        if (File.Exists(nazPath))
-        {
-            Console.WriteLine($"Loading standard definitions: {nazPath}");
-            LoadSchemeFile(nazPath);
-        }
-        else
-        {
-            Console.WriteLine($"Note: naz.scm not found at {nazPath} - using minimal defaults");
-        }
-    }
-    
-    /// <summary>
-    /// Load and execute a Scheme file.
-    /// </summary>
-    public void LoadSchemeFile(string filename)
-    {
-        if (!File.Exists(filename))
-        {
-            throw new FileNotFoundException($"Scheme file not found: {filename}");
-        }
-    
-        try
-        {
-            Console.WriteLine($"Loading Scheme file: {filename}");
-            var startTime = DateTime.Now;
-        
-            string schemeCode = File.ReadAllText(filename);
-        
-            // Evaluate the Scheme code.
-            $"(begin\n {schemeCode}\n)".Eval();
-        
-            var elapsedMs = (DateTime.Now - startTime).TotalMilliseconds;
-            Console.WriteLine($"{elapsedMs:F0} ms to load {filename}");
-        }
-        catch (SchemeException schemeEx)
-        {
-            // Extract detailed Scheme error information.
-            Console.WriteLine("═══════════════════════════════════════════");
-            Console.WriteLine("SCHEME ERROR:");
-            Console.WriteLine(schemeEx.ToString()
-                .Replace("\n", "\r\n").Replace("\r\r", "\r"));
-        
-            if (schemeEx.InnerException != null)
-            {
-                Console.WriteLine($"Inner Exception: {schemeEx.InnerException.Message
-                    .Replace("\n", "\r\n").Replace("\r\r", "\r")}");
-            }
-    
-            // The real issue might be in the Data property.
-            if (schemeEx.Data != null && schemeEx.Data.Count > 0)
-            {
-                foreach (var key in schemeEx.Data.Keys)
-                {
-                    Console.WriteLine($"{key}: {schemeEx.Data[key]}");
-                }
-            }
-    
-            // Also check the stack trace.
-            Console.WriteLine($"Stack: {schemeEx.StackTrace}");
-        
-            // Try to get the actual Scheme error details.
-            Console.WriteLine($"ToString: {schemeEx.ToString()
-                .Replace("\n", "\r\n").Replace("\r\r", "\r")}");
-            Console.WriteLine("═══════════════════════════════════════════");
-        
-            throw new Exception($"Scheme error in {filename}: {schemeEx.Message
-                .Replace("\n", "\r\n").Replace("\r\r", "\r")}", schemeEx);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("═══════════════════════════════════════════");
-            Console.WriteLine("GENERAL ERROR:");
-            Console.WriteLine($"Type: {ex.GetType().Name}");
-            Console.WriteLine($"Message: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            Console.WriteLine("═══════════════════════════════════════════");
-        
-            throw new Exception($"Error loading {filename}: {ex.Message}", ex);
-        }
     }
     
     /// <summary>
@@ -140,8 +71,8 @@ public partial class Kernel
     private void RegisterKernelApi()
     {
         // Basic R6RS boot—ensures core libs (rnrs base, etc.) are loaded without extensions.
-        "(import (rnrs) (ironscheme))".Eval();
-        "(display \"Core R6RS booted.\\r\\n\")".Eval();
+        //"(import (rnrs) (ironscheme))".Eval();
+        //"(display \"Core R6RS booted.\\r\\n\")".Eval();
         //"(define (set-global! sym val) (eval `(define ,sym ',val) (interaction-environment)))".Eval();
 
     
@@ -384,30 +315,96 @@ public partial class Kernel
     /// <summary>
     /// (kern-include filename)
     /// Loads another Scheme file.
+    /// Resolves relative paths against the scripts directory.
     /// </summary>
-    public static object Include(object filename)
+    public static object Include(object args)
     {
-        try
+        string rawPath;
+        
+        // Handle different argument formats IronScheme might pass.
+        if (args is Cons cons)
         {
-            string path = filename?.ToString();
-            if (string.IsNullOrEmpty(path))
+            var firstArg = cons.car;
+            if (firstArg is string s)
+                rawPath = s;
+            else if (firstArg != null)
+                rawPath = firstArg.ToString();
+            else
             {
-                RuntimeError("kern-include: null or empty filename");
-                return "#f".Eval();
+                Console.Error.WriteLine("[kern-include] Error: null filename in args");
+                return Builtins.Unspecified;
             }
-            
-            // Use Phantasma's LoadSchemeFile which handles paths correctly.
-            Phantasma.LoadSchemeFile(path);
-            
-            Console.WriteLine($"[kern-include] Loaded: {path}");
+        }
+        else if (args is string str)
+        {
+            rawPath = str;
+        }
+        else if (args != null)
+        {
+            rawPath = args.ToString();
+        }
+        else
+        {
+            Console.Error.WriteLine("[kern-include] Error: null filename");
             return Builtins.Unspecified;
         }
-        catch (Exception ex)
+        
+        // Handle quoted strings - strip quotes if present.
+        if (rawPath.StartsWith("\"") && rawPath.EndsWith("\"") && rawPath.Length > 2)
         {
-            RuntimeError($"kern-include: {ex.Message}");
-            return "#f".Eval();
+            rawPath = rawPath.Substring(1, rawPath.Length - 2);
         }
+        
+        if (string.IsNullOrEmpty(rawPath))
+        {
+            Console.Error.WriteLine("[kern-include] Error: empty filename");
+            return Builtins.Unspecified;
+        }
+        
+        string path = rawPath;
+        
+        // If it's not an absolute path, resolve against the scripts directory.
+        if (!Path.IsPathRooted(path))
+        {
+            string scriptsDir;
+            if (Phantasma.Configuration.TryGetValue("include-dirname", out string dir))
+                scriptsDir = dir;
+            else
+                scriptsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
+            
+            path = Path.Combine(scriptsDir, path);
+        }
+        
+        if (!File.Exists(path))
+        {
+            Console.Error.WriteLine($"[kern-include] File not found: {path}");
+            return Builtins.Unspecified;
+        }
+        
+        // Check if already loaded (prevents double-loading).
+        string normalizedPath = Path.GetFullPath(path);
+        if (loadedFiles.Contains(normalizedPath))
+        {
+            // Already loaded - skip silently
+            return Builtins.Unspecified;
+        }
+        
+        // Mark as loaded BEFORE loading to handle circular includes.
+        loadedFiles.Add(normalizedPath);
+        
+        // Use Phantasma.Kernel to load (goes through preprocessing).
+        var kernel = Phantasma.Kernel;
+        if (kernel == null)
+        {
+            Console.Error.WriteLine("[kern-include] Error: Phantasma.Kernel is null");
+            return Builtins.Unspecified;
+        }
+        
+        kernel.LoadSchemeFile(path);
+        
+        return Builtins.Unspecified;
     }
+    
     /// <summary>
     /// (kern-sound-play sound)
     /// Plays a sound at maximum volume.

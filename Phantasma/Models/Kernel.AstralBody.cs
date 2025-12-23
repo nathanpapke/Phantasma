@@ -63,7 +63,7 @@ public partial class Kernel
         // Create Gob struct from the Scheme object.
         body.Gob = new Gob
         {
-            Scheme = gobObj?.ToString(),
+            SchemeData = gobObj?.ToString(),
             Flags = 0,
             RefCount = 1
         };
