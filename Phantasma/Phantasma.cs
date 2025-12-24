@@ -23,17 +23,17 @@ public class Phantasma
     // SINGLETON PATTERN
     // ===================================================================
     
-    private static Phantasma _instance;
+    private static Phantasma instance;
     
     public static Phantasma Instance 
     { 
         get 
         {
-            if (_instance == null)
+            if (instance == null)
             {
                 throw new InvalidOperationException("Phantasma not initialized. Call Initialize() first.");
             }
-            return _instance;
+            return instance;
         }
     }
     
@@ -51,10 +51,10 @@ public class Phantasma
     // This is global so all sessions can access defined types.
     private Dictionary<string, object> registeredObjects;
 
-    public static Dictionary<string, string> Configuration => _instance.configuration;
-    public static Common Common => _instance.common;
-    public static Dimensions Dimensions => _instance.dimensions;
-    public static Kernel Kernel => _instance.kernel;
+    public static Dictionary<string, string> Configuration => instance.configuration;
+    public static Common Common => instance.common;
+    public static Dimensions Dimensions => instance.dimensions;
+    public static Kernel Kernel => instance.kernel;
     public static CombatSounds CombatSounds => combatSounds;
     
     // ===================================================================
@@ -62,19 +62,19 @@ public class Phantasma
     // ===================================================================
     
     public static void RegisterObject(string tag, object obj) 
-        => _instance.registerObject(tag, obj);
+        => instance.registerObject(tag, obj);
 
     public static object GetRegisteredObject(string tag) 
-        => _instance.getRegisteredObject(tag);
+        => instance.getRegisteredObject(tag);
 
     public static void LoadSchemeFile(string filename) 
-        => _instance.loadSchemeFile(filename);
+        => instance.loadSchemeFile(filename);
 
     public static Session CreateAgentSession() 
-        => _instance.createAgentSession();
+        => instance.createAgentSession();
 
     public static void DestroyAgentSession(Session session) 
-        => _instance.destroyAgentSession(session);
+        => instance.destroyAgentSession(session);
     
     // ===================================================================
     // SESSION MANAGEMENT (Multiple Sessions Allowed)
@@ -83,7 +83,7 @@ public class Phantasma
     private Session mainSession;          // The real game
     private List<Session> agentSessions;  // Temporary simulations
     
-    public static Session MainSession => _instance.mainSession;
+    public static Session MainSession => instance.mainSession;
     
     // ===================================================================
     // UI & STARTUP
@@ -111,12 +111,12 @@ public class Phantasma
     /// </summary>
     public static void Initialize(string[] args)
     {
-        if (_instance != null)
+        if (instance != null)
         {
             throw new InvalidOperationException("Phantasma already initialized.");
         }
         
-        _instance = new Phantasma(args);
+        instance = new Phantasma(args);
     }
 
     public Phantasma(string[] args)
@@ -357,7 +357,7 @@ public class Phantasma
         }
         
         // Create the real game window.
-        var gameWindow = new Views.MainWindow
+        var gameWindow = new MainWindow
         {
             DataContext = new MainWindowBinder(),
         };
@@ -380,7 +380,7 @@ public class Phantasma
     {
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new Views.MainWindow
+            desktop.MainWindow = new MainWindow
             {
                 DataContext = new MainWindowBinder(),
             };
@@ -514,7 +514,6 @@ public class Phantasma
         try
         {
             kernel = new Kernel();
-            Console.WriteLine("Kernel initialized successfully.");
         }
         catch (Exception ex)
         {

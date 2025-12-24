@@ -1340,4 +1340,172 @@ public partial class Kernel
         
         return sound;
     }
+    
+    /// <summary>
+    /// (kern-mk-ptable row1 row2 ...)
+    /// Creates a passability table from a list of lists.
+    /// Each row corresponds to a passability class (terrain type).
+    /// Each column corresponds to a movement mode (walking, swimming, etc).
+    /// Values are movement costs (higher = slower, 255 = impassable).
+    /// </summary>
+    /// <remarks>
+    /// Nazghul kern.c signature:
+    ///   KERN_API_CALL(kern_mk_ptable) - args is list of rows
+    ///   Each row is a list of integers (movement costs per mode)
+    /// </remarks>
+    public static object MakePassabilityTable(object args)
+    {
+        try
+        {
+            // Convert args to list of rows.
+            var rows = ConvertToListOfLists(args);
+            
+            if (rows.Count == 0)
+            {
+                Console.Error.WriteLine("[kern-mk-ptable] Error: 0 rows given");
+                return Builtins.Unspecified;
+            }
+            
+            // Get dimensions: Rows = Passability Classes, Cols = Movement Modes
+            int numPassabilityClasses = rows.Count;
+            int numMovementModes = rows[0].Count;
+            
+            if (numMovementModes == 0)
+            {
+                Console.Error.WriteLine("[kern-mk-ptable] Error: row 0 has no columns");
+                return Builtins.Unspecified;
+            }
+            
+            // Validate all rows have same number of columns.
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Count < numMovementModes)
+                {
+                    Console.Error.WriteLine($"[kern-mk-ptable] Error: row {i} has only {rows[i].Count} columns (expected {numMovementModes})");
+                    return Builtins.Unspecified;
+                }
+            }
+            
+            // Create the passability table.
+            var ptable = new PassabilityTable(numMovementModes, numPassabilityClasses);
+            
+            // Fill in the costs.
+            // Row Index = Passability Class, Column Index = Movement Mode
+            for (int pclass = 0; pclass < numPassabilityClasses; pclass++)
+            {
+                for (int mmode = 0; mmode < numMovementModes; mmode++)
+                {
+                    int cost = rows[pclass][mmode];
+                    ptable.SetCost(mmode, pclass, cost);
+                }
+            }
+            
+            // Store in the session.
+            var session = Phantasma.MainSession;
+            if (session != null)
+            {
+                session.PassabilityTable = ptable;
+            }
+            else
+            {
+                // During loading, MainSession may not exist yet.
+                // Store in a temporary location that Session can pick up.
+                // TODO: Set up failsafe for PassabilityTable.
+            }
+            
+            Console.WriteLine($"[kern-mk-ptable] Created {numMovementModes}×{numPassabilityClasses} passability table");
+            
+            // Nazghul returns sc->NIL
+            return Builtins.Unspecified;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[kern-mk-ptable] Error: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    /// <summary>
+    /// (kern-mk-dtable row1 row2 ...)
+    /// Creates a diplomacy table from a list of lists.
+    /// Each row/column corresponds to a faction.
+    /// Values are diplomacy levels (negative = hostile, 0 = neutral, positive = allied).
+    /// The table should be square (same number of rows and columns).
+    /// </summary>
+    /// <remarks>
+    /// Nazghul kern.c signature:
+    ///   KERN_API_CALL(kern_mk_dtable) - args is list of rows
+    ///   Returns a pointer to the dtable (for use with kern-dtable-* functions)
+    /// </remarks>
+    public static object MakeDiplomacyTable(object args)
+    {
+        try
+        {
+            // Convert args to list of rows.
+            var rows = ConvertToListOfLists(args);
+            
+            if (rows.Count == 0)
+            {
+                Console.Error.WriteLine("[kern-mk-dtable] Error: 0 factions given");
+                return Builtins.Unspecified;
+            }
+            
+            int numFactions = rows.Count;
+            
+            // Validate square table.
+            if (rows[0].Count != numFactions)
+            {
+                Console.Error.WriteLine("[kern-mk-dtable] Error: # of rows and columns must be same");
+                return Builtins.Unspecified;
+            }
+            
+            // Validate all rows have correct number of columns.
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Count < numFactions)
+                {
+                    Console.Error.WriteLine($"[kern-mk-dtable] Error: row {i} has only {rows[i].Count} columns (expected {numFactions})");
+                    return Builtins.Unspecified;
+                }
+            }
+            
+            // Create the diplomacy table.
+            var dtable = new DiplomacyTable(numFactions);
+            
+            // Fill in the values.
+            for (int f1 = 0; f1 < numFactions; f1++)
+            {
+                for (int f2 = 0; f2 < numFactions; f2++)
+                {
+                    int level = rows[f1][f2];
+                    // Note: DiplomacyTable.Set already handles symmetry.
+                    // But we set both directions explicitly as Nazghul does.
+                    dtable.Set(f1, f2, level);
+                }
+            }
+            
+            // Store in the session.
+            var session = Phantasma.MainSession;
+            if (session != null)
+            {
+                session.DiplomacyTable = dtable;
+            }
+            else
+            {
+                // During loading, MainSession may not exist yet.
+                // TODO: Set up failsafe for DiplomacyTable.
+            }
+            
+            Console.WriteLine($"[kern-mk-dtable] Created {numFactions}×{numFactions} diplomacy table");
+            
+            // Nazghul returns scm_mk_ptr(sc, dtable) - a pointer to the table.
+            // We return the table itself for use in kern-dtable-* functions.
+            return dtable;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[kern-mk-dtable] Error: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
 }

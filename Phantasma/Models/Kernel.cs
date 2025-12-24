@@ -38,8 +38,6 @@ public partial class Kernel
     /// </summary>
     public static Kernel? Instance => instance;
     
-    private static readonly HashSet<string> loadedFiles = new(StringComparer.OrdinalIgnoreCase);
-    
     /// <summary>
     /// Initialize the Scheme interpreter and register all kern-* API functions.
     /// </summary>
@@ -309,99 +307,6 @@ public partial class Kernel
         }
     
         Console.WriteLine($"[Scheme] {message}");
-        return Builtins.Unspecified;
-    }
-    
-    /// <summary>
-    /// (kern-include filename)
-    /// Loads another Scheme file.
-    /// Resolves relative paths against the scripts directory.
-    /// </summary>
-    public static object Include(object args)
-    {
-        string rawPath;
-        
-        // Handle different argument formats IronScheme might pass.
-        if (args is Cons cons)
-        {
-            var firstArg = cons.car;
-            if (firstArg is string s)
-                rawPath = s;
-            else if (firstArg != null)
-                rawPath = firstArg.ToString();
-            else
-            {
-                Console.Error.WriteLine("[kern-include] Error: null filename in args");
-                return Builtins.Unspecified;
-            }
-        }
-        else if (args is string str)
-        {
-            rawPath = str;
-        }
-        else if (args != null)
-        {
-            rawPath = args.ToString();
-        }
-        else
-        {
-            Console.Error.WriteLine("[kern-include] Error: null filename");
-            return Builtins.Unspecified;
-        }
-        
-        // Handle quoted strings - strip quotes if present.
-        if (rawPath.StartsWith("\"") && rawPath.EndsWith("\"") && rawPath.Length > 2)
-        {
-            rawPath = rawPath.Substring(1, rawPath.Length - 2);
-        }
-        
-        if (string.IsNullOrEmpty(rawPath))
-        {
-            Console.Error.WriteLine("[kern-include] Error: empty filename");
-            return Builtins.Unspecified;
-        }
-        
-        string path = rawPath;
-        
-        // If it's not an absolute path, resolve against the scripts directory.
-        if (!Path.IsPathRooted(path))
-        {
-            string scriptsDir;
-            if (Phantasma.Configuration.TryGetValue("include-dirname", out string dir))
-                scriptsDir = dir;
-            else
-                scriptsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
-            
-            path = Path.Combine(scriptsDir, path);
-        }
-        
-        if (!File.Exists(path))
-        {
-            Console.Error.WriteLine($"[kern-include] File not found: {path}");
-            return Builtins.Unspecified;
-        }
-        
-        // Check if already loaded (prevents double-loading).
-        string normalizedPath = Path.GetFullPath(path);
-        if (loadedFiles.Contains(normalizedPath))
-        {
-            // Already loaded - skip silently
-            return Builtins.Unspecified;
-        }
-        
-        // Mark as loaded BEFORE loading to handle circular includes.
-        loadedFiles.Add(normalizedPath);
-        
-        // Use Phantasma.Kernel to load (goes through preprocessing).
-        var kernel = Phantasma.Kernel;
-        if (kernel == null)
-        {
-            Console.Error.WriteLine("[kern-include] Error: Phantasma.Kernel is null");
-            return Builtins.Unspecified;
-        }
-        
-        kernel.LoadSchemeFile(path);
-        
         return Builtins.Unspecified;
     }
     
@@ -782,5 +687,91 @@ public partial class Kernel
         }
 
         return Cons.FromList(result);
+    }
+    
+    /// <summary>
+    /// Convert a Scheme list of lists to a C# List of List of ints.
+    /// Used for parsing ptable and dtable arguments.
+    /// </summary>
+    private static List<List<int>> ConvertToListOfLists(object args)
+    {
+        var result = new List<List<int>>();
+        
+        // Handle the outer list (rows).
+        object current = args;
+        while (current != null && current != Builtins.Unspecified)
+        {
+            if (current is Cons cons)
+            {
+                // Get this row.
+                var row = ConvertToIntList(cons.car);
+                if (row != null)
+                {
+                    result.Add(row);
+                }
+                
+                // Move to next row.
+                current = cons.cdr;
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        return result;
+    }
+    
+    /// <summary>
+    /// Convert a Scheme list to a C# List of ints.
+    /// </summary>
+    private static List<int> ConvertToIntList(object listObj)
+    {
+        var result = new List<int>();
+    
+        object current = listObj;
+        while (current != null && current != Builtins.Unspecified)
+        {
+            if (current is Cons cons)
+            {
+                var val = cons.car;
+            
+                // Convert.ToInt32 handles int, long, double, and most numeric types.
+                if (val != null)
+                {
+                    try
+                    {
+                        result.Add(Convert.ToInt32(val));
+                    }
+                    catch
+                    {
+                        // If conversion fails, default to 0.
+                        Console.Error.WriteLine($"[ConvertToIntList] Cannot convert {val?.GetType().Name} '{val}' to int, using 0");
+                        result.Add(0);
+                    }
+                }
+            
+                current = cons.cdr;
+            }
+            else
+            {
+                break;
+            }
+        }
+    
+        return result;
+    }
+    
+    /// <summary>
+    /// Extract the first argument from a Cons list or return the object itself.
+    /// Used for functions that take a single argument.
+    /// </summary>
+    private static object ExtractFirstArg(object args)
+    {
+        if (args is Cons cons)
+        {
+            return cons.car;
+        }
+        return args;
     }
 }

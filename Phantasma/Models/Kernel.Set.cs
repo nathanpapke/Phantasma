@@ -204,4 +204,98 @@ public partial class Kernel
         
         return "#t".Eval();
     }
+    
+    /// <summary>
+    /// (kern-set-camping-proc proc)
+    /// Sets the procedure to call each turn when the party is camping in the wilderness.
+    /// </summary>
+    /// <remarks>
+    /// Nazghul kern.c signature:
+    ///   KERN_API_CALL(kern_set_camping_proc) - args contains one closure/proc
+    ///   session_set_camping_proc(Session, closure_new(sc, proc))
+    /// </remarks>
+    public static object SetCampingProc(object args)
+    {
+        try
+        {
+            // Extract the procedure from args.
+            object proc = ExtractFirstArg(args);
+            
+            if (proc == null)
+            {
+                Console.Error.WriteLine("[kern-set-camping-proc] Error: bad args");
+                return Builtins.Unspecified;
+            }
+            
+            // Store in session.
+            var session = Phantasma.MainSession;
+            if (session != null)
+            {
+                session.SetCampingProc(proc);
+            }
+            else
+            {
+                //Phantasma.PendingCampingProc = proc;
+            }
+            
+            Console.WriteLine("[kern-set-camping-proc] Camping procedure set");
+            
+            // Return the proc (Nazghul returns the proc pointer).
+            return proc;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[kern-set-camping-proc] Error: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
+    
+    /// <summary>
+    /// (kern-set-start-proc proc)
+    /// Sets the procedure to call when the game session starts.
+    /// The procedure is called with the player party as an argument.
+    /// </summary>
+    /// <remarks>
+    /// Nazghul kern.c signature:
+    ///   KERN_API_CALL(kern_set_start_proc) - args contains one closure/proc
+    ///   session_set_start_proc(Session, closure_new(sc, proc))
+    ///   
+    /// Called by session_run_start_proc():
+    ///   closure_exec(session->start_proc, "p", player_party)
+    /// </remarks>
+    public static object SetStartProc(object args)
+    {
+        try
+        {
+            // Extract the procedure from args.
+            object proc = ExtractFirstArg(args);
+            
+            if (proc == null)
+            {
+                Console.Error.WriteLine("[kern-set-start-proc] Error: bad args");
+                return Builtins.Unspecified;
+            }
+            
+            // Store in session.
+            var session = Phantasma.MainSession;
+            if (session != null)
+            {
+                session.SetStartProc(proc);
+            }
+            else
+            {
+                //Phantasma.PendingStartProc = proc;
+            }
+            
+            Console.WriteLine("[kern-set-start-proc] Start procedure set");
+            
+            // Return the proc (Nazghul returns the proc pointer).
+            return proc;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[kern-set-start-proc] Error: {ex.Message}");
+            return Builtins.Unspecified;
+        }
+    }
 }

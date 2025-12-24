@@ -24,22 +24,23 @@ public class Session
     private Place currentPlace;
     private Character playerCharacter;
     private Party playerParty;
+    private PassabilityTable passabilityTable;
     private DiplomacyTable diplomacyTable;
     private Map map;
     private DispatcherTimer gameTimer;
     private Status status;
-    
+
     // Clock, Sky, and Wind System
     private readonly Clock clock = new();
     private readonly Sky sky = new();
     private readonly Wind wind = new();
-    private int timeAcceleration = 1;  // Time speed multiplier
-    
+    private int timeAcceleration = 1; // Time speed multiplier
+
     /// <summary>
     /// Current combat state for this session.
     /// </summary>
     private CombatState combatState = CombatState.Done;
-    
+
     // Targeting
     public bool IsTargeting { get; private set; }
     public int TargetOriginX { get; private set; }
@@ -47,28 +48,30 @@ public class Session
     public int TargetRange { get; private set; }
     public int TargetX { get; private set; }
     public int TargetY { get; private set; }
-    
+
     /// <summary>
     /// Key handler stack.
     /// Top handler receives all key events.
     /// </summary>
     private readonly Stack<IKeyHandler> keyHandlers = new();
-
     
+    private object startProc;      // Scheme closure for game start
+    private object campingProc;    // Scheme closure for camping callback
+
     // ===================================================================
     // UI EVENTS - For displaying messages to user
     // ===================================================================
-    
+
     /// <summary>
     /// Fired when a message should be displayed in the command window.
     /// </summary>
     public event Action<string> MessageDisplayed;
-    
+
     /// <summary>
     /// Fired when the command prompt changes (e.g., "Talk-", "Ready-").
     /// </summary>
     public event Action<string> PromptChanged;
-    
+
     /// <summary>
     /// Fired when a message should be displayed in the console (multi-line scrollable).
     /// Used for NPC dialog, combat log, game messages.
@@ -79,31 +82,42 @@ public class Session
     /// Fired when command input text changes (user typing).
     /// </summary>
     public event Action<string> CommandInputChanged;
-    
+
     // ===================================================================
     // SAVE/LOAD REGISTRY
     // ===================================================================
-    
+
     /// <summary>
     /// List of objects registered for save/load/destroy.
     /// Order is preserved - objects are saved in the order they were registered.
     /// </summary>
     private readonly List<SaveEntry> saveEntries = new();
-    
+
     /// <summary>
     /// Session ID increments with each save.
     /// Objects use this to detect if they've already been saved this session.
     /// </summary>
     public int SessionId { get; private set; } = 0;
-    
+
     // ===================================================================
     // PUBLIC PROPERTIES
     // ===================================================================
-    
+
     public Place CurrentPlace => currentPlace;
     public Character Player => playerCharacter;
     public Party Party => playerParty;
-    public DiplomacyTable DiplomacyTable => diplomacyTable;
+
+    public PassabilityTable PassabilityTable
+    {
+        get => passabilityTable;
+        set => passabilityTable = value;
+    }
+
+    public DiplomacyTable DiplomacyTable
+    {
+        get => diplomacyTable;
+        set => diplomacyTable = value;
+    }
     public Map Map => map;
     public bool IsRunning => isRunning;
     public Status Status => status;
@@ -128,6 +142,17 @@ public class Session
     /// Gets the current combat state.
     /// </summary>
     public CombatState CombatState => combatState;
+
+    /// <summary>
+    /// The Scheme procedure to call when the game session starts.
+    /// Called with the player party as an argument.
+    /// </summary>
+    public object StartProc => startProc;
+
+    /// <summary>
+    /// The Scheme procedure to call each turn while camping in the wilderness.
+    /// </summary>
+    public object CampingProc => campingProc;
     
     // ===================================================================
     // INITIALIZATION
@@ -900,6 +925,80 @@ public class Session
                     sounds.PlayEnterSound();
                 }
                 break;
+        }
+    }
+    
+    // =====================================================================
+    // SESSION PROC METHODS
+    // =====================================================================
+
+    /// <summary>
+    /// Set the start procedure for this session.
+    /// Called by kern-set-start-proc during game loading.
+    /// </summary>
+    public void SetStartProc(object proc)
+    {
+        startProc = proc;
+    }
+
+    /// <summary>
+    /// Set the camping procedure for this session.
+    /// Called by kern-set-camping-proc during game loading.
+    /// </summary>
+    public void SetCampingProc(object proc)
+    {
+        campingProc = proc;
+    }
+
+    /// <summary>
+    /// Execute the start procedure if one is set.
+    /// Called after game loading is complete.
+    /// </summary>
+    public void RunStartProc()
+    {
+        if (startProc == null) return;
+    
+        try
+        {
+            if (startProc is IronScheme.Runtime.Callable callable)
+            {
+                // Pass the player party as the argument.
+                callable.Call(playerParty);
+            }
+            else
+            {
+                Console.WriteLine("[Session] StartProc is not callable");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Session] Error running start proc: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Execute the camping procedure if one is set.
+    /// Called each turn while the party is camping in the wilderness.
+    /// </summary>
+    public void RunCampingProc()
+    {
+        if (campingProc == null) return;
+    
+        try
+        {
+            if (campingProc is IronScheme.Runtime.Callable callable)
+            {
+                // Camping proc takes no arguments.
+                callable.Call();
+            }
+            else
+            {
+                Console.WriteLine("[Session] CampingProc is not callable");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Session] Error running camping proc: {ex.Message}");
         }
     }
 }
