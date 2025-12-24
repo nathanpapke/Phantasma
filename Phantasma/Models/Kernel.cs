@@ -106,6 +106,8 @@ public partial class Kernel
         DefineFunction("kern-mk-vehicle-type", MakeVehicleType);
         DefineFunction("kern-mk-vehicle", MakeVehicle);
         DefineFunction("kern-mk-sound", MakeSound);
+        DefineFunction("kern-mk-ptable", MakePassabilityTable);
+        DefineFunction("kern-mk-dtable", MakeDiplomacyTable);
         
         // ===================================================================
         // KERN-PARTY API - Party Functions
@@ -126,6 +128,8 @@ public partial class Kernel
         DefineFunction("kern-set-time-accel", SetTimeAcceleration);
         DefineFunction("kern-set-spell-words", SetSpellWords);
         DefineFunction("kern-set-wind", SetWind);
+        DefineFunction("kern-set-camping-proc", SetCampingProc);
+        DefineFunction("kern-set-start-proc", SetStartProc);
         
         // ===================================================================
         // KERN-ADD API - Status Effect Functions
