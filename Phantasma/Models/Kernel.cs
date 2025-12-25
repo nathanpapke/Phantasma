@@ -46,9 +46,6 @@ public partial class Kernel
         // Set instance first so Include can access LoadSchemeFile during init.
         instance = this;
         
-        // Load R5RS compatibility layer first.
-        LoadCompatibilityLayer();
-        
         try
         {
             // Register all kern-* API functions.
@@ -60,6 +57,9 @@ public partial class Kernel
         {
             throw new Exception($"Failed to initialize Scheme interpreter: {ex.Message}", ex);
         }
+        
+        // Load R5RS compatibility layer first.
+        LoadCompatibilityLayer();
     }
     
     /// <summary>
@@ -88,7 +88,7 @@ public partial class Kernel
         DefineFunction("kern-mk-palette", MakePalette);
         DefineFunction("kern-mk-map", MakeMap);
         DefineFunction("kern-mk-place", MakePlace);
-        DefineFunction("kern-mk-mmode", MakeMovementMode);
+        DefineFunction("kern-mk-mmode", MakeMovementMode);//
         DefineFunction("kern-mk-species", MakeSpecies);
         DefineFunction("kern-mk-occ", MakeOccupation);
         DefineFunction("kern-mk-char", MakeCharacter);
@@ -106,7 +106,7 @@ public partial class Kernel
         DefineFunction("kern-mk-vehicle-type", MakeVehicleType);
         DefineFunction("kern-mk-vehicle", MakeVehicle);
         DefineFunction("kern-mk-sound", MakeSound);
-        DefineFunction("kern-mk-ptable", MakePassabilityTable);
+        DefineFunction("kern-mk-ptable", MakePassabilityTable);//
         DefineFunction("kern-mk-dtable", MakeDiplomacyTable);
         
         // ===================================================================
@@ -268,7 +268,7 @@ public partial class Kernel
         // ===================================================================
         
         DefineFunction("kern-print", Print);
-        DefineFunction("kern-include", Include);
+        //DefineFunction("kern-include", Include);
         DefineFunction("kern-sound-play", SoundPlay);
         
         // TODO: Add remaining kern-* functions as needed.
@@ -728,33 +728,78 @@ public partial class Kernel
     
     /// <summary>
     /// Convert a Scheme list to a C# List of ints.
+    /// Handles integers, floats, and known symbol names.
     /// </summary>
     private static List<int> ConvertToIntList(object listObj)
     {
         var result = new List<int>();
-    
+
         object current = listObj;
         while (current != null && current != Builtins.Unspecified)
         {
             if (current is Cons cons)
             {
                 var val = cons.car;
-            
-                // Convert.ToInt32 handles int, long, double, and most numeric types.
-                if (val != null)
+                int intVal = 0;
+                bool converted = false;
+                
+                // Try direct numeric types first.
+                if (val is int i)
+                {
+                    intVal = i;
+                    converted = true;
+                }
+                else if (val is long l)
+                {
+                    intVal = (int)l;
+                    converted = true;
+                }
+                else if (val is double d)
+                {
+                    intVal = (int)d;
+                    converted = true;
+                }
+                // Handle IronScheme symbols.
+                else if (val is SymbolId sym)
+                {
+                    string symName = SymbolTable.IdToString(sym);
+                    intVal = ResolvePassabilitySymbol(symName);
+                    converted = true;
+                    // Only log if it's not a known symbol.
+                    if (intVal == 0 && symName != "easy")
+                    {
+                        Console.WriteLine($"[ConvertToIntList] Resolved symbol '{symName}' -> {intVal}");
+                    }
+                }
+                // Handle string representations of symbols.
+                else if (val is string s)
+                {
+                    intVal = ResolvePassabilitySymbol(s);
+                    converted = true;
+                }
+                // Fallback: try Convert.ToInt32
+                else if (val != null)
                 {
                     try
                     {
-                        result.Add(Convert.ToInt32(val));
+                        intVal = Convert.ToInt32(val);
+                        converted = true;
                     }
                     catch
                     {
-                        // If conversion fails, default to 0.
-                        Console.Error.WriteLine($"[ConvertToIntList] Cannot convert {val?.GetType().Name} '{val}' to int, using 0");
-                        result.Add(0);
+                        // Try as symbol name.
+                        string valStr = val.ToString();
+                        intVal = ResolvePassabilitySymbol(valStr);
+                        converted = true;
+                        Console.Error.WriteLine($"[ConvertToIntList] Converted '{valStr}' -> {intVal}");
                     }
                 }
-            
+                
+                if (converted)
+                {
+                    result.Add(intVal);
+                }
+                
                 current = cons.cdr;
             }
             else
@@ -762,8 +807,41 @@ public partial class Kernel
                 break;
             }
         }
-    
+        
         return result;
+    }
+    
+    /// <summary>
+    /// Resolve known passability symbol names to their integer values.
+    /// These are commonly used in Haxima's game.scm and related files.
+    /// </summary>
+    private static int ResolvePassabilitySymbol(string symbolName)
+    {
+        // Remove any leading quote or tick.
+        symbolName = symbolName?.TrimStart('\'', '`') ?? "";
+        
+        return symbolName.ToLowerInvariant() switch
+        {
+            // Common passability constants
+            "norm" => 1,           // Normal movement cost
+            "normal" => 1,
+            "easy" => 0,           // Free/easy movement
+            "cant" => 255,         // Impassable (PTABLE_IMPASSABLE)
+            "impassable" => 255,
+            "blocked" => 255,
+            
+            // Numeric passability costs
+            "slow" => 2,
+            "very-slow" => 3,
+            "crawl" => 4,
+            
+            // Special values
+            "water" => 255,        // Usually impassable for walking
+            "air" => 0,            // Usually free for flying
+            
+            // Default: return 0 (passable with no cost penalty)
+            _ => 0
+        };
     }
     
     /// <summary>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using IronScheme;
@@ -65,7 +66,7 @@ public partial class Kernel
         string schemeCode = File.ReadAllText(filename);
         
         // Parse, preprocess for R5RS compatibility, and evaluate.
-        EvalWithPreprocessing(schemeCode);
+        EvalWithPreprocessing(schemeCode, filename);
 
         var elapsedMs = (DateTime.Now - startTime).TotalMilliseconds;
         Console.WriteLine($"{elapsedMs:F0} ms to load {filename}");
@@ -85,7 +86,7 @@ public partial class Kernel
     /// Handles R5RS internal defines by transforming them to letrec.
     /// Continues past errors to evaluate all valid expressions.
     /// </summary>
-    private void EvalWithPreprocessing(string code)
+    private void EvalWithPreprocessing(string code, string filename = null)
     {
         // Parse into S-expressions.
         SExpressionParser parser;
@@ -104,25 +105,61 @@ public partial class Kernel
         }
         
         int errorCount = 0;
+        var failedFunctions = new HashSet<string>();  // Track what's failing
         
         // Transform and evaluate each expression.
         foreach (var expr in expressions)
         {
             string exprStr;
+            object transformed;
+            string funcName = null;
+        
+            // Extract function name for error tracking.
+            if (expr is List<object> list && list.Count > 0 && list[0] is string name)
+            {
+                funcName = name;
+            }
             
-            // Try to transform, fall back to original on failure.
             try
             {
-                var transformed = SchemePreprocessor.TransformExpression(expr);
+                transformed = SchemePreprocessor.TransformExpression(expr);
                 exprStr = SchemePreprocessor.SExpressionToString(transformed);
             }
             catch
             {
-                // Transformation failed - use original expression.
+                transformed = expr;
                 exprStr = SchemePreprocessor.SExpressionToString(expr);
             }
             
-            // Evaluate the expression, log errors but continue.
+            if (transformed is List<object> exprList && 
+                exprList.Count == 2 && 
+                //exprList[0] is string funcName && 
+                (funcName == "kern-include" || funcName == "kern-load"))
+            {
+                string nextName = exprList[1]?.ToString() ?? "";
+                
+                // Strip quotes.
+                if (nextName.Length >= 2 && 
+                    nextName.StartsWith("\"") && 
+                    nextName.EndsWith("\""))
+                {
+                    nextName = nextName.Substring(1, nextName.Length - 2);
+                }
+                
+                try
+                {
+                    Include(nextName);
+                }
+                catch (Exception ex)
+                {
+                    errorCount++;
+                    Console.Error.WriteLine($"[kern-include] Error: {ex.Message}");
+                }
+                
+                continue; // Skip Eval - we handled it.
+            }
+    
+            // Normal Evaluation (existing code)
             try
             {
                 exprStr.Eval();
@@ -130,23 +167,15 @@ public partial class Kernel
             catch (Exception ex)
             {
                 errorCount++;
+                
+                if (funcName != null)
+                    failedFunctions.Add(funcName);
+                
                 string preview = exprStr.Length > 80 
                     ? exprStr.Substring(0, 80) + "..." 
                     : exprStr;
                 
-                // Try to extract more detail from SchemeExceptions.
-                string errorDetail = ex.Message;
-                if (ex.InnerException != null)
-                    errorDetail = ex.InnerException.Message;
-                
-                // Check if the exception has additional data.
-                if (ex.Data.Count > 0)
-                {
-                    foreach (var key in ex.Data.Keys)
-                    {
-                        errorDetail += $" [{key}: {ex.Data[key]}]";
-                    }
-                }
+                string errorDetail = ex.InnerException?.Message ?? ex.Message;
                 
                 Console.Error.WriteLine($"[Scheme Error] {errorDetail}");
                 Console.Error.WriteLine($"  Expression: {preview}");
@@ -155,7 +184,12 @@ public partial class Kernel
         
         if (errorCount > 0)
         {
-            Console.Error.WriteLine($"[Kernel] {errorCount} expression(s) failed to evaluate");
+            string fileInfo = filename != null ? Path.GetFileName(filename) : "unknown";
+            string funcList = failedFunctions.Count > 0 
+                ? $" ({string.Join(", ", failedFunctions.Take(5))}{(failedFunctions.Count > 5 ? "..." : "")})"
+                : "";
+        
+            Console.Error.WriteLine($"[Kernel] {errorCount} expression(s) failed to evaluate in {fileInfo}{funcList}.");
         }
     }
     
@@ -197,12 +231,10 @@ public partial class Kernel
                 string preview = exprStr.Length > 80 
                     ? exprStr.Substring(0, 80) + "..." 
                     : exprStr;
-                
-                // Try to extract more detail from SchemeExceptions.
-                string errorDetail = ex.Message;
-                if (ex.InnerException != null)
-                    errorDetail = ex.InnerException.Message;
-                
+    
+                // Try to extract detailed error information from IronScheme exceptions
+                string errorDetail = ExtractSchemeErrorDetail(ex);
+    
                 Console.Error.WriteLine($"[Scheme Error] {errorDetail}");
                 Console.Error.WriteLine($"  Expression: {preview}");
             }
@@ -212,5 +244,85 @@ public partial class Kernel
         {
             Console.Error.WriteLine($"[Kernel] {errorCount} expression(s) failed to evaluate");
         }
+    }
+    
+    /// <summary>
+    /// Extract detailed error information from IronScheme SchemeExceptions.
+    /// IronScheme exceptions often have the real error buried in nested exceptions
+    /// or in special properties.
+    /// </summary>
+    private static string ExtractSchemeErrorDetail(Exception ex)
+    {
+        var sb = new StringBuilder();
+        
+        // Start with the base message.
+        string message = ex.Message;
+        
+        // Check for inner exceptions (IronScheme often wraps errors)
+        var current = ex;
+        int depth = 0;
+        while (current != null && depth < 5)
+        {
+            // Try to get message from the exception.
+            if (!string.IsNullOrEmpty(current.Message) && 
+                current.Message != "Exception of type 'IronScheme.Runtime.SchemeException' was thrown.")
+            {
+                message = current.Message;
+                break;
+            }
+            
+            // Try to access IronScheme-specific properties via reflection.
+            var type = current.GetType();
+            
+            // Check for 'Who' property (IronScheme puts the function name here).
+            var whoProp = type.GetProperty("Who");
+            if (whoProp != null)
+            {
+                var who = whoProp.GetValue(current) as string;
+                if (!string.IsNullOrEmpty(who))
+                {
+                    sb.Append($"[{who}] ");
+                }
+            }
+            
+            // Check for 'Message' property override.
+            var msgProp = type.GetProperty("Message");
+            if (msgProp != null)
+            {
+                var msg = msgProp.GetValue(current) as string;
+                if (!string.IsNullOrEmpty(msg) && msg != message)
+                {
+                    message = msg;
+                }
+            }
+            
+            // Check for 'Irritants' property (the values that caused the error).
+            var irritantsProp = type.GetProperty("Irritants");
+            if (irritantsProp != null)
+            {
+                var irritants = irritantsProp.GetValue(current);
+                if (irritants != null)
+                {
+                    sb.Append($"Irritants: {irritants} ");
+                }
+            }
+            
+            current = current.InnerException;
+            depth++;
+        }
+        
+        // Check exception Data dictionary for additional info.
+        foreach (var key in ex.Data.Keys)
+        {
+            sb.Append($"[{key}: {ex.Data[key]}] ");
+        }
+        
+        // Combine everything.
+        if (sb.Length > 0)
+        {
+            return $"{message} - {sb}";
+        }
+        
+        return message;
     }
 }

@@ -183,7 +183,7 @@ public class SoundManager
         }
         
         // Resolve path relative to game data directory.
-        string fullPath = ResolveSoundPath(filePath);
+        string fullPath = Phantasma.ResolvePath(filePath);
         
         if (!File.Exists(fullPath))
         {
@@ -254,7 +254,7 @@ public class SoundManager
         
         try
         {
-            string fullPath = ResolveSoundPath(sound.FilePath);
+            string fullPath = Phantasma.ResolvePath(sound.FilePath);
             
             if (!File.Exists(fullPath))
                 return;
@@ -385,29 +385,6 @@ public class SoundManager
     // ========================================================================
     // Utility Methods
     // ========================================================================
-    
-    /// <summary>
-    /// Resolves a sound file path relative to the game data directory.
-    /// </summary>
-    private string ResolveSoundPath(string filePath)
-    {
-        // If already absolute, use as-is.
-        if (Path.IsPathRooted(filePath))
-            return filePath;
-        
-        // Try relative to current directory first.
-        string path = Path.Combine(Environment.CurrentDirectory, filePath);
-        if (File.Exists(path))
-            return path;
-        
-        // Try relative to a "data" subdirectory.
-        path = Path.Combine(Environment.CurrentDirectory, "data", filePath);
-        if (File.Exists(path))
-            return path;
-        
-        // Return original path (will fail gracefully later).
-        return filePath;
-    }
     
     /// <summary>
     /// Enables or disables the sound system at runtime.

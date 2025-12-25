@@ -56,6 +56,23 @@ public class Phantasma
     public static Dimensions Dimensions => instance.dimensions;
     public static Kernel Kernel => instance.kernel;
     public static CombatSounds CombatSounds => combatSounds;
+
+    /// <summary>
+    /// Root directory for all game modules.
+    /// </summary>
+    public static string GamesDirectory => 
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Games");
+
+    /// <summary>
+    /// Full path to the current game's data directory.
+    /// All script/asset paths are resolved relative to this.
+    /// </summary>
+    public static string GameDataDirectory { get; private set; } = "";
+
+    /// <summary>
+    /// Name of the currently loaded game.
+    /// </summary>
+    public static string CurrentGame { get; private set; } = "";
     
     // ===================================================================
     // STATIC CONVENIENCE METHODS (Avoid typing .Instance everywhere)
@@ -488,22 +505,9 @@ public class Phantasma
         // Set default configuration values.
         if (!configuration.ContainsKey("screen-dims"))
             configuration["screen-dims"] = "1024x768";
-            
-        if (!configuration.ContainsKey("include-dirname"))
-            configuration["include-dirname"] = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts");
-            
-        if (!configuration.ContainsKey("saved-games-dirname"))
-            configuration["saved-games-dirname"] = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), 
-                "Phantasma", 
-                "Saves");
-            
+        
         if (!configuration.ContainsKey("sound-enabled"))
             configuration["sound-enabled"] = "yes";
-            
-        // Create directories if they don't exist.
-        Directory.CreateDirectory(configuration["include-dirname"]);
-        Directory.CreateDirectory(configuration["saved-games-dirname"]);
     }
 
     private void InitializeKernel()
@@ -526,43 +530,31 @@ public class Phantasma
     {
         Console.WriteLine("Loading game data...");
 
-        // Get the data directory path.
-        string dataDir = configuration.GetValueOrDefault("include-dirname", "Data");
-    
-        // Determine which .scm file to load:
-        // 1. If loadFileName is specified on command line, use that
-        // 2. Otherwise, default to test-world.scm
-        string schemeFile;
-    
-        if (!string.IsNullOrEmpty(loadFileName))
+        // Initialize game directory from the load filename (static method).
+        string? schemeFile = InitializeGameDirectory(loadFileName);
+
+        if (schemeFile == null)
         {
-            // Check if it's an absolute path or relative.
-            if (Path.IsPathRooted(loadFileName))
-            {
-                schemeFile = loadFileName;
-            }
-            else
-            {
-                schemeFile = Path.Combine(dataDir, loadFileName);
-            }
-            Console.WriteLine($"Loading specified file: {schemeFile}");
-        }
-        else
-        {
-            schemeFile = Path.Combine(dataDir, "test-world.scm");
-            Console.WriteLine($"Loading default: {schemeFile}");
+            Console.WriteLine("[Phantasma] Cannot continue without a valid game.");
+            return;
         }
 
-        if (File.Exists(schemeFile))
+        // Now update instance configuration with game-specific values.
+        configuration["include-dirname"] = GameDataDirectory;
+
+        if (!configuration.ContainsKey("saved-games-dirname"))
         {
-            Console.WriteLine($"Loading world from: {schemeFile}");
-            LoadSchemeFile(schemeFile);
+            configuration["saved-games-dirname"] = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "Phantasma",
+                "Saves",
+                CurrentGame);
         }
-        else
-        {
-            Console.WriteLine($"Warning: Scheme file not found at {schemeFile}");
-            Console.WriteLine("Skipping Scheme world loading.");
-        }
+        Directory.CreateDirectory(configuration["saved-games-dirname"]);
+
+        // Load the game.
+        Console.WriteLine($"Loading world from: {schemeFile}");
+        LoadSchemeFile(schemeFile);
     }
 
     private void LoadGraphics()
@@ -743,5 +735,172 @@ public class Phantasma
     public bool IsFullScreenMode()
     {
         return fullScreenMode == 1;
+    }
+
+    /// <summary>
+    /// Resolve a path relative to the game data directory.
+    /// This is the primary method - all asset loading should use this.
+    /// </summary>
+    /// <param name="relativePath">Path as used in scripts (e.g., "sprites/humans.png")</param>
+    /// <returns>Full absolute path</returns>
+    public static string ResolvePath(string relativePath)
+    {
+        if (string.IsNullOrEmpty(relativePath))
+            return relativePath;
+
+        // If already absolute, return as-is.
+        if (Path.IsPathRooted(relativePath))
+            return relativePath;
+
+        // Normalize path separators.
+        relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
+
+        // Resolve relative to game data directory.
+        return Path.Combine(GameDataDirectory, relativePath);
+    }
+    
+    /// <summary>
+    /// Initialize the game data directory from a filename or game name.
+    /// 
+    /// Supports multiple formats:
+    ///   "Haxima"           → Games/Haxima/haxima.scm
+    ///   "haxima.scm"       → Search: ./haxima.scm, Games/haxima.scm, Games/haxima/haxima.scm
+    ///   "Games/Haxima"     → Games/Haxima/haxima.scm
+    ///   "/full/path/game"  → /full/path/game/game.scm
+    /// </summary>
+    /// <param name="input">Game name, script filename, or path</param>
+    /// <returns>Full path to the main script file, or null if not found</returns>
+    private static string? InitializeGameDirectory(string? input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            Console.WriteLine("[Phantasma] Error: No game specified.");
+            Console.WriteLine("[Phantasma] Usage: Phantasma.exe <game-name> or <script.scm>");
+            Console.WriteLine("[Phantasma] Examples:");
+            Console.WriteLine("[Phantasma]   Phantasma.exe MyGame");
+            Console.WriteLine("[Phantasma]   Phantasma.exe mygame.scm");
+            return null;
+        }
+
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string? scriptPath = null;
+        string? gameDir = null;
+        string? gameName = null;
+
+        // Check if input has .scm extension.
+        bool hasSchemeExtension = input.EndsWith(".scm", StringComparison.OrdinalIgnoreCase);
+
+        if (hasSchemeExtension)
+        {
+            // Input is a script filename (e.g., "haxima.scm").
+            string filename = input;
+            string nameWithoutExt = Path.GetFileNameWithoutExtension(filename);
+
+            // Search locations in order:
+            string[] searchPaths =
+            {
+                // 1. Same directory as Phantasma.exe
+                Path.Combine(baseDir, filename),
+                // 2. Games/ subdirectory
+                Path.Combine(GamesDirectory, filename),
+                // 3. Games/{name}/ subdirectory
+                Path.Combine(GamesDirectory, nameWithoutExt, filename)
+            };
+
+            foreach (var path in searchPaths)
+            {
+                if (File.Exists(path))
+                {
+                    scriptPath = Path.GetFullPath(path);
+                    gameDir = Path.GetDirectoryName(scriptPath);
+                    gameName = nameWithoutExt;
+                    break;
+                }
+            }
+
+            if (scriptPath == null)
+            {
+                Console.WriteLine($"[Phantasma] Error: Script not found: {filename}");
+                Console.WriteLine("[Phantasma] Searched:");
+                foreach (var path in searchPaths)
+                {
+                    Console.WriteLine($"[Phantasma]   {path}");
+                }
+                return null;
+            }
+        }
+        else
+        {
+            // Input is a game/directory name (e.g., "Haxima" or "Games/Haxima").
+            string dirPath;
+            
+            if (Path.IsPathRooted(input))
+            {
+                // Absolute path.
+                dirPath = input;
+                gameName = Path.GetFileName(input);
+            }
+            else if (input.StartsWith("Games" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                     input.StartsWith("Games/", StringComparison.OrdinalIgnoreCase))
+            {
+                // Already includes Games/ prefix.
+                dirPath = Path.Combine(baseDir, input);
+                gameName = Path.GetFileName(input);
+            }
+            else
+            {
+                // Just game name - look in Games/ directory.
+                dirPath = Path.Combine(GamesDirectory, input);
+                gameName = input;
+            }
+
+            if (!Directory.Exists(dirPath))
+            {
+                Console.WriteLine($"[Phantasma] Error: Game directory not found: {dirPath}");
+                return null;
+            }
+
+            gameDir = Path.GetFullPath(dirPath);
+
+            // Look for matching .scm file.
+            string[] candidates =
+            {
+                Path.Combine(gameDir, gameName.ToLower() + ".scm"),
+                Path.Combine(gameDir, gameName + ".scm"),
+                Path.Combine(gameDir, "main.scm"),
+                Path.Combine(gameDir, "game.scm")
+            };
+
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    scriptPath = candidate;
+                    break;
+                }
+            }
+
+            if (scriptPath == null)
+            {
+                Console.WriteLine($"[Phantasma] Error: No main script found in {gameDir}");
+                Console.WriteLine("[Phantasma] Expected one of:");
+                foreach (var candidate in candidates)
+                {
+                    Console.WriteLine($"[Phantasma]   {Path.GetFileName(candidate)}");
+                }
+                return null;
+            }
+        }
+
+        // Set the static properties (no configuration access here).
+        GameDataDirectory = gameDir!;
+        CurrentGame = gameName!;
+
+        Console.WriteLine($"[Phantasma] Game: {CurrentGame}");
+        Console.WriteLine($"[Phantasma] Directory: {GameDataDirectory}");
+        Console.WriteLine($"[Phantasma] Script: {scriptPath}");
+
+        return scriptPath;
     }
 }

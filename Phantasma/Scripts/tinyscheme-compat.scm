@@ -1,87 +1,71 @@
-;; TinyScheme Compatibility Layer for IronScheme
-;; =============================================
-;; Provides stubs for TinyScheme-specific features not in R6RS.
-;; This file should be loaded FIRST, before any game scripts.
+;; =====================================================================
+;; tinyscheme-compat.scm - R5RS/TinyScheme compatibility for IronScheme
+;; =====================================================================
 ;;
-;; DO NOT add (load ...) or (kern-include ...) calls to this file!
-;; This is a pure compatibility layer with no dependencies.
+;; kern-include is handled at the C# level (intercepted before Eval)
+;; DO NOT define kern-include or kern-load here - they are handled in C#
 
-;; -----------------------------------------------------------------
-;; nil/NIL - TinyScheme's empty list
-;; -----------------------------------------------------------------
+;; =====================================================================
+;; Core
+;; =====================================================================
+
 (define nil '())
-(define NIL '())
 
-;; -----------------------------------------------------------------
-;; t/f - TinyScheme's booleans (some scripts use these)
-;; -----------------------------------------------------------------
-(define t #t)
-(define f #f)
+;; =====================================================================
+;; TinyScheme Hooks (scripts may reference these)
+;; =====================================================================
 
-;; -----------------------------------------------------------------
-;; gc-verbose - TinyScheme garbage collector control
-;; No-op in IronScheme (let .NET handle GC)
-;; -----------------------------------------------------------------
-(define (gc-verbose . args) #f)
+(define *handlers* '())
+(define *error-hook* #f)
 
-;; -----------------------------------------------------------------
-;; gc - Force garbage collection
-;; No-op in IronScheme
-;; -----------------------------------------------------------------
-(define (gc) #f)
+;; =====================================================================
+;; Passability Constants (used by kern-mk-ptable)
+;; =====================================================================
 
-;; -----------------------------------------------------------------
-;; gensym - Generate unique symbols
-;; Used by some macro implementations
-;; -----------------------------------------------------------------
-(define gensym
-  (let ((counter 0))
-    (lambda args
-      (set! counter (+ counter 1))
-      (string->symbol
-        (string-append
-          (if (null? args) "g" (symbol->string (car args)))
-          (number->string counter))))))
+(define norm 1)
+(define cant 255)
+(define easy 0)
 
-;; -----------------------------------------------------------------
-;; call/cc - Common alias for call-with-current-continuation
-;; -----------------------------------------------------------------
-(define call/cc call-with-current-continuation)
+;; =====================================================================
+;; List Utilities
+;; =====================================================================
 
-;; -----------------------------------------------------------------
-;; print - TinyScheme's print (display + newline)
-;; -----------------------------------------------------------------
-(define (print . args)
-  (for-each display args)
-  (newline))
+(define (foldr proc init lst)
+  (if (null? lst)
+    init
+    (proc (car lst) (foldr proc init (cdr lst)))))
 
-;; -----------------------------------------------------------------
-;; atom? - TinyScheme predicate (not a pair)
-;; -----------------------------------------------------------------
-(define (atom? x)
-  (not (pair? x)))
+(define (foldl proc init lst)
+  (if (null? lst)
+    init
+    (foldl proc (proc init (car lst)) (cdr lst))))
 
-;; -----------------------------------------------------------------
-;; TinyScheme Macro Stubs
-;; -----------------------------------------------------------------
-;; TinyScheme's define-macro and macro are fundamentally incompatible
-;; with R6RS syntax-case. These stubs prevent load errors but the
-;; actual macros won't work.
+(define fold foldl)
 
-;; define-macro - Stub that creates a function instead of a real macro
-(define-syntax define-macro
-  (syntax-rules ()
-    ((_ (name . args) body ...)
-      (define (name . args) #f))
-    ((_ name expander)
-      (define name (lambda args #f)))))
+(define (filter pred lst)
+  (cond ((null? lst) '())
+    ((pred (car lst))
+      (cons (car lst) (filter pred (cdr lst))))
+    (else (filter pred (cdr lst)))))
 
-;; macro - Another TinyScheme macro form (silently ignored)
-(define-syntax macro
-  (syntax-rules ()
-    ((_ name . body)
-      (begin))))
+;; =====================================================================
+;; Bitwise Operations (TinyScheme names)
+;; =====================================================================
 
-;; -----------------------------------------------------------------
-;; End of compatibility layer
-;; -----------------------------------------------------------------
+(define logand bitwise-and)
+(define logior bitwise-ior)
+(define logxor bitwise-xor)
+(define lognot bitwise-not)
+(define ash bitwise-arithmetic-shift)
+
+;; =====================================================================
+;; Error Handling
+;; =====================================================================
+
+(define (throw . args)
+  (apply error args))
+
+(define (defined? sym)
+  (guard (ex (else #f))
+    (eval sym (interaction-environment))
+    #t))

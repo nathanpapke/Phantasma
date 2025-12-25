@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using IronScheme;
 using IronScheme.Runtime;
@@ -15,7 +16,7 @@ public partial class Kernel
     {
         dynamic ss = spriteSet;
         
-        // Load the sprite sheet image
+        // Load the sprite sheet image.
         string filename = ss.Filename?.ToString();
         var sourceImage = SpriteManager.LoadImage(filename); 
         
@@ -72,8 +73,18 @@ public partial class Kernel
             OffsetY = Convert.ToInt32(offy ?? 0),
             Filename = filename?.ToString()
         };
+    
+        string tagStr = tag?.ToString();
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            // Register with Phantasma.
+            Phantasma.RegisterObject(tagStr, spriteSetData);
         
-        // Return the metadata - MakeSprite will use this
+            // CRITICAL: Define in Scheme environment so symbols can be resolved!
+            $"(define {tagStr} {{0}})".Eval(spriteSetData);
+        }
+        
+        // Return the metadata.  MakeSprite will use this.
         return spriteSetData;
     }
     
@@ -400,10 +411,10 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, mmode);
+            $"(define {tagStr} {{0}})".Eval(mmode);
         }
         
         Console.WriteLine($"  Created mmode: {nameStr} (index={indexInt})");
-        
         return mmode;
     }
     
@@ -1355,74 +1366,40 @@ public partial class Kernel
     /// </remarks>
     public static object MakePassabilityTable(object args)
     {
-        try
+        var rows = ConvertToListOfLists(args);
+        
+        if (rows.Count == 0)
         {
-            // Convert args to list of rows.
-            var rows = ConvertToListOfLists(args);
-            
-            if (rows.Count == 0)
-            {
-                Console.Error.WriteLine("[kern-mk-ptable] Error: 0 rows given");
-                return Builtins.Unspecified;
-            }
-            
-            // Get dimensions: Rows = Passability Classes, Cols = Movement Modes
-            int numPassabilityClasses = rows.Count;
-            int numMovementModes = rows[0].Count;
-            
-            if (numMovementModes == 0)
-            {
-                Console.Error.WriteLine("[kern-mk-ptable] Error: row 0 has no columns");
-                return Builtins.Unspecified;
-            }
-            
-            // Validate all rows have same number of columns.
-            for (int i = 0; i < rows.Count; i++)
-            {
-                if (rows[i].Count < numMovementModes)
-                {
-                    Console.Error.WriteLine($"[kern-mk-ptable] Error: row {i} has only {rows[i].Count} columns (expected {numMovementModes})");
-                    return Builtins.Unspecified;
-                }
-            }
-            
-            // Create the passability table.
-            var ptable = new PassabilityTable(numMovementModes, numPassabilityClasses);
-            
-            // Fill in the costs.
-            // Row Index = Passability Class, Column Index = Movement Mode
-            for (int pclass = 0; pclass < numPassabilityClasses; pclass++)
-            {
-                for (int mmode = 0; mmode < numMovementModes; mmode++)
-                {
-                    int cost = rows[pclass][mmode];
-                    ptable.SetCost(mmode, pclass, cost);
-                }
-            }
-            
-            // Store in the session.
-            var session = Phantasma.MainSession;
-            if (session != null)
-            {
-                session.PassabilityTable = ptable;
-            }
-            else
-            {
-                // During loading, MainSession may not exist yet.
-                // Store in a temporary location that Session can pick up.
-                // TODO: Set up failsafe for PassabilityTable.
-            }
-            
-            Console.WriteLine($"[kern-mk-ptable] Created {numMovementModes}×{numPassabilityClasses} passability table");
-            
-            // Nazghul returns sc->NIL
+            Console.Error.WriteLine("[kern-mk-ptable] Error: 0 rows given");
             return Builtins.Unspecified;
         }
-        catch (Exception ex)
+        
+        int numPClass = rows.Count;
+        int numMMode = rows[0].Count;
+        
+        if (numMMode == 0)
         {
-            Console.Error.WriteLine($"[kern-mk-ptable] Error: {ex.Message}");
+            Console.Error.WriteLine("[kern-mk-ptable] Error: row 0 has no columns");
             return Builtins.Unspecified;
         }
+        
+        var ptable = new PassabilityTable(numMMode, numPClass);
+        
+        for (int pclass = 0; pclass < numPClass; pclass++)
+        {
+            for (int mmode = 0; mmode < numMMode; mmode++)
+            {
+                if (mmode < rows[pclass].Count)
+                    ptable.SetCost(mmode, pclass, rows[pclass][mmode]);
+            }
+        }
+        
+        var session = Phantasma.MainSession;
+        if (session != null)
+            session.PassabilityTable = ptable;
+        
+        Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} passability table");
+        return Builtins.Unspecified;
     }
     
     /// <summary>

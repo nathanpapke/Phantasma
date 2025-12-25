@@ -59,8 +59,6 @@ public class Wind
     {
         _direction = Common.NORTH;
         _duration = 0;
-        
-        Console.WriteLine("[Wind] Initialized (direction: North)");
     }
     
     // ===================================================================
@@ -79,7 +77,6 @@ public class Wind
         if (oldDirection != _direction)
         {
             DirectionChanged?.Invoke(oldDirection, _direction);
-            Console.WriteLine($"[Wind] Direction changed: {Common.DirectionToString(oldDirection)} -> {DirectionString}");
         }
     }
     

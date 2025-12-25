@@ -23,6 +23,7 @@ public partial class Kernel
     /// </summary>
     public static object Include(object args)
     {
+        Console.WriteLine($"*** Include() ENTERED! args={args?.GetType().Name}: {args}");
         try
         {
             string rawPath = ExtractFilename(args);
@@ -34,7 +35,7 @@ public partial class Kernel
             }
             
             // Resolve the path.
-            string path = ResolvePath(rawPath);
+            string path = Phantasma.ResolvePath(rawPath);
             
             if (!File.Exists(path))
             {

@@ -16,7 +16,7 @@ public class SpriteManager
     /// <summary>
     /// Load a sprite sheet image.
     /// </summary>
-    public static Bitmap LoadImage(string filename)
+    public static Bitmap? LoadImage(string filename)
     {
         if (imageCache.ContainsKey(filename))
             return imageCache[filename];
@@ -24,26 +24,18 @@ public class SpriteManager
         try
         {
             // Try multiple paths.
-            string[] searchPaths = 
+            string path = Phantasma.ResolvePath(filename);
+
+            if (File.Exists(path))
             {
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Sprites", filename),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", filename),
-                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, filename),
-                filename
-            };
-            
-            foreach (var path in searchPaths)
-            {
-                if (File.Exists(path))
-                {
-                    var bitmap = new Bitmap(path);
-                    imageCache[filename] = bitmap;
-                    Console.WriteLine($"Loaded sprite sheet: {path}.");
-                    return bitmap;
-                }
+                var bitmap = new Bitmap(path);
+                imageCache[filename] = bitmap;
+                Console.WriteLine($"[SpriteManager] Loaded: {filename}");
+                return bitmap;
             }
-            
-            Console.WriteLine($"Sprite sheet not found: {filename}.");
+
+            Console.WriteLine($"[SpriteManager] Not found: {filename}");
+            Console.WriteLine($"[SpriteManager]   Expected: {path}");
             return null;
         }
         catch (Exception ex)
