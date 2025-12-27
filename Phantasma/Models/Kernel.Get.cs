@@ -61,4 +61,11 @@ public partial class Kernel
         var objects = new List<object>(place.GetObjectsAt(Convert.ToInt32(xObj), Convert.ToInt32(yObj)));
         return Cons.FromList(objects);
     }
+    
+    // Implementation
+    public static object GetTicks(object args)
+    {
+        // Return game ticks/turns elapsed.
+        return Environment.TickCount;
+    }
 }

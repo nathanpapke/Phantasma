@@ -27,19 +27,25 @@ public partial class Kernel
             
         if (File.Exists(compatPath))
         {
-            Console.WriteLine($"Loading TinyScheme compatibility layer: {compatPath}");
             LoadSchemeFileInternal(compatPath);
         }
         else
         {
             // Define minimal compatibility inline.
-            Console.WriteLine("Defining minimal TinyScheme compatibility...");
             try
             {
                 @"(define nil '())".Eval();
                 @"(define NIL '())".Eval();
                 @"(define t #t)".Eval();
                 @"(define f #f)".Eval();
+            }
+            catch (SchemeException ex)
+            {
+                var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
+                if (match.Success)
+                {
+                    Console.Error.WriteLine($"[Scheme] Undefined: {match.Groups[1].Value}");
+                }
             }
             catch (Exception ex)
             {
@@ -64,7 +70,7 @@ public partial class Kernel
         var startTime = DateTime.Now;
 
         string schemeCode = File.ReadAllText(filename);
-        
+    
         // Parse, preprocess for R5RS compatibility, and evaluate.
         EvalWithPreprocessing(schemeCode, filename);
 
@@ -110,6 +116,13 @@ public partial class Kernel
         // Transform and evaluate each expression.
         foreach (var expr in expressions)
         {
+            // Skip naz.scm's load redefinition - we provide our own in tinyscheme-compat.scm
+            if (SchemePreprocessor.ShouldSkipExpression(expr, filename))
+            {
+                Console.WriteLine($"[Preprocessor] Skipping naz.scm load redefinition");
+                continue;
+            }
+            
             string exprStr;
             object transformed;
             string funcName = null;
@@ -134,7 +147,7 @@ public partial class Kernel
             if (transformed is List<object> exprList && 
                 exprList.Count == 2 && 
                 //exprList[0] is string funcName && 
-                (funcName == "kern-include" || funcName == "kern-load"))
+                (funcName == "kern-include" || funcName == "kern-load" || funcName == "load"))
             {
                 string nextName = exprList[1]?.ToString() ?? "";
                 
@@ -145,15 +158,52 @@ public partial class Kernel
                 {
                     nextName = nextName.Substring(1, nextName.Length - 2);
                 }
-                
+    
                 try
                 {
-                    Include(nextName);
+                    if (funcName == "load")
+                    {
+                        // Direct file load - call our C# LoadFile.
+                        LoadFile(new object[] { nextName });
+                    }
+                    else
+                    {
+                        // kern-include or kern-load - register and optionally load.
+                        Include(nextName);
+                        if (funcName == "kern-load")
+                        {
+                            LoadFile(new object[] { nextName });
+                        }
+                    }
+                }
+                catch (SchemeException ex)
+                {
+                    errorCount++;
+                    if (funcName != null) failedFunctions.Add(funcName);
+    
+                    // Extract just the irritant (undefined symbol name).
+                    var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
+                    var msgMatch = Regex.Match(ex.ToString(), @"&message: ""([^""]+)""");
+    
+                    if (match.Success)
+                    {
+                        string msg = msgMatch.Success ? msgMatch.Groups[1].Value : "error";
+                        Console.Error.WriteLine($"[Scheme] {msg}: {match.Groups[1].Value}");
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"[Scheme] {ex.Message}");
+                    }
                 }
                 catch (Exception ex)
                 {
                     errorCount++;
-                    Console.Error.WriteLine($"[kern-include] Error: {ex.Message}");
+                    if (funcName != null)
+                        failedFunctions.Add(funcName);
+    
+                    string preview = exprStr.Length > 60 ? exprStr.Substring(0, 60) + "..." : exprStr;
+                    Console.Error.WriteLine($"[Error] {ex.Message}");
+                    Console.Error.WriteLine($"  Expression: {preview}");
                 }
                 
                 continue; // Skip Eval - we handled it.
@@ -163,6 +213,14 @@ public partial class Kernel
             try
             {
                 exprStr.Eval();
+            }
+            catch (SchemeException ex)
+            {
+                var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
+                if (match.Success)
+                {
+                    Console.Error.WriteLine($"[Scheme] Undefined: {match.Groups[1].Value}");
+                }
             }
             catch (Exception ex)
             {
@@ -224,6 +282,16 @@ public partial class Kernel
             try
             {
                 exprStr.Eval();
+            }
+            catch (SchemeException ex)
+            {
+                errorCount++;
+                
+                var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
+                if (match.Success)
+                {
+                    Console.Error.WriteLine($"[Scheme] Undefined: {match.Groups[1].Value}");
+                }
             }
             catch (Exception ex)
             {

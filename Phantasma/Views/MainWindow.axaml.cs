@@ -55,7 +55,6 @@ public partial class MainWindow : Window
             var statusBinder = statusView.GetBinder();
             statusBinder.Initialize(gameSession.Status, gameSession.Party);
             statusView.SubscribeToChanges();
-            Console.WriteLine("StatusView initialized.");  // Debug
         }
         else
         {
@@ -76,8 +75,6 @@ public partial class MainWindow : Window
             consoleBinder.PrintLine("Welcome to Phantasma!");
             consoleBinder.PrintLine("Use arrow keys or numpad to move.");
             consoleBinder.PrintLine("");
-            
-            Console.WriteLine("ConsoleView initialized.");
         }
         else
         {
@@ -90,7 +87,6 @@ public partial class MainWindow : Window
         {
             var cmdBinder = cmdView.GetBinder();
             cmdBinder.Initialize(gameSession);
-            Console.WriteLine("CommandWindowView initialized.");  // Debug
         }
         else
         {

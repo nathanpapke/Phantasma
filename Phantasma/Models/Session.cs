@@ -170,20 +170,17 @@ public class Session
         if (place != null)
         {
             currentPlace = place;
-            Console.WriteLine($"[Session] Using provided Place: {currentPlace.Width}x{currentPlace.Height}");
         }
         else
         {
             // Fallback: create test map.
             currentPlace = new Place();
             currentPlace.GenerateTestMap();
-            Console.WriteLine("[Session] No Place provided, created test map");
         }
         
         if (player != null)
         {
             playerCharacter = player;
-            Console.WriteLine($"[Session] Using provided player: {playerCharacter.GetName()} at ({playerCharacter.GetX()}, {playerCharacter.GetY()})");
         }
         else
         {
@@ -191,7 +188,6 @@ public class Session
             CreatePlayer();  // should be? playerCharacter = 
             //playerCharacter = new Character();
             //playerCharacter.GenerateTestPlayer();
-            Console.WriteLine("[Session] No player provided, created test player");
         }
         
         // Create party and add player.
@@ -283,7 +279,6 @@ public class Session
     {
         string message = args.Length > 0 ? string.Format(format, args) : format;
         ConsoleMessage?.Invoke(message);
-        Console.WriteLine($"[LOG] {message}"); // Also log to debug console.
     }
     
     // ===================================================================
@@ -308,8 +303,6 @@ public class Session
     {
         var entry = new SaveEntry(obj, destructor, saveAction, postLoadAction);
         saveEntries.Add(entry);
-        
-        Console.WriteLine($"Registered saveable object: {obj.GetType().Name}");
     }
     
     /// <summary>
@@ -337,7 +330,6 @@ public class Session
             writer.WriteLine("");
             
             // Save all registered objects.
-            Console.WriteLine($"Saving {saveEntries.Count} registered objects...");
             foreach (var entry in saveEntries)
             {
                 if (entry.SaveAction != null)
@@ -361,7 +353,6 @@ public class Session
             SaveSessionState(writer);
             
             ShowMessage($"Game saved");
-            Console.WriteLine($"Session saved to: {savePath}");
         }
         catch (Exception ex)
         {
@@ -387,22 +378,18 @@ public class Session
             ClearSaveRegistry();
             SessionId++;
             
-            Console.WriteLine($"Loading session from: {savePath}");
-            
             // Load via Scheme evaluation.
             // The Scheme file will call kern-mk-* functions which will
             // register objects with this session.
             Phantasma.Kernel.LoadSchemeFile(savePath);
             
-            // Post-load initialization
-            Console.WriteLine($"Running post-load initialization for {saveEntries.Count} objects...");
+            // Post-load initialization.
             foreach (var entry in saveEntries)
             {
                 entry.PostLoadAction?.Invoke(entry.Object);
             }
             
             ShowMessage($"Game loaded.");
-            Console.WriteLine($"Session loaded successfully from: {savePath}");
         }
         catch (Exception ex)
         {
@@ -527,7 +514,6 @@ public class Session
         var playerPlace = playerCharacter?.Position?.Place;
         if (playerPlace != null && playerPlace != currentPlace)
         {
-            Console.WriteLine($"[Session] Player moved to: {playerPlace.Name}");
             currentPlace = playerPlace;
             map?.SetPlace(currentPlace);
         }
@@ -744,7 +730,6 @@ public class Session
             throw new ArgumentNullException(nameof(handler));
     
         keyHandlers.Push(handler);
-        Console.WriteLine($"[Session] Pushed key handler: {handler.GetType().Name} (stack depth: {keyHandlers.Count})");
     }
 
     /// <summary>
@@ -755,7 +740,6 @@ public class Session
         if (keyHandlers.Count > 0)
         {
             var handler = keyHandlers.Pop();
-            Console.WriteLine($"[Session] Popped key handler: {handler.GetType().Name} (stack depth: {keyHandlers.Count})");
         }
     }
 

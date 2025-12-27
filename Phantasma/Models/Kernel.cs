@@ -50,8 +50,6 @@ public partial class Kernel
         {
             // Register all kern-* API functions.
             RegisterKernelApi();
-            
-            Console.WriteLine("Kernel initialized successfully.");
         }
         catch (Exception ex)
         {
@@ -68,15 +66,6 @@ public partial class Kernel
     /// </summary>
     private void RegisterKernelApi()
     {
-        // Basic R6RS boot—ensures core libs (rnrs base, etc.) are loaded without extensions.
-        //"(import (rnrs) (ironscheme))".Eval();
-        //"(display \"Core R6RS booted.\\r\\n\")".Eval();
-        //"(define (set-global! sym val) (eval `(define ,sym ',val) (interaction-environment)))".Eval();
-
-    
-        // Now define each kern-* function.
-        Console.WriteLine("Registering kern-* functions...");
-        
         // ===================================================================
         // KERN-MK API - Object Creation Functions
         // ===================================================================
@@ -149,6 +138,7 @@ public partial class Kernel
         DefineFunction("kern-in-los?", InLineOfSight);
         DefineFunction("kern-get-distance", GetDistance);
         DefineFunction("kern-get-objects-at", GetObjectsAt);
+        DefineFunction("kern-get-ticks", GetTicks);
         
         // ===================================================================
         // KERN-PLACE API - Map/Place Manipulation Functions
@@ -268,7 +258,9 @@ public partial class Kernel
         // ===================================================================
         
         DefineFunction("kern-print", Print);
-        //DefineFunction("kern-include", Include);
+        DefineFunction("kern-include", Include);
+        DefineFunction("load", LoadFile);
+        DefineFunction("kern-load-file", LoadFile);
         DefineFunction("kern-sound-play", SoundPlay);
         
         // TODO: Add remaining kern-* functions as needed.
@@ -311,6 +303,70 @@ public partial class Kernel
         }
     
         Console.WriteLine($"[Scheme] {message}");
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-include filename)
+    /// Registers a file for save game tracking.
+    /// Does NOT actually load the file (matches Nazghul behavior).
+    /// </summary>
+    public static object Include(object args)
+    {
+        string rawPath = ExtractFilename(args);
+    
+        if (string.IsNullOrEmpty(rawPath))
+        {
+            return Builtins.Unspecified;
+        }
+    
+        // Just register for save tracking - don't actually load.
+        // TODO: Add Session.RegisterIncludedFile(rawPath) when implementing save/load.
+    
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-load-file filename)
+    /// Internal function that loads a Scheme file with path resolution and preprocessing.
+    /// Called by our overridden 'load' in tinyscheme-compat.scm.
+    /// </summary>
+    public static object LoadFile(object[] args)
+    {
+        // Extract first argument.
+        var firstArg = args.Length > 0 ? args[0] : null;
+        string rawPath = ExtractFilename(firstArg);
+    
+        if (string.IsNullOrEmpty(rawPath))
+        {
+            Console.Error.WriteLine("[kern-load-file] Error: could not extract filename");
+            return Builtins.Unspecified;
+        }
+    
+        // Skip init.scm - its TinyScheme macros don't work in IronScheme.
+        if (rawPath.Equals("init.scm", StringComparison.OrdinalIgnoreCase) ||
+            rawPath.EndsWith("/init.scm", StringComparison.OrdinalIgnoreCase) ||
+            rawPath.EndsWith("\\init.scm", StringComparison.OrdinalIgnoreCase))
+        {
+            return Builtins.Unspecified;
+        }
+    
+        string path = Phantasma.ResolvePath(rawPath);
+    
+        if (!File.Exists(path))
+        {
+            Console.Error.WriteLine($"[kern-load-file] File not found: {path}");
+            return Builtins.Unspecified;
+        }
+    
+        var kernel = Phantasma.Kernel;
+        if (kernel == null)
+        {
+            Console.Error.WriteLine("[kern-load-file] Error: Kernel is null");
+            return Builtins.Unspecified;
+        }
+    
+        kernel.LoadSchemeFile(path);
         return Builtins.Unspecified;
     }
     

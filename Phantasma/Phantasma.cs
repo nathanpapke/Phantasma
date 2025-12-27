@@ -185,7 +185,6 @@ public class Phantasma
         }
         
         registeredObjects[tag] = obj;
-        Console.WriteLine($"Registered object: {tag} ({obj.GetType().Name})");
     }
     
     /// <summary>
@@ -220,7 +219,6 @@ public class Phantasma
     {
         if (mainSession != null)
         {
-            Console.WriteLine("Warning: Main session already exists.");
             return;
         }
         
@@ -230,7 +228,6 @@ public class Phantasma
         
         // Create session with Scheme objects (or nulls, which will use fallback).
         mainSession = new Session(place, player);
-        Console.WriteLine("Main session created.");
     }
     
     /// <summary>
@@ -274,7 +271,6 @@ public class Phantasma
     {
         var session = new Session();
         agentSessions.Add(session);
-        Console.WriteLine($"Agent session created (total: {agentSessions.Count}).");
         return session;
     }
     
@@ -286,7 +282,6 @@ public class Phantasma
         if (agentSessions.Remove(session))
         {
             session.Stop();
-            Console.WriteLine($"Agent session destroyed (remaining: {agentSessions.Count}).");
         }
     }
     
@@ -301,7 +296,6 @@ public class Phantasma
             session.Stop();
         }
         agentSessions.Clear();
-        Console.WriteLine("All agent sessions destroyed");
     }
 
     // ===================================================================
@@ -439,12 +433,10 @@ public class Phantasma
         {
             if (File.Exists(path))
             {
-                Console.WriteLine($"Found splash image: {path}");
                 return path;
             }
         }
         
-        Console.WriteLine($"No splash image found for {dims}");
         return null;
     }
 
@@ -513,8 +505,6 @@ public class Phantasma
     private void InitializeKernel()
     {
         // Initialize Kernel (which contains IronScheme).
-        Console.WriteLine("Initializing Kernel...");
-        
         try
         {
             kernel = new Kernel();
@@ -559,7 +549,6 @@ public class Phantasma
 
     private void LoadGraphics()
     {
-        Console.WriteLine("Loading graphics...");
         // TODO: Load sprite sheets and tiles
     }
 
@@ -567,28 +556,23 @@ public class Phantasma
     {
         if (configuration.GetValueOrDefault("sound-enabled", "yes") == "yes")
         {
-            Console.WriteLine("Loading sounds...");
             // TODO: Load sound files
         }
     }
 
     private void LoadMaps()
     {
-        Console.WriteLine("Loading maps...");
         // TODO: Load map data
     }
 
     private void LoadScripts()
     {
-        Console.WriteLine("Loading scripts...");
         if (!string.IsNullOrEmpty(loadFileName))
         {
-            Console.WriteLine($"Loading save file: {loadFileName}");
             // TODO: Load save game
         }
         else
         {
-            Console.WriteLine("Loading default game scripts...");
             // TODO: Load default game
         }
     }

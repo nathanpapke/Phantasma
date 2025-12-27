@@ -63,32 +63,72 @@ public class SchemePreprocessor
     /// Replace (load "filename") with (kern-include "filename") recursively.
     /// This ensures all file loads go through our path-resolving kern-include.
     /// </summary>
-    private static object ReplaceLoadWithKernInclude(object expr)
+    private static object ReplaceLoadWithKernLoad(object expr)
     {
-        if (expr is List<object> list && list.Count >= 1)
+        Console.WriteLine($"[DEBUG] ReplaceLoadWithKernelLoad called at {expr.ToString()}.");  // Temporary
+        
+        if (expr is not List<object> rootList)
+            return expr;
+        
+        // Check if the ROOT expression is a load call.
+        bool rootIsLoad = rootList.Count >= 2 && 
+                          rootList[0] is string firstSym && 
+                          firstSym == "load";
+        
+        var stack = new Stack<(List<object> source, int index, List<object> dest)>();
+        var rootOutput = new List<object>();
+        
+        if (rootIsLoad)
         {
-            // Check if this is (load ...).
-            if (list.Count >= 2 && list[0] is string first && first == "load")
-            {
-                // Replace with kern-include.
-                var newList = new List<object> { "kern-include" };
-                for (int i = 1; i < list.Count; i++)
-                {
-                    newList.Add(ReplaceLoadWithKernInclude(list[i]));
-                }
-                return newList;
-            }
-            
-            // Recursively process all elements in the list.
-            var result = new List<object>();
-            foreach (var item in list)
-            {
-                result.Add(ReplaceLoadWithKernInclude(item));
-            }
-            return result;
+            rootOutput.Add("phantasma-load-file");
+            stack.Push((rootList, 1, rootOutput));  // Start at index 1 to skip "load"
+        }
+        else
+        {
+            stack.Push((rootList, 0, rootOutput));
         }
         
-        return expr;
+        while (stack.Count > 0)
+        {
+            var (source, index, dest) = stack.Pop();
+            
+            for (int i = index; i < source.Count; i++)
+            {
+                var item = source[i];
+                
+                if (item is List<object> childList)
+                {
+                    bool isLoadCall = childList.Count >= 2 && 
+                                      childList[0] is string sym && 
+                                      sym == "load";
+                    
+                    var childOutput = new List<object>();
+                    dest.Add(childOutput);
+                    
+                    if (i + 1 < source.Count)
+                        stack.Push((source, i + 1, dest));
+                    
+                    if (isLoadCall)
+                    {
+                        childOutput.Add("kern-load-file");
+                        if (childList.Count > 1)
+                            stack.Push((childList, 1, childOutput));
+                    }
+                    else if (childList.Count > 0)
+                    {
+                        stack.Push((childList, 0, childOutput));
+                    }
+                    
+                    break;
+                }
+                else
+                {
+                    dest.Add(item);
+                }
+            }
+        }
+        
+        return rootOutput;
     }
     
     /// <summary>
@@ -98,7 +138,7 @@ public class SchemePreprocessor
     internal static object TransformExpression(object expr)
     {
         // First, replace any load calls with kern-include.
-        expr = ReplaceLoadWithKernInclude(expr);
+        //expr = ReplaceLoadWithKernLoad(expr);
         
         if (expr is not List<object> list || list.Count == 0)
             return expr;
@@ -289,6 +329,34 @@ public class SchemePreprocessor
         }
         
         return expr.ToString();
+    }
+    
+    /// <summary>
+    /// Skip naz.scm's load redefinition - we provide our own in tinyscheme-compat.scm
+    /// </summary>
+    public static bool ShouldSkipExpression(object expr, string filename)
+    {
+        if (!filename.EndsWith("naz.scm", StringComparison.OrdinalIgnoreCase))
+            return false;
+    
+        if (expr is not List<object> list || list.Count < 2)
+            return false;
+    
+        var first = list[0]?.ToString();
+        if (first != "define")
+            return false;
+    
+        var second = list[1];
+    
+        // Skip: (define original-load load)
+        if (second?.ToString() == "original-load")
+            return true;
+    
+        // Skip: (define (load ...) ...)
+        if (second is List<object> defList && defList.Count > 0 && defList[0]?.ToString() == "load")
+            return true;
+    
+        return false;
     }
 }
 

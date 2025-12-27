@@ -21,16 +21,15 @@ public partial class Kernel
     /// Resolves relative paths against the scripts directory.
     /// Skips files that have already been loaded.
     /// </summary>
-    public static object Include(object args)
+    public static object Include_Old(object args)
     {
-        Console.WriteLine($"*** Include() ENTERED! args={args?.GetType().Name}: {args}");
         try
         {
             string rawPath = ExtractFilename(args);
             
             if (string.IsNullOrEmpty(rawPath))
             {
-                Console.Error.WriteLine("[kern-include] Error: could not extract filename from args");
+                Console.Error.WriteLine("[kern-include] Error: could not extract filename from args.");
                 return Builtins.Unspecified;
             }
             

@@ -14,7 +14,10 @@ public partial class Kernel
     /// </summary>
     public static object MakeSprite(object tag, object spriteSet, object nFrames, object index, object wave, object facings)
     {
-        dynamic ss = spriteSet;
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        
+        string ssTag = spriteSet?.ToString()?.Trim('"');
+        dynamic ss = Phantasma.GetRegisteredObject(ssTag);
         
         // Load the sprite sheet image.
         string filename = ss.Filename?.ToString();
@@ -32,7 +35,7 @@ public partial class Kernel
         
         var sprite = new Sprite
         {
-            Tag = tag?.ToString(),  // The image filename from sprite set
+            Tag = tagStr?.ToString(),  // The image filename from sprite set
             NFrames = Convert.ToInt32(nFrames ?? 1),
             //NTotalFrames
             //Facing
@@ -50,9 +53,11 @@ public partial class Kernel
         };
             
         // Register with Phantasma for lookup.
-        if (tag != null)
+        if (!string.IsNullOrEmpty(tagStr))
         {
-            Phantasma.RegisterObject(tag.ToString(), sprite);
+            Phantasma.RegisterObject(tagStr, sprite);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+            Console.WriteLine($"[DEBUG] Defining: {tagStr}");
         }
         
         return sprite;
@@ -60,11 +65,13 @@ public partial class Kernel
     
     public static object MakeSpriteSet(object tag, object width, object height, object rows, object cols, object offx, object offy, object filename) 
     {
-        // For now, just store the metadata in a dictionary or anonymous object
-        // The actual sprite loading would happen elsewhere
+        string tagStr = tag?.ToString()?.TrimStart('\'');
+        
+        // For now, just store the metadata in a dictionary or anonymous object.
+        // The actual sprite loading would happen elsewhere.
         var spriteSetData = new 
         {
-            Tag = tag?.ToString(),
+            Tag = tagStr,
             Width = Convert.ToInt32(width ?? 32),
             Height = Convert.ToInt32(height ?? 32),
             Rows = Convert.ToInt32(rows ?? 1),
@@ -73,15 +80,13 @@ public partial class Kernel
             OffsetY = Convert.ToInt32(offy ?? 0),
             Filename = filename?.ToString()
         };
-    
-        string tagStr = tag?.ToString();
+        
+        // Register with Phantasma for lookup.
         if (!string.IsNullOrEmpty(tagStr))
         {
-            // Register with Phantasma.
             Phantasma.RegisterObject(tagStr, spriteSetData);
-        
-            // CRITICAL: Define in Scheme environment so symbols can be resolved!
-            $"(define {tagStr} {{0}})".Eval(spriteSetData);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+            Console.WriteLine($"[DEBUG] Defining: {tagStr}");
         }
         
         // Return the metadata.  MakeSprite will use this.
@@ -886,14 +891,14 @@ public partial class Kernel
             }
         }
         
-        // Register the party
+        // Register the party.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, party);
         }
         Phantasma.RegisterObject(KEY_PLAYER_PARTY, party);
         
-        // Register the first member as the player character
+        // Register the first member as the player character.
         if (firstMember != null)
         {
             Phantasma.RegisterObject(KEY_PLAYER_CHARACTER, firstMember);
