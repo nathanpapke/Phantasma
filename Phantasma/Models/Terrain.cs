@@ -31,7 +31,13 @@ public class Terrain
         set { /* legacy setter, ignore */ }
     }
     public char DisplayChar { get; set; }  // ASCII character for display
-        
+    
+    /// <summary>
+    /// Combat map used when battles occur on this terrain type.
+    /// If null, a default combat map will be generated.
+    /// </summary>
+    public TerrainMap? CombatMap { get; set; }
+    
     // For sprite-based rendering.
     public Sprite Sprite { get; set; }
         

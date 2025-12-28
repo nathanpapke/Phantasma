@@ -97,6 +97,9 @@ public partial class Kernel
         DefineFunction("kern-mk-sound", MakeSound);
         DefineFunction("kern-mk-ptable", MakePassabilityTable);//
         DefineFunction("kern-mk-dtable", MakeDiplomacyTable);
+        DefineFunction("kern-mk-field-type", MakeFieldType);
+        DefineFunction("kern-mk-party-type", MakePartyType);
+        DefineFunction("kern-mk-sched", MakeSchedule);
         
         // ===================================================================
         // KERN-PARTY API - Party Functions
@@ -157,6 +160,7 @@ public partial class Kernel
         DefineFunction("kern-place-get-beings", PlaceGetBeings);
         DefineFunction("kern-place-is-passable", PlaceIsPassable);
         DefineFunction("kern-place-is-hazardous", PlaceIsHazardous);
+        DefineFunction("kern-terrain-set-combat-map", TerrainSetCombatMap);
         
         // ===================================================================
         // KERN-OBJ API - Object Manipulation Functions
@@ -911,5 +915,174 @@ public partial class Kernel
             return cons.car;
         }
         return args;
+    }
+    
+    /// <summary>
+    /// Check if an object is an IronScheme SymbolId.
+    /// </summary>
+    private static bool IsSymbol(object? obj)
+    {
+        if (obj == null) return false;
+        string typeName = obj.GetType().Name;
+        return typeName == "SymbolId" || 
+               typeName.Contains("Symbol") ||
+               obj.GetType().FullName?.Contains("SymbolId") == true;
+    }
+
+    /// <summary>
+    /// Check if an object is a Scheme pair/list (Cons cell).
+    /// </summary>
+    private static bool IsPair(object? obj)
+    {
+        if (obj == null) return false;
+        string typeName = obj.GetType().Name;
+        return typeName == "Cons" || 
+               typeName.Contains("Pair") ||
+               obj.GetType().FullName?.Contains("Cons") == true;
+    }
+
+    /// <summary>
+    /// Safely convert a Scheme object to an integer.
+    /// Handles SymbolId, strings, and null values gracefully.
+    /// </summary>
+    /// <param name="obj">The Scheme object to convert</param>
+    /// <param name="defaultValue">Value to return if conversion fails</param>
+    /// <returns>The integer value or defaultValue</returns>
+    private static int ToInt(object? obj, int defaultValue = 0)
+    {
+        if (obj == null) return defaultValue;
+        
+        // Symbols can't be converted to integers
+        if (IsSymbol(obj)) return defaultValue;
+        
+        try
+        {
+            return Convert.ToInt32(obj);
+        }
+        catch
+        {
+            return defaultValue;
+        }
+    }
+
+    /// <summary>
+    /// Safely convert a Scheme object to a double.
+    /// </summary>
+    private static double ToDouble(object? obj, double defaultValue = 0.0)
+    {
+        if (obj == null) return defaultValue;
+        if (IsSymbol(obj)) return defaultValue;
+        
+        try
+        {
+            return Convert.ToDouble(obj);
+        }
+        catch
+        {
+            return defaultValue;
+        }
+    }
+
+    /// <summary>
+    /// Safely convert a Scheme object to a byte.
+    /// </summary>
+    private static byte ToByte(object? obj, byte defaultValue = 0)
+    {
+        if (obj == null) return defaultValue;
+        if (IsSymbol(obj)) return defaultValue;
+        
+        try
+        {
+            return Convert.ToByte(obj);
+        }
+        catch
+        {
+            return defaultValue;
+        }
+    }
+
+    /// <summary>
+    /// Safely convert a Scheme object to a boolean.
+    /// Handles #t/#f, symbols, and various truthy/falsy values.
+    /// </summary>
+    private static bool ToBool(object? obj, bool defaultValue = false)
+    {
+        if (obj == null) return defaultValue;
+        
+        // Handle IronScheme boolean values
+        string str = obj.ToString()?.ToLower() ?? "";
+        if (str == "#t" || str == "true" || str == "1") return true;
+        if (str == "#f" || str == "false" || str == "0" || str == "nil") return false;
+        
+        // Symbols that look like true/false
+        if (IsSymbol(obj))
+        {
+            if (str.Contains("true") || str == "t") return true;
+            if (str.Contains("false") || str == "f" || str == "nil") return false;
+        }
+        
+        try
+        {
+            return Convert.ToBoolean(obj);
+        }
+        catch
+        {
+            return defaultValue;
+        }
+    }
+
+    /// <summary>
+    /// Convert a Scheme object to a clean string.
+    /// Handles both strings and symbols, removing quotes and leading apostrophes.
+    /// </summary>
+    /// <param name="obj">The Scheme object to convert</param>
+    /// <returns>Clean string or null</returns>
+    private static string? ToCleanString(object? obj)
+    {
+        if (obj == null) return null;
+        
+        string result = obj.ToString() ?? "";
+        
+        // Remove surrounding quotes
+        result = result.Trim('"');
+        
+        // Remove leading apostrophe from symbols
+        if (result.StartsWith("'"))
+            result = result.TrimStart('\'');
+        
+        return result;
+    }
+
+    /// <summary>
+    /// Extract a tag string from a Scheme symbol or string.
+    /// Removes quotes and leading apostrophes.
+    /// </summary>
+    private static string ToTag(object? obj, string defaultValue = "")
+    {
+        return ToCleanString(obj) ?? defaultValue;
+    }
+
+    /// <summary>
+    /// Resolve a registered object from a tag, symbol, or direct reference.
+    /// </summary>
+    /// <typeparam name="T">Expected type of the registered object</typeparam>
+    /// <param name="obj">Tag string, symbol, or direct object reference</param>
+    /// <returns>The resolved object or null</returns>
+    private static T? ResolveObject<T>(object? obj) where T : class
+    {
+        if (obj == null) return null;
+        
+        // Direct reference
+        if (obj is T direct) return direct;
+        
+        // Tag lookup
+        string? tag = ToCleanString(obj);
+        if (!string.IsNullOrEmpty(tag) && tag != "nil")
+        {
+            var resolved = Phantasma.GetRegisteredObject(tag);
+            if (resolved is T typed) return typed;
+        }
+        
+        return null;
     }
 }

@@ -57,7 +57,6 @@ public partial class Kernel
         {
             Phantasma.RegisterObject(tagStr, sprite);
             $"(define {tagStr} \"{tagStr}\")".Eval();
-            Console.WriteLine($"[DEBUG] Defining: {tagStr}");
         }
         
         return sprite;
@@ -86,7 +85,6 @@ public partial class Kernel
         {
             Phantasma.RegisterObject(tagStr, spriteSetData);
             $"(define {tagStr} \"{tagStr}\")".Eval();
-            Console.WriteLine($"[DEBUG] Defining: {tagStr}");
         }
         
         // Return the metadata.  MakeSprite will use this.
@@ -167,8 +165,7 @@ public partial class Kernel
             PassabilityClass = passability,
             Sprite = sprite as Sprite
         };
-    
-        Console.WriteLine($"  Created terrain type: {terrain.Name}");
+        
         return terrain;
     }
     
@@ -696,9 +693,7 @@ public partial class Kernel
     
         if (!string.IsNullOrEmpty(tagStr))
             Phantasma.RegisterObject(tagStr, objType);
-    
-        Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}' (layer={objType.Layer}, caps={objType.Capabilities})");
-    
+        
         return objType;
     }
 
@@ -765,10 +760,6 @@ public partial class Kernel
             missileType: missile as ArmsType  // null if not provided
         );
         
-        // Set Scheme variable so 't_sword holds this weapon.
-        //"(set-global! {0} {1})".Eval(tagStr, armsType);
-        
-        Console.WriteLine($"  Created arms type '{tagStr}': {nameStr}");
         return armsType;
     }
     
@@ -1480,8 +1471,6 @@ public partial class Kernel
             
             Console.WriteLine($"[kern-mk-dtable] Created {numFactions}×{numFactions} diplomacy table");
             
-            // Nazghul returns scm_mk_ptr(sc, dtable) - a pointer to the table.
-            // We return the table itself for use in kern-dtable-* functions.
             return dtable;
         }
         catch (Exception ex)
@@ -1489,5 +1478,303 @@ public partial class Kernel
             Console.Error.WriteLine($"[kern-mk-dtable] Error: {ex.Message}");
             return Builtins.Unspecified;
         }
+    }
+    
+    /// <summary>
+    /// (kern-mk-field-type tag name sprite light duration pclass [effect-proc])
+    /// Creates a field type definition.
+    /// 
+    /// Example:
+    /// (kern-mk-field-type 'F_fire "fire" s_field_fire 1 5 pclass-field burn-proc)
+    /// </summary>
+    /// <param name="tag">Symbol identifier (e.g., 'F_fire)</param>
+    /// <param name="name">Display name for the field</param>
+    /// <param name="sprite">Sprite object for rendering</param>
+    /// <param name="light">Light level emitted (0 = no light)</param>
+    /// <param name="duration">Default duration in turns (-1 = permanent)</param>
+    /// <param name="pclass">Passability class (for movement costs)</param>
+    /// <param name="effect-proc">Optional Scheme closure called when stepped on</param>
+    public static object MakeFieldType(object tag, object name, object sprite, 
+                                        object light, object duration, object pclass, 
+                                        object effect = null)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "";
+        string nameStr = name?.ToString() ?? tagStr;
+        
+        if (string.IsNullOrEmpty(tagStr))
+        {
+            Console.WriteLine("[ERROR] kern-mk-field-type: missing tag");
+            return "#f".Eval();
+        }
+        
+        // Resolve sprite.
+        Sprite? spr = null;
+        if (sprite is Sprite s)
+            spr = s;
+        else if (sprite is string sprTag && !string.IsNullOrEmpty(sprTag))
+            spr = Phantasma.GetRegisteredObject(sprTag.TrimStart('\'').Trim('"')) as Sprite;
+        
+        // Parse numeric parameters.
+        int lightVal = Convert.ToInt32(light ?? 0);
+        int durationVal = Convert.ToInt32(duration ?? -1);
+        int pclassVal = Convert.ToInt32(pclass ?? 0);
+        
+        // Create the field type.
+        var fieldType = new FieldType(tagStr, nameStr, spr, lightVal, durationVal, pclassVal, effect);
+        
+        // Register with Phantasma.
+        Phantasma.RegisterObject(tagStr, fieldType);
+        
+        // Define in Scheme environment.
+        try
+        {
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Could not define {tagStr} in Scheme: {ex.Message}");
+        }
+        
+        Console.WriteLine($"  Created field type: {tagStr} '{nameStr}' (light={lightVal}, duration={durationVal}, pclass={pclassVal})");
+        
+        return fieldType;
+    }
+    
+    /// <summary>
+    /// (kern-mk-party-type tag name sprite formation groups)
+    /// Creates a party type definition.
+    /// 
+    /// Example:
+    /// (kern-mk-party-type 'pt_goblins "Goblins" s_goblin formation-wedge
+    ///   (list
+    ///     (list sp_goblin s_goblin "2d3" mk-goblin)
+    ///     (list sp_goblin_shaman s_shaman "1d2-1" mk-shaman)))
+    /// </summary>
+    /// <param name="tag">Symbol identifier (e.g., 'pt_goblin_patrol)</param>
+    /// <param name="name">Display name for the party</param>
+    /// <param name="sprite">Sprite object for rendering on world map</param>
+    /// <param name="formation">Formation object for combat positioning</param>
+    /// <param name="groups">List of group definitions, each being</param>
+    public static object MakePartyType(object tag, object name, object sprite, 
+                                        object formation, object groups)
+    {
+        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "";
+        string nameStr = name?.ToString() ?? tagStr;
+        
+        if (string.IsNullOrEmpty(tagStr))
+        {
+            Console.WriteLine("[ERROR] kern-mk-party-type: missing tag");
+            return "#f".Eval();
+        }
+        
+        // Resolve sprite.
+        Sprite? spr = null;
+        if (sprite is Sprite s)
+            spr = s;
+        else if (sprite is string sprTag && !string.IsNullOrEmpty(sprTag))
+            spr = Phantasma.GetRegisteredObject(sprTag.TrimStart('\'').Trim('"')) as Sprite;
+        
+        // Create the party type.
+        var partyType = new PartyType(tagStr, nameStr, spr);
+        
+        // Resolve formation.
+        if (formation is Formation f)
+            partyType.Formation = f;
+        else if (formation is string formTag && !string.IsNullOrEmpty(formTag))
+            partyType.Formation = Phantasma.GetRegisteredObject(formTag.TrimStart('\'').Trim('"')) as Formation;
+        
+        // Parse groups list.
+        int groupCount = 0;
+        if (groups != null)
+        {
+            try
+            {
+                // Convert to vector for iteration.
+                var groupsVector = Builtins.ListToVector(groups);
+                
+                if (groupsVector is object[] groupsArray)
+                {
+                    foreach (var groupObj in groupsArray)
+                    {
+                        if (groupObj == null) continue;
+                        
+                        // Each group is (species sprite dice factory).
+                        var speciesObj = Builtins.Car(groupObj);
+                        var rest1 = Builtins.Cdr(groupObj);
+                        var groupSpriteObj = Builtins.Car(rest1);
+                        var rest2 = Builtins.Cdr(rest1);
+                        var diceObj = Builtins.Car(rest2);
+                        var rest3 = Builtins.Cdr(rest2);
+                        var factoryObj = Builtins.Car(rest3);
+                        
+                        // Resolve species.
+                        Species species = default;
+                        if (speciesObj is Species sp)
+                            species = sp;
+                        else if (speciesObj is string spTag)
+                        {
+                            var spObj = Phantasma.GetRegisteredObject(spTag.TrimStart('\'').Trim('"'));
+                            if (spObj is Species resolvedSp)
+                                species = resolvedSp;
+                        }
+                        
+                        // Resolve sprite.
+                        Sprite? groupSprite = null;
+                        if (groupSpriteObj is Sprite gs)
+                            groupSprite = gs;
+                        else if (groupSpriteObj is string gsTag)
+                            groupSprite = Phantasma.GetRegisteredObject(gsTag.TrimStart('\'').Trim('"')) as Sprite;
+                        
+                        // Get dice string.
+                        string dice = diceObj?.ToString()?.Trim('"') ?? "1";
+                        
+                        // Factory is stored as-is (closure).
+                        partyType.AddGroup(species, groupSprite, dice, factoryObj);
+                        groupCount++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARNING] Error parsing groups for {tagStr}: {ex.Message}");
+            }
+        }
+        
+        // Register with Phantasma.
+        Phantasma.RegisterObject(tagStr, partyType);
+        
+        // Define in Scheme environment.
+        try
+        {
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Could not define {tagStr} in Scheme: {ex.Message}");
+        }
+        
+        Console.WriteLine($"  Created party type: {tagStr} '{nameStr}' ({groupCount} groups)");
+        
+        return partyType;
+    }
+    
+    /// <summary>
+    /// (kern-mk-sched tag appointments...)
+    /// Creates a schedule for NPC daily routines.
+    /// 
+    /// Activity names: "idle", "working", "sleeping", "commuting", "eating", "drunk"
+    /// 
+    /// Example:
+    /// (kern-mk-sched 'sch_smith
+    ///   (list 6 0  (list 10 10 1 1) "commuting")
+    ///   (list 8 0  (list 15 12 3 3) "working")
+    ///   (list 18 0 (list 10 10 1 1) "commuting")
+    ///   (list 19 0 (list 5 5 2 2) "eating")
+    ///   (list 22 0 (list 5 5 2 2) "sleeping"))
+    /// </summary>
+    /// <param name="tag">Symbol identifier (e.g., 'sch_blacksmith)</param>
+    /// <param name="appointments">Variable number of appointment definitions, each being</param>
+    public static object MakeSchedule(object tag, params object[] appointments)
+    {
+        string tagStr = ToCleanString(tag) ?? "";
+        
+        if (string.IsNullOrEmpty(tagStr))
+        {
+            Console.WriteLine("[ERROR] kern-mk-sched: missing tag");
+            return "#f".Eval();
+        }
+        
+        var schedule = new Schedule(tagStr);
+        
+        foreach (var apptObj in appointments)
+        {
+            if (apptObj == null) continue;
+            
+            try
+            {
+                // Each appointment is (hour minute zone-or-rect activity)
+                var hourObj = Builtins.Car(apptObj);
+                var rest1 = Builtins.Cdr(apptObj);
+                var minObj = Builtins.Car(rest1);
+                var rest2 = Builtins.Cdr(rest1);
+                var zoneOrRectObj = Builtins.Car(rest2);
+                var rest3 = Builtins.Cdr(rest2);
+                var activityObj = Builtins.Car(rest3);
+                
+                int hour = ToInt(hourObj, 0);
+                int minute = ToInt(minObj, 0);
+                
+                // Parse zone/rect - either (x y w h) list or zone symbol
+                int x = 0, y = 0, w = 1, h = 1;
+                if (zoneOrRectObj != null)
+                {
+                    if (IsSymbol(zoneOrRectObj))
+                    {
+                        // Zone symbol lookup
+                        var zone = Phantasma.GetRegisteredObject(zoneOrRectObj.ToString() ?? "");
+                        if (zone != null)
+                        {
+                            var zoneType = zone.GetType();
+                            var xProp = zoneType.GetProperty("X") ?? zoneType.GetProperty("x");
+                            var yProp = zoneType.GetProperty("Y") ?? zoneType.GetProperty("y");
+                            var wProp = zoneType.GetProperty("W") ?? zoneType.GetProperty("Width") ?? zoneType.GetProperty("w");
+                            var hProp = zoneType.GetProperty("H") ?? zoneType.GetProperty("Height") ?? zoneType.GetProperty("h");
+                            
+                            if (xProp != null) x = Convert.ToInt32(xProp.GetValue(zone) ?? 0);
+                            if (yProp != null) y = Convert.ToInt32(yProp.GetValue(zone) ?? 0);
+                            if (wProp != null) w = Convert.ToInt32(wProp.GetValue(zone) ?? 1);
+                            if (hProp != null) h = Convert.ToInt32(hProp.GetValue(zone) ?? 1);
+                        }
+                    }
+                    else
+                    {
+                        // Parse as (x y w h) list
+                        try
+                        {
+                            x = ToInt(Builtins.Car(zoneOrRectObj), 0);
+                            var r1 = Builtins.Cdr(zoneOrRectObj);
+                            y = ToInt(Builtins.Car(r1), 0);
+                            var r2 = Builtins.Cdr(r1);
+                            w = ToInt(Builtins.Car(r2), 1);
+                            var r3 = Builtins.Cdr(r2);
+                            h = ToInt(Builtins.Car(r3), 1);
+                        }
+                        catch { /* Use defaults */ }
+                    }
+                }
+                
+                // Parse activity - handle both strings and symbols
+                string actStr = (ToCleanString(activityObj) ?? "idle").ToLower();
+                Activity activity = actStr switch
+                {
+                    "idle" => Activity.Idle,
+                    "working" => Activity.Working,
+                    "sleeping" => Activity.Sleeping,
+                    "commuting" => Activity.Commuting,
+                    "eating" => Activity.Eating,
+                    "drunk" => Activity.Drunk,
+                    "wandering" => Activity.Wandering,
+                    _ => Activity.Idle
+                };
+                
+                schedule.AddAppointment(hour, minute, x, y, w, h, activity);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARNING] Error parsing appointment for {tagStr}: {ex.Message}");
+            }
+        }
+        
+        Phantasma.RegisterObject(tagStr, schedule);
+        
+        try
+        {
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+        }
+        catch { }
+        
+        Console.WriteLine($"  Created schedule: {tagStr} ({schedule.Appointments.Count} appointments)");
+        
+        return schedule;
     }
 }

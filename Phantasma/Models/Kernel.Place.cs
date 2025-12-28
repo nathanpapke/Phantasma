@@ -208,4 +208,47 @@ public partial class Kernel
         var terrain = place.GetTerrain(Convert.ToInt32(xObj), Convert.ToInt32(yObj));
         return terrain?.IsHazardous ?? false;
     }
+    /// <summary>
+    /// (kern-terrain-set-combat-map terrain map)
+    /// Sets the combat map used when combat occurs on this terrain type.
+    /// 
+    /// Example:
+    /// (kern-terrain-set-combat-map t_grass m_grass_combat)
+    /// </summary>
+    /// <param name="terrain">Terrain object to modify</param>
+    /// <param name="map">TerrainMap to use for combat on this terrain</param>
+    /// <returns>The terrain object (for chaining).</returns>
+    public static object TerrainSetCombatMap(object terrain, object map)
+    {
+        // Resolve terrain.
+        Terrain? t = null;
+        if (terrain is Terrain ter)
+            t = ter;
+        else if (terrain is string terTag)
+            t = Phantasma.GetRegisteredObject(terTag.TrimStart('\'').Trim('"')) as Terrain;
+        
+        if (t == null)
+        {
+            Console.WriteLine("[ERROR] kern-terrain-set-combat-map: null or invalid terrain");
+            return "#f".Eval();
+        }
+        
+        // Resolve terrain map.
+        TerrainMap? combatMap = null;
+        if (map is TerrainMap tm)
+            combatMap = tm;
+        else if (map is string mapTag)
+        {
+            var mapObj = Phantasma.GetRegisteredObject(mapTag.TrimStart('\'').Trim('"'));
+            if (mapObj is TerrainMap resolvedMap)
+                combatMap = resolvedMap;
+        }
+        
+        // Set the combat map on the terrain.
+        t.CombatMap = combatMap;
+        
+        Console.WriteLine($"  Set combat map for terrain '{t.Name}'");
+        
+        return terrain;
+    }
 }
