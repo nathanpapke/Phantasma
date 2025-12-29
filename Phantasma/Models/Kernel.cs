@@ -266,6 +266,7 @@ public partial class Kernel
         DefineFunction("load", LoadFile);
         DefineFunction("kern-load-file", LoadFile);
         DefineFunction("kern-sound-play", SoundPlay);
+        DefineFunction("kern-tag", Tag);
         
         // TODO: Add remaining kern-* functions as needed.
         // The full Nazghul kern.c has ~150 functions.
@@ -426,6 +427,56 @@ public partial class Kernel
         SoundManager.Instance.Play(soundObj, SoundManager.MaxVolume);
         
         return IronScheme.Runtime.Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-tag 'tag object)
+    /// Assign a tag to an object and define it in Scheme.
+    /// </summary>
+    public static object Tag(object[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.Error.WriteLine("[kern-tag] Not enough arguments");
+            return null;
+        }
+        
+        string tag = args[0]?.ToString()?.TrimStart('\'') ?? "";
+        object obj = args[1];
+        
+        if (string.IsNullOrEmpty(tag))
+        {
+            Console.Error.WriteLine("[kern-tag] Invalid tag");
+            return null;
+        }
+        
+        // Resolve object if it's a tag string.
+        if (obj is string objTag)
+        {
+            obj = Phantasma.GetRegisteredObject(objTag.TrimStart('\'').Trim('"'));
+        }
+        
+        if (obj == null)
+        {
+            Console.Error.WriteLine($"[kern-tag] Null object for tag '{tag}'");
+            return null;
+        }
+        
+        // Try to set Tag property via reflection (optional - not all objects have it).
+        var tagProp = obj.GetType().GetProperty("Tag");
+        if (tagProp != null && tagProp.CanWrite && tagProp.PropertyType == typeof(string))
+        {
+            tagProp.SetValue(obj, tag);
+        }
+        
+        // Register in C# registry.
+        if (!string.IsNullOrEmpty(tag))
+        {
+            Phantasma.RegisterObject(tag, obj);
+            $"(define {tag} \"{tag}\")".Eval();
+        }
+        
+        return obj;
     }
     
     // ===================================================================

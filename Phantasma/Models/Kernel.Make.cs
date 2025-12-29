@@ -274,6 +274,7 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, map);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
         return map;
@@ -400,6 +401,7 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, place);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
         return place;
@@ -491,6 +493,7 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, species);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
         int slotCount = slotsArray?.Length ?? 0;
@@ -687,16 +690,19 @@ public partial class Kernel
             Layer = (ObjectLayer)Convert.ToInt32(layer ?? 0),
             Capabilities = Convert.ToInt32(capabilities ?? 0)
         };
-    
+        
         if (sprite is Sprite s)
             objType.Sprite = s;
-    
+        
         // Store interaction handler closure for later use.
         if (interactionHandler != null && !(interactionHandler is bool b && b == false))
             objType.InteractionHandler = interactionHandler;
-    
+        
         if (!string.IsNullOrEmpty(tagStr))
+        {
             Phantasma.RegisterObject(tagStr, objType);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+        }
         
         return objType;
     }
@@ -717,13 +723,13 @@ public partial class Kernel
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         string nameStr = name?.ToString() ?? tagStr;
         
-        // Get dice strings
+        // Get dice strings.
         string toHitDice = toHit?.ToString() ?? "0";
         string damageDice = damage?.ToString() ?? "0";
         string armorDice = armor?.ToString() ?? "0";
         string defendDice = defend?.ToString() ?? "0";
         
-        // Validate dice notation
+        // Validate dice notation.
         if (!Dice.IsValid(toHitDice))
         {
             LoadError($"kern-mk-arms-type {tagStr}: bad to-hit dice '{toHitDice}'");
@@ -745,7 +751,7 @@ public partial class Kernel
             return Builtins.Unspecified;
         }
         
-        // Use the full constructor - it sets all protected properties internally
+        // Use the full constructor - it sets all protected properties internally.
         var armsType = new ArmsType(
             tag: tagStr,
             name: nameStr,
@@ -763,6 +769,12 @@ public partial class Kernel
             ubiquitousAmmo: Convert.ToBoolean(ubiq),
             missileType: missile as ArmsType  // null if not provided
         );
+        
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, armsType);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+        }
         
         return armsType;
     }
@@ -1332,7 +1344,7 @@ public partial class Kernel
         if (string.IsNullOrEmpty(filenameStr))
         {
             Console.WriteLine($"[kern-mk-sound] {tagStr}: null or empty filename");
-            return IronScheme.Runtime.Builtins.Unspecified;
+            return Builtins.Unspecified;
         }
         
         // Load the sound.
@@ -1341,11 +1353,15 @@ public partial class Kernel
         if (sound == null)
         {
             Console.WriteLine($"[kern-mk-sound] {tagStr}: failed to load '{filenameStr}'");
-            return IronScheme.Runtime.Builtins.Unspecified;
+            return Builtins.Unspecified;
         }
         
         // Register with Phantasma for lookup by tag.
-        Phantasma.RegisterObject(tagStr, sound);
+        if (!string.IsNullOrEmpty(tagStr))
+        {
+            Phantasma.RegisterObject(tagStr, sound);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
+        }
         
         Console.WriteLine($"  Created sound: {tagStr} ('{filenameStr}')");
         
