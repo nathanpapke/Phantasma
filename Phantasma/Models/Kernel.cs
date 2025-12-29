@@ -281,6 +281,17 @@ public partial class Kernel
         $"(define {schemeName} {{0}})".Eval(closure);
     }
     
+    /// <summary>
+    /// Registers a variadic function that can be called with 'apply' or
+    /// with variable numbers of arguments. Uses CallTargetN signature.
+    /// </summary>
+    private void DefineFunction(string schemeName, Func<object[], object> method)
+    {
+        CallTargetN target = args => method(args);
+        var closure = Closure.Create(target, -1);
+        $"(define {schemeName} {{0}})".Eval(closure);
+    }
+    
     // =============================================================================
     // PUBLIC STATIC C# METHODS - Called from Scheme via clr-static-call
     // =============================================================================

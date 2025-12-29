@@ -65,9 +65,8 @@ public partial class Kernel
     public static object MakeSpriteSet(object tag, object width, object height, object rows, object cols, object offx, object offy, object filename) 
     {
         string tagStr = tag?.ToString()?.TrimStart('\'');
-        
-        // For now, just store the metadata in a dictionary or anonymous object.
-        // The actual sprite loading would happen elsewhere.
+    
+        // Store the metadata in an anonymous object.
         var spriteSetData = new 
         {
             Tag = tagStr,
@@ -79,15 +78,15 @@ public partial class Kernel
             OffsetY = Convert.ToInt32(offy ?? 0),
             Filename = filename?.ToString()
         };
-        
+    
         // Register with Phantasma for lookup.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, spriteSetData);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
-        
-        // Return the metadata.  MakeSprite will use this.
+    
+        // Return the metadata. MakeSprite will use this.
         return spriteSetData;
     }
     
@@ -104,33 +103,22 @@ public partial class Kernel
     /// - light: Light level emitted by terrain (0 = no light)
     /// - effect-proc: Optional procedure called when stepping on terrain
     /// </summary>
-    public static object MakeTerrain(object tag, object name, object pclass, object sprite, object alpha, object light)
+    public static object MakeTerrain(object[] args)
     {
-        string tagStr = tag?.ToString() ?? "";
-        string nameStr = name?.ToString() ?? "";
-        
-        var terrain = new Terrain
-        {
-            Name = name?.ToString(),
-            Color = GetTerrainColor(tagStr, nameStr),
-            PassabilityClass = pclass == null ? 0 : (int)Convert.ToDouble(pclass),
-            //IsPassable
-            //MovementCost
-            //IsHazardous
-            //Effect
-            Light = Convert.ToInt32(light),
-            Alpha = Convert.ToByte(alpha),
-            //Transparent
-            //DisplayChar
-            Sprite = sprite as Sprite
-        };
-            
-        // Register with Phantasma for lookup.
-        if (tag != null)
-        {
-            Phantasma.RegisterObject(tag.ToString(), terrain);
-        }
-        
+        if (args.Length < 6) { /* error */ }
+    
+        string tagStr = ToTag(args[0]);
+        string name = args[1]?.ToString()?.Trim('"') ?? tagStr;
+        int pclass = ToInt(args[2], 0);
+        var sprite = args[3] as Sprite ?? ResolveObject<Sprite>(args[3]);
+        int alpha = ToInt(args[4], 255);
+        int light = ToInt(args[5], 0);
+        object effectProc = args.Length > 6 ? args[6] : null;
+    
+        var terrain = new Terrain { /* ... */ };
+        Phantasma.RegisterObject(tagStr, terrain);
+        $"(define {tagStr} \"{tagStr}\")".Eval();
+
         return terrain;
     }
     
@@ -175,6 +163,8 @@ public partial class Kernel
     /// </summary>
     public static object MakePalette(object tag, object mappings)
     {
+        Console.WriteLine($"  Created palette: starting.)");
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         
         var palette = new TerrainPalette(tagStr);
@@ -190,26 +180,43 @@ public partial class Kernel
                 if (pairObj == null) continue;
                 
                 // Each element is a (glyph terrain) pair.
-                // Extract glyph (first) and terrain (second).
                 var glyph = Builtins.Car(pairObj);
                 var rest = Builtins.Cdr(pairObj);
-                var terrain = Builtins.Car(rest);
+                var terrainObj = Builtins.Car(rest);
                 
                 string glyphStr = glyph?.ToString()?.Trim('"', '\'') ?? "";
                 
-                if (terrain is Terrain t && !string.IsNullOrEmpty(glyphStr))
+                // Resolve terrain - could be Terrain object or tag string.
+                Terrain terrain = null;
+                if (terrainObj is Terrain t)
                 {
-                    palette.AddMapping(glyphStr, t);
+                    terrain = t;
+                }
+                else if (terrainObj != null)
+                {
+                    // Try to resolve from tag (case-insensitive via GetRegisteredObject).
+                    string terrainTag = terrainObj.ToString()?.TrimStart('\'').Trim('"');
+                    terrain = Phantasma.GetRegisteredObject(terrainTag) as Terrain;
+                }
+            
+                if (terrain != null && !string.IsNullOrEmpty(glyphStr))
+                {
+                    palette.AddMapping(glyphStr, terrain);
                     count++;
                 }
             }
         }
-        
+    
         // Register palette for later use.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, palette);
+        
+            // Define in Scheme so scripts can reference it.
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
+        
+        Console.WriteLine($"  Created palette: {tagStr} ({count} entries.)");
         
         return palette;
     }
@@ -402,21 +409,18 @@ public partial class Kernel
     /// (kern-mk-mmode tag name index)
     /// Creates a movement mode.
     /// </summary>
-    public static object MakeMovementMode(object tag, object name, object index)
+    public static object MakeMovementMode(object[] args)
     {
-        string tagStr = tag?.ToString()?.TrimStart('\'');
-        string nameStr = name?.ToString() ?? "Unknown";
-        int indexInt = Convert.ToInt32(index ?? 0);
+        if (args.Length < 3) { /* error */ }
+        string tagStr = ToTag(args[0]);
+        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";
+        int index = ToInt(args[2], 0);
+    
+        var mmode = new MovementMode(tagStr, nameStr, index);
+        Phantasma.RegisterObject(tagStr, mmode);
+        $"(define {tagStr} \"{tagStr}\")".Eval();
         
-        var mmode = new MovementMode(tagStr, nameStr, indexInt);
-        
-        if (!string.IsNullOrEmpty(tagStr))
-        {
-            Phantasma.RegisterObject(tagStr, mmode);
-            $"(define {tagStr} {{0}})".Eval(mmode);
-        }
-        
-        Console.WriteLine($"  Created mmode: {nameStr} (index={indexInt})");
+        Console.WriteLine($"  Created mmode: {nameStr} (index={index})");
         return mmode;
     }
     
@@ -1360,41 +1364,30 @@ public partial class Kernel
     ///   KERN_API_CALL(kern_mk_ptable) - args is list of rows
     ///   Each row is a list of integers (movement costs per mode)
     /// </remarks>
-    public static object MakePassabilityTable(object args)
+    public static object MakePassabilityTable(object[] args)
     {
-        var rows = ConvertToListOfLists(args);
-        
-        if (rows.Count == 0)
+        // Each arg is a list of costs for one passability class.
+        var rows = new List<List<int>>();
+    
+        foreach (var arg in args)
         {
-            Console.Error.WriteLine("[kern-mk-ptable] Error: 0 rows given");
-            return Builtins.Unspecified;
+            var row = ConvertToIntList(arg);
+            rows.Add(row);
         }
-        
+    
         int numPClass = rows.Count;
-        int numMMode = rows[0].Count;
-        
-        if (numMMode == 0)
-        {
-            Console.Error.WriteLine("[kern-mk-ptable] Error: row 0 has no columns");
-            return Builtins.Unspecified;
-        }
-        
+        int numMMode = rows.Count > 0 ? rows[0].Count : 0;
+    
         var ptable = new PassabilityTable(numMMode, numPClass);
-        
+    
         for (int pclass = 0; pclass < numPClass; pclass++)
-        {
-            for (int mmode = 0; mmode < numMMode; mmode++)
-            {
-                if (mmode < rows[pclass].Count)
-                    ptable.SetCost(mmode, pclass, rows[pclass][mmode]);
-            }
-        }
-        
-        var session = Phantasma.MainSession;
-        if (session != null)
-            session.PassabilityTable = ptable;
-        
-        Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} passability table");
+        for (int mmode = 0; mmode < numMMode; mmode++)
+            if (mmode < rows[pclass].Count)
+                ptable.SetCost(mmode, pclass, rows[pclass][mmode]);
+    
+        Phantasma.RegisterObject("ptable", ptable);
+    
+        Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} table");
         return Builtins.Unspecified;
     }
     
@@ -1457,17 +1450,7 @@ public partial class Kernel
                 }
             }
             
-            // Store in the session.
-            var session = Phantasma.MainSession;
-            if (session != null)
-            {
-                session.DiplomacyTable = dtable;
-            }
-            else
-            {
-                // During loading, MainSession may not exist yet.
-                // TODO: Set up failsafe for DiplomacyTable.
-            }
+            Phantasma.RegisterObject("dtable", dtable);
             
             Console.WriteLine($"[kern-mk-dtable] Created {numFactions}×{numFactions} diplomacy table");
             

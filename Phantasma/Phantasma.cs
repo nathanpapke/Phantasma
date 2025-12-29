@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -196,6 +197,15 @@ public class Phantasma
         {
             return obj;
         }
+    
+        // Try case-insensitive match as fallback.
+        var key = registeredObjects.Keys.FirstOrDefault(k => 
+            string.Equals(k, tag, StringComparison.OrdinalIgnoreCase));
+        if (key != null)
+        {
+            return registeredObjects[key];
+        }
+        
         return null;
     }
     

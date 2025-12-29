@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using IronScheme;
 using IronScheme.Runtime;
 
@@ -85,15 +86,62 @@ public partial class Kernel
         return "#t".Eval();
     }
     
-    public static object SetFrame(object args)
+    public static object SetFrame(object[] args)
     {
-        // TODO: Implement
+        if (args.Length < 13)
+        {
+            Console.Error.WriteLine($"[kern-set-frame] Error: expected 13 sprites, got {args.Length}");
+            return Builtins.Unspecified;
+        }
+    
+        // Store as anonymous object - access via dynamic later.
+        var frameSprites = new
+        {
+            ULC = ResolveObject<Sprite>(args[0]),   // Upper-left corner
+            URC = ResolveObject<Sprite>(args[1]),   // Upper-right corner
+            LLC = ResolveObject<Sprite>(args[2]),   // Lower-left corner
+            LRC = ResolveObject<Sprite>(args[3]),   // Lower-right corner
+            TD = ResolveObject<Sprite>(args[4]),    // T-junction down
+            TU = ResolveObject<Sprite>(args[5]),    // T-junction up
+            TL = ResolveObject<Sprite>(args[6]),    // T-junction left
+            TR = ResolveObject<Sprite>(args[7]),    // T-junction right
+            TX = ResolveObject<Sprite>(args[8]),    // Cross junction
+            Horz = ResolveObject<Sprite>(args[9]),  // Horizontal edge
+            Vert = ResolveObject<Sprite>(args[10]), // Vertical edge
+            EndL = ResolveObject<Sprite>(args[11]), // End left
+            EndR = ResolveObject<Sprite>(args[12])  // End right
+        };
+    
+        // Register for lookup
+        Phantasma.RegisterObject("frame-sprites", frameSprites);
+    
+        Console.WriteLine("  Set frame sprites");
         return Builtins.Unspecified;
     }
     
-    public static object SetAscii(object args)
+    public static object SetAscii(object[] args)
     {
-        // TODO: Implement
+        if (args.Length < 2)
+        {
+            Console.Error.WriteLine($"[kern-set-ascii] Error: expected 2 args, got {args.Length}");
+            return Builtins.Unspecified;
+        }
+    
+        // Get the sprite set (could be tag string or the object itself).
+        object spriteSetRef = args[0];
+        int offset = ToInt(args[1], 32);
+    
+        // Store as anonymous object, same pattern as sprite sets.
+        var asciiConfig = new
+        {
+            SpriteSet = spriteSetRef,
+            Offset = offset
+        };
+    
+        // Register for lookup.
+        Phantasma.RegisterObject("ascii-config", asciiConfig);
+    
+        Console.WriteLine($"  Set ASCII sprite set (offset={offset})");
         return Builtins.Unspecified;
     }
     
@@ -160,25 +208,29 @@ public partial class Kernel
     /// (kern-set-spell-words (word1 word2 word3 ...))
     /// Set spell syllables/words for Ultima-style magic.
     /// </summary>
-    public static object SetSpellWords(object words)
+    public static object SetSpellWords(object[] args)
     {
-        var wordsVector = Builtins.ListToVector(words);
-        if (wordsVector is object[] wordsArray)
+        var words = new List<string>();
+    
+        foreach (var arg in args)
         {
-            for (int i = 0; i < wordsArray.Length && i < 26; i++)
-            {
-                string word = wordsArray[i]?.ToString() ?? "";
-                if (!string.IsNullOrEmpty(word))
-                {
-                    char letter = (char)('A' + i);
-                    Magic.AddWordGlobal(letter, word);
-                }
-            }
-
-            Console.WriteLine($"  Set {wordsArray.Length} spell words (global)");
+            string word = arg?.ToString()?.Trim('"');
+            if (!string.IsNullOrEmpty(word))
+                words.Add(word);
         }
-
-        return Builtins.Unspecified;
+    
+        // Register for lookup
+        Phantasma.RegisterObject("spell-words", words);
+    
+        // Also set in Magic system for runtime use
+        for (int i = 0; i < words.Count && i < 26; i++)
+        {
+            char letter = (char)('A' + i);
+            Magic.AddWordGlobal(letter, words[i]);
+        }
+    
+        Console.WriteLine($"  Set {words.Count} spell words");
+        return "#t".Eval();
     }
     
     /// <summary>

@@ -578,7 +578,7 @@ public class SExpressionParser
     private string ParseAtom()
     {
         var sb = new StringBuilder();
-        
+    
         while (_pos < _input.Length)
         {
             char c = _input[_pos];
@@ -587,8 +587,9 @@ public class SExpressionParser
             sb.Append(c);
             _pos++;
         }
-        
-        return sb.ToString();
+    
+        // Lowercase for R5RS case-insensitivity (TinyScheme compatibility).
+        return sb.ToString().ToLowerInvariant();
     }
     
     private void SkipWhitespaceAndComments()
