@@ -15,6 +15,7 @@ public abstract class Being : Object
     private int currentFaction;
     public AStarNode CachedPath;
     public Place CachedPathPlace;
+    private int visible = 1;
     
     // Cached Path for Multi-turn Movement
     protected LinkedList<AStarNode>? cachedPath;
@@ -230,7 +231,15 @@ public abstract class Being : Object
     /// </summary>
     public virtual bool IsVisible()
     {
-        return true;  // Default visible; can be overridden for invisibility
+        return visible > 0;
+    }
+
+    public void SetVisible(bool val)
+    {
+        if (val)
+            visible++;
+        else
+            visible--;
     }
 
     /// <summary>

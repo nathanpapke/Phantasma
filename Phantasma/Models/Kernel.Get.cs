@@ -68,4 +68,36 @@ public partial class Kernel
         // Return game ticks/turns elapsed.
         return Environment.TickCount;
     }
+    
+    /// <summary>
+    /// (kern-type-get-gifc type)
+    /// Gets the game interface closure (gifc) for an object type.
+    /// Returns the interaction handler closure, or nil if none.
+    /// </summary>
+    public static object TypeGetGameInterface(object type)
+    {
+        // Handle null - not necessarily an error per Nazghul comment:
+        // "Some objects (like characters) have no type"
+        if (type == null || IsNil(type))
+        {
+            return Builtins.Unspecified;
+        }
+        
+        // Try to get ObjectType directly or by tag.
+        ObjectType? objType = type as ObjectType;
+        
+        if (objType == null && type is string typeTag)
+        {
+            objType = Phantasma.GetRegisteredObject(typeTag) as ObjectType;
+        }
+        
+        if (objType == null)
+        {
+            // Not an ObjectType - could be Character, etc. Return nil.
+            return Builtins.Unspecified;
+        }
+        
+        // Return the interaction handler (gifc) or nil.
+        return objType.InteractionHandler ?? Builtins.Unspecified;
+    }
 }

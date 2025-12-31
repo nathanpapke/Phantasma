@@ -15,6 +15,17 @@ public struct Magic
     // Spell word dictionary (syllable -> word) - STATIC/GLOBAL
     // These are the same for all sessions (like "An", "Bet", "Corp")
     private static Dictionary<char, string> globalSpellWords = new();
+    
+    // Spell-by-code lookup for kern-add-spell (Ultima-style magic)
+    private static Dictionary<string, (ObjectType? Type, int Level, int Cost, int Context, int Flags, int Range,
+        int ActionPoints, List<ObjectType> Reagents)>
+        spellsByCode = new(StringComparer.OrdinalIgnoreCase);
+
+    public static (ObjectType? Type, int Level, int Cost, int Context, int Flags, int Range, int ActionPoints,
+        List<ObjectType> Reagents)? LookupSpellByCode(string code)
+    {
+        return spellsByCode.TryGetValue(code, out var entry) ? entry : null;
+    }
         
     // For enumeration (MixReagents needs to iterate all spells)
     private static HashSet<SpellType> allSpells = new();
@@ -30,6 +41,11 @@ public struct Magic
     public static void AddWordGlobal(char letter, string word)
     {
         globalSpellWords[char.ToUpper(letter)] = word;
+    }
+    
+    public static void AddSpellByCode(string code, ObjectType? type, int level, int cost, int context, int flags, int range, int actionPoints, List<ObjectType> reagents)
+    {
+        spellsByCode[code] = (type, level, cost, context, flags, range, actionPoints, reagents);
     }
     
     /// <summary>

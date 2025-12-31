@@ -31,31 +31,28 @@ public partial class Kernel
     
     public static object SetCrosshair(object objTypeRef)
     {
-        ObjectType objType = null;
-    
-        // Try direct cast first
-        if (objTypeRef is ObjectType ot)
-        {
-            objType = ot;
-        }
-        // Try looking up by string tag
-        else if (objTypeRef is string tag)
-        {
-            objType = Phantasma.GetRegisteredObject(tag) as ObjectType;
-        }
-    
+        // Handle variadic array wrapper from IronScheme.
+        if (objTypeRef is object[] arr && arr.Length > 0)
+            objTypeRef = arr[0];
+        
+        Console.WriteLine($"[DEBUG kern-set-crosshair] After unwrap: Type={objTypeRef?.GetType().Name}, " +
+                          $"Value={objTypeRef}");
+        
+        ObjectType? objType = ResolveObject<ObjectType>(objTypeRef);
+
         if (objType == null)
         {
             Console.WriteLine("kern-set-crosshair: invalid object type");
-            return "#f".Eval();
+            return Builtins.Unspecified;
         }
-    
-        // Store with well-known key "crosshair"
+
+        // Store with well-known "crosshair" key.
         Phantasma.RegisterObject("crosshair", objType);
-    
-        Console.WriteLine($"Crosshair type set to: {objType.Name}");
-    
-        return "#t".Eval();
+        $"(define crosshair \"crosshair\")".Eval(); //testing if this fixes it
+
+        Console.WriteLine($"  Set crosshair type: {objType.Name}");
+
+        return objType;
     }
     
     /// <summary>
@@ -65,25 +62,28 @@ public partial class Kernel
     /// </summary>
     public static object SetCursor(object spriteRef)
     {
-        // Get the sprite from the registry.
-        Sprite sprite = null;
-    
-        if (spriteRef is Sprite spr)
-        {
-            sprite = spr;
-        }
-        else if (spriteRef is string tag)
-        {
-            sprite = Phantasma.GetRegisteredObject(tag) as Sprite;
-        }
-    
+        // Handle variadic array wrapper from IronScheme.
+        if (spriteRef is object[] arr && arr.Length > 0)
+            spriteRef = arr[0];
+        
+        Console.WriteLine($"[DEBUG kern-set-cursor] After unwrap: Type={spriteRef?.GetType().Name}, " +
+                          $"Value={spriteRef}");
+        
+        Sprite? sprite = ResolveObject<Sprite>(spriteRef);
+
         if (sprite == null)
         {
             Console.WriteLine("kern-set-cursor: invalid sprite");
-            return "#f".Eval();
+            return Builtins.Unspecified;
         }
-    
-        return "#t".Eval();
+
+        // Store with well-known "cursor-sprite" key.
+        Phantasma.RegisterObject("cursor-sprite", sprite);
+        $"(define cursor-sprite \"cursor-sprite\")".Eval(); // testing if this fixes it
+
+        Console.WriteLine($"  Set cursor sprite: {sprite.Tag}");
+
+        return sprite;
     }
     
     public static object SetFrame(object[] args)

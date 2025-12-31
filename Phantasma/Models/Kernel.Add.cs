@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using IronScheme.Runtime;
 
 namespace Phantasma.Models;
@@ -153,5 +154,48 @@ public partial class Kernel
             RuntimeError($"kern-add-xray-vision: {ex.Message}");
             return Builtins.Unspecified;
         }
+    }
+    
+    /// <summary>
+    /// (kern-add-spell type code level cost context flags range action-points (reagent-list))
+    /// Adds a spell to the magic system indexed by its code (e.g., "AN" for An Nox).
+    /// </summary>
+    public static object AddSpell(
+        object typeArg, object codeArg, object levelArg, object costArg,
+        object contextArg, object flagsArg, object rangeArg, object actionPointsArg,
+        object reagentsArg)
+    {
+        var typeTag = typeArg?.ToString()?.TrimStart('\'') ?? "";
+        var code = codeArg?.ToString()?.ToUpperInvariant() ?? "";
+    
+        var objectType = Phantasma.GetRegisteredObject(typeTag) as ObjectType;
+    
+        int level = Convert.ToInt32(levelArg ?? 0);
+        int cost = Convert.ToInt32(costArg ?? 0);
+        int context = Convert.ToInt32(contextArg ?? 0);
+        int flags = Convert.ToInt32(flagsArg ?? 0);
+        int range = Convert.ToInt32(rangeArg ?? 0);
+        int actionPoints = Convert.ToInt32(actionPointsArg ?? 0);
+    
+        // Parse reagent list
+        var reagents = new List<ObjectType>();
+        if (reagentsArg is Cons cons)
+        {
+            foreach (var item in cons)
+            {
+                var reagentTag = item?.ToString();
+                if (!string.IsNullOrEmpty(reagentTag))
+                {
+                    var reagent = Phantasma.GetRegisteredObject(reagentTag) as ObjectType;
+                    if (reagent != null)
+                        reagents.Add(reagent);
+                }
+            }
+        }
+    
+        Magic.AddSpellByCode(code, objectType, level, cost, context, flags, range, actionPoints, reagents);
+    
+        Console.WriteLine($"  Added spell: {code} -> {typeTag} (level={level}, cost={cost})");
+        return Builtins.Unspecified;
     }
 }

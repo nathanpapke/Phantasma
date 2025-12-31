@@ -1,6 +1,7 @@
 using System;
 using IronScheme;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -81,6 +82,34 @@ public partial class Kernel
             return objType.Name;
     
         return "(unnamed)";
+    }
+    
+    // ============================================================
+    // kern-obj-get-type - Gets the ObjectType of an object
+    // ============================================================
+    public static object ObjectGetType(object obj)
+    {
+        if (obj == null || IsNil(obj))
+            return RuntimeHelpers.False;  // Return #f as nil.
+    
+        if (obj is Item item)
+            return (object?)item.Type ?? RuntimeHelpers.False;
+    
+        if (obj is Character)
+            return RuntimeHelpers.False;  // Characters have no ObjectType.
+    
+        if (obj is Being)
+            return RuntimeHelpers.False;
+    
+        // Try to resolve by tag.
+        if (obj is string tag)
+        {
+            var resolved = Phantasma.GetRegisteredObject(tag);
+            if (resolved is Item i)
+                return (object?)i.Type ?? RuntimeHelpers.False;
+        }
+    
+        return RuntimeHelpers.False;
     }
     
     public static object ObjectGetLocation(object args)
@@ -329,6 +358,52 @@ public partial class Kernel
 
         return obj.IsVisible();
     }
+
+    // ============================================================
+    // kern-obj-set-visible
+    // ============================================================
+    public static object ObjectSetVisible(object obj, object visible)
+    {
+        if (obj == null || IsNil(obj))
+        {
+            Console.WriteLine("[kern-obj-set-visible] null object");
+            return Builtins.Unspecified;
+        }
+        
+        bool val = Convert.ToBoolean(visible);
+        
+        // Try direct Being.
+        if (obj is Being being)
+        {
+            being.SetVisible(val);
+            return obj;
+        }
+        
+        // Try Item.
+        if (obj is Item item)
+        {
+            item.SetVisible(val);
+            return obj;
+        }
+        
+        // Try to resolve by tag.
+        if (obj is string tag)
+        {
+            var resolved = Phantasma.GetRegisteredObject(tag);
+            if (resolved is Being b)
+            {
+                b.SetVisible(val);
+                return resolved;
+            }
+            if (resolved is Item i)
+            {
+                i.SetVisible(val);
+                return resolved;
+            }
+        }
+        
+        return obj;
+    }
     
     /// <summary>
     /// (kern-obj-wander obj)
@@ -464,23 +539,60 @@ public partial class Kernel
     /// <returns>Unspecified</returns>
     public static object ObjectSetGob(object objArg, object gobData)
     {
-        // Handle the object argument.
-        Object? obj = objArg as Object;
-        
-        if (obj == null)
+        // Handle null object argument.
+        if (objArg == null)
         {
-            RuntimeError("kern-obj-set-gob: bad args");
+            Console.WriteLine("[RUNTIME ERROR] kern-obj-set-gob: null object");
             return Builtins.Unspecified;
         }
         
-        if (gobData == null)
+        // Check for Unspecified (this is what happens when kern-mk-obj fails).
+        if (objArg == Builtins.Unspecified)
         {
-            RuntimeError("kern-obj-set-gob: no gob specified");
+            Console.WriteLine("[RUNTIME ERROR] kern-obj-set-gob: object is #<unspecified> (kern-mk-obj may have failed)");
+            return Builtins.Unspecified;
+        }
+        
+        // Try to get the object directly or by tag.
+        Object obj = null;
+        
+        if (objArg is Object directObj)
+        {
+            obj = directObj;
+        }
+        else if (objArg is string tagStr)
+        {
+            string cleanTag = tagStr.TrimStart('\'').Trim('"');
+            var resolved = Phantasma.GetRegisteredObject(cleanTag);
+            if (resolved is Object resolvedObj)
+                obj = resolvedObj;
+        }
+        else
+        {
+            // Try ToTag for symbols.
+            string tag = ToTag(objArg);
+            if (!string.IsNullOrEmpty(tag))
+            {
+                var resolved = Phantasma.GetRegisteredObject(tag);
+                if (resolved is Object resolvedObj)
+                    obj = resolvedObj;
+            }
+        }
+        
+        if (obj == null)
+        {
+            Console.WriteLine($"[RUNTIME ERROR] kern-obj-set-gob: bad args (got {objArg?.GetType().Name ?? "null"})");
+            return Builtins.Unspecified;
+        }
+        
+        // Handle null gob data.
+        if (gobData == null || IsNil(gobData))
+        {
+            obj.Gob = null;
             return Builtins.Unspecified;
         }
         
         // Create a new Gob with the Scheme data.
-        // Set GOB_SAVECAR flag so the entire data structure is saved.
         obj.Gob = new Gob(gobData)
         {
             Flags = Gob.GOB_SAVECAR

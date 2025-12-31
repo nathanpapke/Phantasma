@@ -233,10 +233,18 @@ public partial class Kernel
         
         int w = Convert.ToInt32(width);
         int h = Convert.ToInt32(height);
-        var pal = palette as TerrainPalette;
+        
+        // Resolve palette - could be TerrainPalette object or tag string.
+        TerrainPalette? pal = palette as TerrainPalette;
+        if (pal == null && palette != null)
+        {
+            string palTag = palette.ToString()?.TrimStart('\'').Trim('"') ?? "";
+            pal = Phantasma.GetRegisteredObject(palTag) as TerrainPalette;
+        }
         
         if (pal == null)
         {
+            Console.WriteLine($"[kern-mk-map] {tagStr}: could not resolve palette '{palette}'");
             return Builtins.Unspecified;
         }
         
@@ -261,7 +269,7 @@ public partial class Kernel
                 {
                     string glyph = glyphs[x];
                     var terrain = pal.GetTerrainForGlyph(glyph);
-                    
+                
                     if (terrain != null)
                     {
                         map.SetTerrain(x, y, terrain);
@@ -277,6 +285,8 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
+        Console.WriteLine($"  Created map: {tagStr} ({w}x{h})");
+        
         return map;
     }
     
@@ -285,124 +295,232 @@ public partial class Kernel
     ///                subplaces neighbors contents hooks entrances)
     /// Creates a place (map/location).
     /// </summary>
-    public static object MakePlace(
-        object tag, object name,
-        object sprite, object map,
-        object wraps, object underground, object wild, object combat,
-        object subplaces, object neighbors, object contents,
-        object hooks, object entrances)
+    public static object MakePlace(object[] args)
     {
-        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
-        string nameStr = name?.ToString() ?? "Unnamed Place";
-
-        var terrainMap = map is TerrainMap ? (TerrainMap)map : default;
+        Console.WriteLine($"[DEBUG kern-mk-place] ENTRY - args count={args?.Length ?? 0}");
+        
+        if (args == null || args.Length < 8)
+        {
+            LoadError($"kern-mk-place: expected at least 8 args, got {args?.Length ?? 0}");
+            return Builtins.Unspecified;
+        }
+        
+        string tagStr = ToTag(args[0]);
+        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unnamed Place";
+        object spriteArg = args[2];
+        object mapArg = args[3];
+        bool wraps = ConvertToBool(args[4]);
+        bool underground = ConvertToBool(args[5]);
+        bool wild = ConvertToBool(args[6]);
+        bool combat = ConvertToBool(args[7]);
+        object subplacesArg = args.Length > 8 ? args[8] : null;
+        object neighborsArg = args.Length > 9 ? args[9] : null;
+        object contentsArg = args.Length > 10 ? args[10] : null;
+        object hooksArg = args.Length > 11 ? args[11] : null;
+        object entrancesArg = args.Length > 12 ? args[12] : null;
         
         Console.WriteLine($"  Creating place: {tagStr} - {nameStr}");
+        
+        // Resolve map.
+        TerrainMap terrainMap = default;
+        if (mapArg is TerrainMap tm)
+            terrainMap = tm;
+        else if (mapArg != null && !IsNil(mapArg))
+        {
+            var resolved = Phantasma.GetRegisteredObject(ToTag(mapArg));
+            if (resolved is TerrainMap resolvedMap)
+                terrainMap = resolvedMap;
+        }
+        
+        // Resolve sprite.
+        Sprite sprite = null;
+        if (spriteArg is Sprite s)
+            sprite = s;
+        else if (spriteArg != null && !IsNil(spriteArg))
+        {
+            var resolved = Phantasma.GetRegisteredObject(ToTag(spriteArg));
+            if (resolved is Sprite resolvedSprite)
+                sprite = resolvedSprite;
+        }
         
         var place = new Place
         {
             Tag = tagStr,
             Name = nameStr,
-            Sprite = sprite as Sprite,
-            Width = terrainMap.Width, // ?? 32,
-            Height = terrainMap.Height, // ?? 32,
+            Sprite = sprite,
+            Width = terrainMap.Width > 0 ? terrainMap.Width : 32,
+            Height = terrainMap.Height > 0 ? terrainMap.Height : 32,
             TerrainGrid = terrainMap.TerrainGrid,
-            Wraps = Convert.ToBoolean(wraps),
-            Underground = Convert.ToBoolean(underground),
-            Wilderness = Convert.ToBoolean(wild),
-            CombatEnabled = Convert.ToBoolean(combat)
+            Wraps = wraps,
+            Underground = underground,
+            Wilderness = wild,
+            CombatEnabled = combat
         };
         
-        // Initialize default edge entrances based on map size.
         place.SetDefaultEdgeEntrances();
         
         Console.WriteLine($"    Place created ({place.Width}x{place.Height})");
         
-        // Load subplaces: list of (subplace x y)
-        for (var list = subplaces as Cons; list != null; list = list.cdr as Cons)
+        // Load subplaces.
+        if (subplacesArg != null && !IsNil(subplacesArg))
         {
-            if (list.car is Cons entry)
+            Cons list = subplacesArg as Cons;
+            while (list != null)
             {
-                var subplace = entry.car as Place;
-                var rest = entry.cdr as Cons;
-                
-                if (subplace != null && rest != null)
+                if (list.car is Cons entry)
                 {
-                    int x = Convert.ToInt32(rest.car);
-                    int y = rest.cdr is Cons rest2 ? Convert.ToInt32(rest2.car) : 0;
+                    Place subplace = null;
+                    var subplaceArg = entry.car;
                     
-                    if (place.AddSubplace(subplace, x, y))
-                        Console.WriteLine($"    Added subplace {subplace.Tag} at ({x}, {y})");
-                }
-            }
-        }
-        
-        // Load neighbors: list of (neighbor direction) - UP/DOWN only.
-        for (var list = neighbors as Cons; list != null; list = list.cdr as Cons)
-        {
-            if (list.car is Cons entry)
-            {
-                var neighbor = entry.car as Place;
-                var rest = entry.cdr as Cons;
-                
-                if (neighbor != null && rest != null)
-                {
-                    int dir = Convert.ToInt32(rest.car);
-                    
-                    if (dir == Common.UP)
+                    if (subplaceArg is Place sp)
+                        subplace = sp;
+                    else if (subplaceArg != null && !IsNil(subplaceArg))
                     {
-                        place.Above = neighbor;
-                        neighbor.Below = place;
-                        Console.WriteLine($"    Linked {neighbor.Tag} above");
+                        var resolved = Phantasma.GetRegisteredObject(ToTag(subplaceArg));
+                        if (resolved is Place resolvedPlace)
+                            subplace = resolvedPlace;
                     }
-                    else if (dir == Common.DOWN)
+                    
+                    if (subplace != null)
                     {
-                        place.Below = neighbor;
-                        neighbor.Above = place;
-                        Console.WriteLine($"    Linked {neighbor.Tag} below");
+                        var rest = entry.cdr as Cons;
+                        if (rest != null)
+                        {
+                            int x = ToInt(rest.car, 0);
+                            int y = rest.cdr is Cons rest2 ? ToInt(rest2.car, 0) : 0;
+                            
+                            if (place.AddSubplace(subplace, x, y))
+                                Console.WriteLine($"    Added subplace {subplace.Tag} at ({x}, {y})");
+                        }
                     }
                 }
+                list = list.cdr as Cons;
             }
         }
         
-        // Load hooks: pre-entry closure.
-        if (hooks is Callable callable)
+        // Load neighbors.
+        if (neighborsArg != null && !IsNil(neighborsArg))
         {
-            place.PreEntryHook = callable;
-            Console.WriteLine($"    Set pre-entry hook");
-        }
-        else if (hooks is Cons hookList && hookList.car is Callable hookCallable)
-        {
-            place.PreEntryHook = hookCallable;
-            Console.WriteLine($"    Set pre-entry hook from list");
-        }
-        
-        // Load entrances: list of (direction x y).
-        for (var list = entrances as Cons; list != null; list = list.cdr as Cons)
-        {
-            if (list.car is Cons entry)
+            Cons list = neighborsArg as Cons;
+            while (list != null)
             {
-                int dir = Convert.ToInt32(entry.car);
-                var rest = entry.cdr as Cons;
-                
-                if (rest != null)
+                if (list.car is Cons entry)
                 {
-                    int x = Convert.ToInt32(rest.car);
-                    int y = rest.cdr is Cons rest2 ? Convert.ToInt32(rest2.car) : 0;
+                    Place neighbor = null;
+                    var neighborArg = entry.car;
                     
-                    if (place.SetEdgeEntrance((Direction)dir, x, y))
-                        Console.WriteLine($"    Set entrance for {Common.DirectionToString(dir)} at ({x}, {y})");
+                    if (neighborArg is Place np)
+                        neighbor = np;
+                    else if (neighborArg != null && !IsNil(neighborArg))
+                    {
+                        var resolved = Phantasma.GetRegisteredObject(ToTag(neighborArg));
+                        if (resolved is Place resolvedPlace)
+                            neighbor = resolvedPlace;
+                    }
+                    
+                    if (neighbor != null)
+                    {
+                        var rest = entry.cdr as Cons;
+                        if (rest != null)
+                        {
+                            int dir = ToInt(rest.car, -1);
+                            
+                            if (dir == Common.UP)
+                            {
+                                place.Above = neighbor;
+                                neighbor.Below = place;
+                                Console.WriteLine($"    Linked {neighbor.Tag} above");
+                            }
+                            else if (dir == Common.DOWN)
+                            {
+                                place.Below = neighbor;
+                                neighbor.Above = place;
+                                Console.WriteLine($"    Linked {neighbor.Tag} below");
+                            }
+                        }
+                    }
                 }
+                list = list.cdr as Cons;
             }
         }
         
-        // Note: contents typically handled by kern-obj-put-at after place creation.
+        // Load contents: list of (obj x y)
+        if (contentsArg != null && !IsNil(contentsArg))
+        {
+            Cons list = contentsArg as Cons;
+            while (list != null)
+            {
+                if (list.car is Cons entry)
+                {
+                    var objArg = entry.car;
+                    var rest = entry.cdr as Cons;
+                    
+                    if (objArg != null && !IsNil(objArg) && objArg != Builtins.Unspecified && rest != null)
+                    {
+                        int x = ToInt(rest.car, 0);
+                        int y = rest.cdr is Cons rest2 ? ToInt(rest2.car, 0) : 0;
+                        
+                        Object gameObj = null;
+                        if (objArg is Object directObj)
+                            gameObj = directObj;
+                        else
+                        {
+                            var resolved = Phantasma.GetRegisteredObject(ToTag(objArg));
+                            if (resolved is Object resolvedObj)
+                                gameObj = resolvedObj;
+                        }
+                        
+                        if (gameObj != null)
+                        {
+                            place.AddObject(gameObj, x, y);
+                        }
+                    }
+                }
+                list = list.cdr as Cons;
+            }
+        }
         
+        // Load hooks.
+        if (hooksArg != null && !IsNil(hooksArg))
+        {
+            if (hooksArg is Callable callable)
+                place.PreEntryHook = callable;
+            else if (hooksArg is Cons hookList && hookList.car is Callable hookCallable)
+                place.PreEntryHook = hookCallable;
+        }
+        
+        // Load entrances.
+        if (entrancesArg != null && !IsNil(entrancesArg))
+        {
+            Cons list = entrancesArg as Cons;
+            while (list != null)
+            {
+                if (list.car is Cons entry)
+                {
+                    int dir = ToInt(entry.car, -1);
+                    var rest = entry.cdr as Cons;
+                    
+                    if (rest != null && dir >= 0)
+                    {
+                        int x = ToInt(rest.car, 0);
+                        int y = rest.cdr is Cons rest2 ? ToInt(rest2.car, 0) : 0;
+                        
+                        if (place.SetEdgeEntrance((Direction)dir, x, y))
+                            Console.WriteLine($"    Set entrance for {Common.DirectionToString(dir)} at ({x}, {y})");
+                    }
+                }
+                list = list.cdr as Cons;
+            }
+        }
+        
+        // Register the place.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, place);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
+        
+        Console.WriteLine($"  Created place: {tagStr} ({place.Width}x{place.Height})");
         
         return place;
     }
@@ -434,70 +552,104 @@ public partial class Kernel
     ///                  xpval slots spells)
     /// Creates a species definition - full 21-parameter Nazghul signature.
     /// </summary>
-    public static object MakeSpecies(
-        object tag, object name,
-        object str, object intl, object dex, object spd, object vr,
-        object mmode,
-        object hpmod, object hpmult, object mpmod, object mpmult,
-        object sleepSprite, object weapon, object visible,
-        object damageSound, object walkingSound, object onDeath,
-        object xpval, object slots, object spells)
+    public static object MakeSpecies(object[] args)
     {
-        string tagStr = tag?.ToString()?.TrimStart('\'');
+        if (args.Length < 21)
+        {
+            LoadError($"kern-mk-species: expected 21 args, got {args.Length}");
+            return Builtins.Unspecified;
+        }
         
-        // Get Movement Mode
+        // Extract parameters.
+        string tagStr = ToTag(args[0]);                                    // 0: y = tag
+        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";      // 1: s = name
+        int str = ToInt(args[2], 10);                                      // 2: d = str
+        int intl = ToInt(args[3], 10);                                     // 3: d = intl
+        int dex = ToInt(args[4], 10);                                      // 4: d = dex
+        int spd = ToInt(args[5], 10);                                      // 5: d = spd
+        int vr = ToInt(args[6], 10);                                       // 6: d = vr (vision radius)
+        object mmodeArg = args[7];                                         // 7: p = mmode
+        int hpmod = ToInt(args[8], 10);                                    // 8: d = hpmod
+        int hpmult = ToInt(args[9], 5);                                    // 9: d = hpmult
+        int mpmod = ToInt(args[10], 5);                                    // 10: d = mpmod
+        int mpmult = ToInt(args[11], 2);                                   // 11: d = mpmult
+        object sleepSpriteArg = args[12];                                  // 12: p = sleep_sprite
+        object weaponArg = args[13];                                       // 13: p = weapon
+        bool visible = ConvertToBool(args[14] ?? true);                    // 14: b = visible
+        object damageSoundArg = args[15];                                  // 15: p = damage_sound
+        object walkingSoundArg = args[16];                                 // 16: p = walking_sound
+        object onDeathArg = args[17];                                      // 17: c = on_death
+        int xpval = ToInt(args[18], 10);                                   // 18: d = xpval
+        object slotsArg = args[19];                                        // 19: slots list
+        object spellsArg = args[20];                                       // 20: spells list
+
+        // Resolve movement mode (may be a struct - use same pattern as existing code).
         MovementMode movementMode;
-        if (mmode is MovementMode mm)
+        if (mmodeArg is MovementMode mm)
+        {
             movementMode = mm;
-        else if (mmode is int i)
+        }
+        else if (mmodeArg is int i)
+        {
             movementMode = new MovementMode(null, "Walking", i);
+        }
         else
-            movementMode = new MovementMode("mmode-walk", "Walking", 0);
+        {
+            // Try to resolve by tag.
+            var resolved = Phantasma.GetRegisteredObject(ToTag(mmodeArg));
+            if (resolved is MovementMode rmm)
+                movementMode = rmm;
+            else
+                movementMode = new MovementMode("mmode-walk", "Walking", 0);
+        }
         
+        // Parse slots list into int array.
+        int[]? slotsArray = ParseSlotsList(slotsArg);
         
-        // Parse slots list into int array
-        int[]? slotsArray = ParseSlotsList(slots);
+        // Parse spells list into string array.
+        string[]? spellsArray = ParseSpellsList(spellsArg);
         
-        // Parse spells list into string array
-        string[]? spellsArray = ParseSpellsList(spells);
-        
+        // Create species struct.
         var species = new Species
         {
             Tag = tagStr,
-            Name = name?.ToString() ?? "Unknown",
-            Str = Convert.ToInt32(str ?? 10),
-            Intl = Convert.ToInt32(intl ?? 10),
-            Dex = Convert.ToInt32(dex ?? 10),
-            Spd = Convert.ToInt32(spd ?? 10),
-            Vr = Convert.ToInt32(vr ?? 10),
+            Name = nameStr,
+            Str = str,
+            Intl = intl,
+            Dex = dex,
+            Spd = spd,
+            Vr = vr,
             MovementMode = movementMode,
-            HpMod = Convert.ToInt32(hpmod ?? 10),
-            HpMult = Convert.ToInt32(hpmult ?? 5),
-            MpMod = Convert.ToInt32(mpmod ?? 5),
-            MpMult = Convert.ToInt32(mpmult ?? 2),
-            SleepSprite = sleepSprite as Sprite,
-            Weapon = weapon as ArmsType,
-            Visible = ConvertToBool(visible ?? true),
-            // damageSound, walkingSound - TODO when sound system implemented
-            // onDeath - TODO when closure system implemented
-            XpVal = Convert.ToInt32(xpval ?? 10),
+            HpMod = hpmod,
+            HpMult = hpmult,
+            MpMod = mpmod,
+            MpMult = mpmult,
+            SleepSprite = ResolveObject<Sprite>(sleepSpriteArg),
+            Weapon = ResolveObject<ArmsType>(weaponArg),
+            Visible = visible,
+            XpVal = xpval,
             Slots = slotsArray,
             Spells = spellsArray
         };
         
-        if (onDeath != null && !(onDeath is bool b && b == false))
+        // Set on-death closure if provided.
+        if (!IsNil(onDeathArg))
         {
-            species.OnDeath = onDeath;
+            species.OnDeath = onDeathArg;
         }
         
+        // Set sounds if provided.
+        species.DamageSound = ResolveObject<Sound>(damageSoundArg);
+        species.MovementSound = ResolveObject<Sound>(walkingSoundArg);
+        
+        // Register the species.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, species);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        int slotCount = slotsArray?.Length ?? 0;
-        Console.WriteLine($"  Created species: {species.Name} (str={species.Str}, dex={species.Dex}, hp={species.HpMod}+{species.HpMult}/lvl)");
+        Console.WriteLine($"  Created species: {nameStr} (str={str}, dex={dex}, hp={hpmod}+{hpmult}/lvl)");
         
         return species;
     }
@@ -533,6 +685,7 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, occ);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
         Console.WriteLine($"  Created occupation: {occ.Name} (magic={occ.Magic:F1}, hp+{occ.HpMod}+{occ.HpMult}/lvl)");
@@ -548,99 +701,255 @@ public partial class Kernel
     ///              readied-list hooks-list)
     /// Creates a character - full 24-parameter Nazghul signature.
     /// </summary>
-    public static object MakeCharacter(
-        object tag, object name, object species, object occ, object sprite,
-        object baseFaction,
-        object str, object intl, object dex,
-        object hpmod, object hpmult, object mpmod, object mpmult,
-        object hp, object xp, object mp, object lvl,
-        object dead,
-        object conv, object sched, object ai, object inventory,
-        object readiedList, object hooksList)
+    public static object MakeCharacter(object[] args)
     {
-        string tagStr = tag?.ToString()?.TrimStart('\'');
+        if (args == null)
+        {
+            LoadError("kern-mk-char: args is null");
+            return Builtins.Unspecified;
+        }
         
+        if (args.Length < 21)
+        {
+            LoadError($"kern-mk-char: expected at least 21 args, got {args.Length}");
+            return Builtins.Unspecified;
+        }
+        
+        // Extract parameters with bounds checking.
+        string tagStr = ToTag(args[0]);
+        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";
+        object speciesArg = args[2];
+        object occArg = args[3];
+        object spriteArg = args[4];
+        int baseFaction = ToInt(args[5], 0);
+        int str = ToInt(args[6], 10);
+        int intl = ToInt(args[7], 10);
+        int dex = ToInt(args[8], 10);
+        int hpmod = ToInt(args[9], 0);
+        int hpmult = ToInt(args[10], 0);
+        int mpmod = ToInt(args[11], 0);
+        int mpmult = ToInt(args[12], 0);
+        int hp = ToInt(args[13], 0);
+        int xp = ToInt(args[14], 0);
+        int mp = ToInt(args[15], 0);
+        int lvl = ToInt(args[16], 1);
+        bool dead = ConvertToBool(args[17]);
+        object convArg = args[18];
+        object schedArg = args[19];
+        object aiArg = args[20];
+        object inventoryArg = args.Length > 21 ? args[21] : null;
+        object readiedArg = args.Length > 22 ? args[22] : null;
+        object hooksArg = args.Length > 23 ? args[23] : null;
+        
+        // Resolve sprite.
+        Sprite sprite = null;
+        if (spriteArg is Sprite s)
+            sprite = s;
+        else if (spriteArg != null && !IsNil(spriteArg))
+        {
+            var resolved = Phantasma.GetRegisteredObject(ToTag(spriteArg));
+            if (resolved is Sprite resolvedSprite)
+                sprite = resolvedSprite;
+        }
+        
+        // Create character.
         var character = new Character();
-        character.SetName(name?.ToString() ?? "Unknown");
+        character.SetName(nameStr);
         
-        // Set sprite.
-        if (sprite is Sprite s)
-            character.CurrentSprite = s;
+        if (sprite != null)
+            character.CurrentSprite = sprite;
         
-        // Set species if available.
-        if (species is Species sp)
+        // Set species (struct).
+        if (speciesArg is Species sp)
+        {
             character.Species = sp;
+        }
+        else if (speciesArg != null && !IsNil(speciesArg))
+        {
+            var resolved = Phantasma.GetRegisteredObject(ToTag(speciesArg));
+            if (resolved is Species resolvedSpecies)
+                character.Species = resolvedSpecies;
+        }
         
-        // Set occupation if available.
-        if (occ is Occupation o)
+        // Set occupation (struct).
+        if (occArg is Occupation o)
+        {
             character.Occupation = o;
+        }
+        else if (occArg != null && !IsNil(occArg))
+        {
+            var resolved = Phantasma.GetRegisteredObject(ToTag(occArg));
+            if (resolved is Occupation resolvedOcc)
+                character.Occupation = resolvedOcc;
+        }
         
-        // Set base faction.
-        character.SetBaseFaction(Convert.ToInt32(baseFaction ?? 0));
+        // Set base faction and stats.
+        character.SetBaseFaction(baseFaction);
+        character.Strength = str;
+        character.Intelligence = intl;
+        character.Dexterity = dex;
+        character.HpMod = hpmod;
+        character.HpMult = hpmult;
+        character.MpMod = mpmod;
+        character.MpMult = mpmult;
+        character.Level = lvl;
         
-        // Set base stats.
-        character.Strength = Convert.ToInt32(str ?? 10);
-        character.Intelligence = Convert.ToInt32(intl ?? 10);
-        character.Dexterity = Convert.ToInt32(dex ?? 10);
-        
-        // HP Calculation
-        int baseHpMod = Convert.ToInt32(hpmod ?? 10);
-        int hpPerLevel = Convert.ToInt32(hpmult ?? 5);
-        int currentHp = Convert.ToInt32(hp ?? 0);
-        int level = Convert.ToInt32(lvl ?? 1);
-
+        // Calculate HP and MP.
         character.MaxHP = character.GetMaxHp();
-        character.HP = currentHp > 0 ? currentHp : character.MaxHP;
-        
-        // MP Calculation
-        int baseMpMod = Convert.ToInt32(mpmod ?? 5);
-        int mpPerLevel = Convert.ToInt32(mpmult ?? 2);
-        int currentMp = Convert.ToInt32(mp ?? 0);
-
+        character.HP = hp > 0 ? hp : character.MaxHP;
         character.MaxMP = character.GetMaxMana();
-        character.MP = currentMp > 0 ? currentMp : character.MaxMP;
+        character.MP = mp > 0 ? mp : character.MaxMP;
+        character.Experience = xp;
         
-        // XP and Level
-        character.Experience = Convert.ToInt32(xp ?? 0);
-        character.Level = level;
-        
-        // Dead Flag
-        //character.IsDead =  ConvertToBool(dead);
-        // Character IsDead if HP == 0
+        if (dead || hp == 0)
+            character.HP = 0;
         
         // Store conversation closure.
-        if (conv != null && !(conv is bool b && b == false))
-        {
-            character.Conversation = conv;
-        }
-        // sched - schedule
-        // TODO: Implement scheduling system.
-        // ai - AI closure
-        // TODO: Implement AI system.
-        // inventory - Container
-        // TODO: Implement inventory.
+        if (convArg != null && !IsNil(convArg))
+            character.Conversation = convArg;
         
-        // readiedList - list of readied arms
-        // TODO: Implement equipment.
-        // Process readied arms list
-        if (readiedList is Cons armsList)   
-        {
-            // TODO: Iterate through and ready each arm.
-            // while (armsList != null) { ... }
-        }
+        // Store AI closure.
+        if (aiArg != null && !IsNil(aiArg))
+            character.AIBehavior = aiArg;
         
-        // hooksList - list of effect hooks (TODO: implement hooks)
-        if (hooksList is Cons hooks)
+        // Set schedule.
+        if (schedArg != null && !IsNil(schedArg))
         {
-            // TODO: Process hooks.
+            if (schedArg is Schedule sched)
+                character.Schedule = sched;
+            else
+            {
+                var resolved = Phantasma.GetRegisteredObject(ToTag(schedArg));
+                if (resolved is Schedule resolvedSched)
+                    character.Schedule = resolvedSched;
+            }
         }
         
+        // Set inventory.
+        if (inventoryArg != null && !IsNil(inventoryArg))
+        {
+            if (inventoryArg is Container cont)
+                character.SetInventoryContainer(cont);
+            else
+            {
+                var resolved = Phantasma.GetRegisteredObject(ToTag(inventoryArg));
+                if (resolved is Container resolvedCont)
+                    character.SetInventoryContainer(resolvedCont);
+            }
+        }
+        
+        // Process readied arms list - SAFELY.
+        if (readiedArg != null && !IsNil(readiedArg))
+        {
+            Cons currentReadied = readiedArg as Cons;
+            while (currentReadied != null)
+            {
+                var item = currentReadied.car;
+                
+                // Skip null, nil, or unspecified items.
+                if (item == null || IsNil(item) || item == Builtins.Unspecified)
+                {
+                    currentReadied = currentReadied.cdr as Cons;
+                    continue;
+                }
+                
+                ArmsType arms = null;
+                
+                if (item is ArmsType at)
+                {
+                    arms = at;
+                }
+                else
+                {
+                    string armTag = ToTag(item);
+                    if (!string.IsNullOrEmpty(armTag))
+                    {
+                        var resolved = Phantasma.GetRegisteredObject(armTag);
+                        if (resolved is ArmsType resolvedArms)
+                            arms = resolvedArms;
+                        else
+                            Console.WriteLine($"  [WARNING] kern-mk-char {tagStr}: readied item '{armTag}' not found or not ArmsType");
+                    }
+                }
+                
+                if (arms != null)
+                {
+                    character.Ready(arms);
+                }
+                
+                currentReadied = currentReadied.cdr as Cons;
+            }
+        }
+        
+        // Process hooks list - SAFELY.
+        if (hooksArg != null && !IsNil(hooksArg))
+        {
+            Cons currentHook = hooksArg as Cons;
+            while (currentHook != null)
+            {
+                var hookItem = currentHook.car;
+                
+                if (hookItem == null || IsNil(hookItem) || hookItem == Builtins.Unspecified)
+                {
+                    currentHook = currentHook.cdr as Cons;
+                    continue;
+                }
+                
+                if (hookItem is Cons hookEntry)
+                {
+                    var effectArg = hookEntry.car;
+                    Effect effect = null;
+                    
+                    if (effectArg is Effect e)
+                        effect = e;
+                    else if (effectArg != null && !IsNil(effectArg))
+                    {
+                        var resolved = Phantasma.GetRegisteredObject(ToTag(effectArg));
+                        if (resolved is Effect resolvedEffect)
+                            effect = resolvedEffect;
+                    }
+                    
+                    if (effect != null)
+                    {
+                        object gob = null;
+                        int duration = effect.Duration;
+                        int flags = 0;
+                        
+                        var rest = hookEntry.cdr as Cons;
+                        if (rest != null)
+                        {
+                            gob = rest.car;
+                            if (gob != null && IsNil(gob)) 
+                                gob = null;
+                            
+                            var rest2 = rest.cdr as Cons;
+                            if (rest2 != null)
+                            {
+                                duration = ToInt(rest2.car, effect.Duration);
+                                
+                                var rest3 = rest2.cdr as Cons;
+                                if (rest3 != null)
+                                    flags = ToInt(rest3.car, 0);
+                            }
+                        }
+                        
+                        character.RestoreEffect(effect, gob, flags, duration);
+                    }
+                }
+                
+                currentHook = currentHook.cdr as Cons;
+            }
+        }
+        
+        // Register the character.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, character);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created character: {character.Name} (str={character.Strength}, hp={character.HP}/{character.MaxHP}, lvl={character.Level})");
+        Console.WriteLine($"  Created character: {nameStr} (str={character.GetStrength()}, " +
+                          $"hp={character.HP}/{character.MaxHP}, lvl={lvl})");
         
         return character;
     }
@@ -651,25 +960,100 @@ public partial class Kernel
     /// </summary>
     public static object MakeObject(object type, object count)
     {
+        int itemCount = ToInt(count, 1);
+        
+        // Handle null or nil type.
+        if (type == null || IsNil(type))
+        {
+            Console.WriteLine($"  [WARNING] kern-mk-obj: null or nil type");
+            return Builtins.Unspecified;
+        }
+        
+        // Direct ObjectType.
         if (type is ObjectType objType)
         {
             var item = new Item
             {
                 Type = objType,
-                Count = Convert.ToInt32(count ?? 1)
+                Count = itemCount
             };
-        
-            // Copy properties from type.
             item.Name = objType.Name;
-            if (objType.Sprite != null)
-                item.Type.Sprite = objType.Sprite;
-        
-            Console.WriteLine($"  Created object: {objType.Name} x{item.Count}");
-        
+            Console.WriteLine($"  Created object: {objType.Name} x{itemCount}");
             return item;
         }
-    
-        Console.WriteLine("  [WARNING] kern-mk-obj: invalid type");
+        
+        // Direct ArmsType - weapons and armor can also be created this way.
+        if (type is ArmsType armsType)
+        {
+            var item = new Item
+            {
+                Type = armsType,
+                Count = itemCount
+            };
+            item.Name = armsType.Name;
+            Console.WriteLine($"  Created arms object: {armsType.Name} x{itemCount}");
+            return item;
+        }
+        
+        // Direct FieldType - creates a Field object.
+        if (type is FieldType fieldType)
+        {
+            var field = new Field(fieldType, fieldType.Duration);
+            Console.WriteLine($"  Created field object: {fieldType.Name}");
+            return field;
+        }
+        
+        // Try to resolve by string tag.
+        string tagStr = ToTag(type);
+        if (string.IsNullOrEmpty(tagStr))
+        {
+            Console.WriteLine($"  [WARNING] kern-mk-obj: cannot convert type to tag ({type?.GetType().Name ?? "null"})");
+            return Builtins.Unspecified;
+        }
+        
+        var resolved = Phantasma.GetRegisteredObject(tagStr);
+        
+        if (resolved == null)
+        {
+            Console.WriteLine($"  [WARNING] kern-mk-obj: type '{tagStr}' not found in registry");
+            return Builtins.Unspecified;
+        }
+        
+        // Resolved to ObjectType.
+        if (resolved is ObjectType resolvedObjType)
+        {
+            var item = new Item
+            {
+                Type = resolvedObjType,
+                Count = itemCount
+            };
+            item.Name = resolvedObjType.Name;
+            Console.WriteLine($"  Created object: {resolvedObjType.Name} x{itemCount}");
+            return item;
+        }
+        
+        // Resolved to ArmsType.
+        if (resolved is ArmsType resolvedArmsType)
+        {
+            var item = new Item
+            {
+                Type = resolvedArmsType,
+                Count = itemCount
+            };
+            item.Name = resolvedArmsType.Name;
+            Console.WriteLine($"  Created arms object: {resolvedArmsType.Name} x{itemCount}");
+            return item;
+        }
+        
+        // Resolved to FieldType.
+        if (resolved is FieldType resolvedFieldType)
+        {
+            var field = new Field(resolvedFieldType, resolvedFieldType.Duration);
+            Console.WriteLine($"  Created field object: {resolvedFieldType.Name}");
+            return field;
+        }
+        
+        Console.WriteLine($"  [WARNING] kern-mk-obj: type '{tagStr}' resolved to unsupported type ({resolved.GetType().Name})");
         return Builtins.Unspecified;
     }
     
@@ -704,6 +1088,8 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
+        Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}'");
+        
         return objType;
     }
 
@@ -713,21 +1099,33 @@ public partial class Kernel
     ///                    weight fire-sound gifc-cap gifc)
     /// Creates a weapon or armor type.
     /// </summary>
-    public static object MakeArmsType(
-        object tag, object name, object sprite,
-        object toHit, object damage, object armor, object defend,
-        object slots, object hands, object range, object rap,
-        object missile, object thrown, object ubiq, object weight,
-        object fireSound, object gifcCap, object gifc)
+    public static object MakeArmsType(object[] args)
     {
-        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
-        string nameStr = name?.ToString() ?? tagStr;
+        if (args.Length < 18)
+        {
+            LoadError($"kern-mk-arms-type: expected 18 args, got {args.Length}");
+            return Builtins.Unspecified;
+        }
         
-        // Get dice strings.
-        string toHitDice = toHit?.ToString() ?? "0";
-        string damageDice = damage?.ToString() ?? "0";
-        string armorDice = armor?.ToString() ?? "0";
-        string defendDice = defend?.ToString() ?? "0";
+        // Extract parameters.
+        string tagStr = ToTag(args[0]);                                    // 0: y = tag
+        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";      // 1: s = name
+        object spriteArg = args[2];                                        // 2: p = sprite
+        string toHitDice = args[3]?.ToString()?.Trim('"') ?? "0";          // 3: s = hit dice
+        string damageDice = args[4]?.ToString()?.Trim('"') ?? "0";         // 4: s = damage dice
+        string armorDice = args[5]?.ToString()?.Trim('"') ?? "0";          // 5: s = armor dice
+        string defendDice = args[6]?.ToString()?.Trim('"') ?? "0";         // 6: s = defend dice
+        int slots = ToInt(args[7], 0x01);                                  // 7: d = slots (bitmask)
+        int hands = ToInt(args[8], 1);                                     // 8: d = hands required
+        int range = ToInt(args[9], 1);                                     // 9: d = range
+        int rap = ToInt(args[10], 1);                                      // 10: d = required action points
+        object missileArg = args[11];                                      // 11: p = missile type
+        bool thrown = ConvertToBool(args[12]);                             // 12: b = thrown
+        bool ubiq = ConvertToBool(args[13]);                               // 13: b = ubiquitous ammo
+        int weight = ToInt(args[14], 0);                                   // 14: d = weight
+        object fireSoundArg = args[15];                                    // 15: p = fire_sound
+        int gifcCap = ToInt(args[16], 0);                                  // 16: d = gifc_cap
+        object gifcArg = args[17];                                         // 17: o = gifc closure
         
         // Validate dice notation.
         if (!Dice.IsValid(toHitDice))
@@ -751,30 +1149,45 @@ public partial class Kernel
             return Builtins.Unspecified;
         }
         
-        // Use the full constructor - it sets all protected properties internally.
+        // Resolve missile type (for ranged weapons).
+        var missileType = ResolveObject<ArmsType>(missileArg);
+        
+        // Use the ArmsType constructor.
         var armsType = new ArmsType(
             tag: tagStr,
             name: nameStr,
-            sprite: sprite as Sprite,
-            slotMask: Convert.ToInt32(slots ?? 0x01),
+            sprite: ResolveObject<Sprite>(spriteArg),
+            slotMask: slots,
             toHitDice: toHitDice,
             toDefendDice: defendDice,
-            numHands: Convert.ToInt32(hands ?? 1),
-            range: Convert.ToInt32(range ?? 1),
-            weight: Convert.ToInt32(weight ?? 0),
+            numHands: hands,
+            range: range,
+            weight: weight,
             damageDice: damageDice,
             armorDice: armorDice,
-            requiredActionPoints: Convert.ToInt32(rap ?? 1),
-            thrown: Convert.ToBoolean(thrown),
-            ubiquitousAmmo: Convert.ToBoolean(ubiq),
-            missileType: missile as ArmsType  // null if not provided
+            requiredActionPoints: rap,
+            thrown: thrown,
+            ubiquitousAmmo: ubiq,
+            missileType: missileType
         );
         
+        // Set fire sound if provided.
+        armsType.FireSound = ResolveObject<Sound>(fireSoundArg);
+        
+        // Store gifc closure if provided (for interaction handler)
+        // Note: ArmsType inherits from ObjectType which has InteractionHandler
+        // but we may need to check if this property exists.
+        // if (!IsNil(gifcArg))
+        //     armsType.InteractionHandler = gifcArg;
+        
+        // Register the arms type.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, armsType);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
+        
+        Console.WriteLine($"  Created arms type: {nameStr} (dmg={damageDice}, rng={range})");
         
         return armsType;
     }
@@ -811,7 +1224,7 @@ public partial class Kernel
             }
         }
     
-        Console.WriteLine($"  Created container");
+        Console.WriteLine($"  Created container with {container.Capacity} item types");
     
         return container;
     }
@@ -902,6 +1315,7 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, party);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         Phantasma.RegisterObject(KEY_PLAYER_PARTY, party);
         
@@ -909,6 +1323,7 @@ public partial class Kernel
         if (firstMember != null)
         {
             Phantasma.RegisterObject(KEY_PLAYER_CHARACTER, firstMember);
+            $"(define {KEY_PLAYER_CHARACTER} \"{firstMember}\")".Eval();
             Console.WriteLine($"  Set player character: {firstMember.GetName()}");
         }
         
@@ -1036,6 +1451,8 @@ public partial class Kernel
             Magic.RegisterSpellForEnumeration(spell);     // For enumeration
         }
         
+        Console.WriteLine($"  Created spell: {tagStr} '{nameStr}' (lvl={level}, mana={manaCost})");
+        
         return spell;
     }
     
@@ -1045,43 +1462,58 @@ public partial class Kernel
     ///                hook-name status-code detect-dc sprite cumulative duration)
     /// Creates an effect type.
     /// </summary>
-    public static object MakeEffect(
-        object tag, object name, object description,
-        object execProc, object applyProc, object removeProc, object restartProc,
-        object hookName,
-        object statusCode, object detectDc, object sprite, 
-        object cumulative, object duration)
+    public static object MakeEffect(object[] args)
     {
-        string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
-        string nameStr = name?.ToString() ?? "Unknown Effect";
-        string descStr = description?.ToString() ?? "";
-        string hookStr = hookName?.ToString() ?? "start-of-turn";
-        
-        // Convert hook name to ID.
-        HookId? hookId = hookStr.ToLowerInvariant() switch
+        if (args.Length < 13)
         {
-            "start-of-turn" => HookId.StartOfTurn,
-            "on-add-hook" => HookId.AddHook,
-            "on-damage" => HookId.Damage,
-            "on-keystroke" => HookId.Keystroke,
-            _ => null
-        };
-        
-        if (hookId == null)
-        {
-            LoadError($"kern-mk-effect: bad hook '{hookStr}'");
+            LoadError($"kern-mk-effect: expected 13 args, got {args.Length}");
             return Builtins.Unspecified;
         }
+
+        // Extract parameters.
+        string tagStr = ToTag(args[0]);                                    // 0: y = tag
+        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";      // 1: s = name
+        string descStr = args[2]?.ToString()?.Trim('"') ?? "";             // 2: s = description
+        object execProc = args[3];                                         // 3: c = exec_proc
+        object applyProc = args[4];                                        // 4: c = apply_proc
+        object removeProc = args[5];                                       // 5: c = rm_proc
+        object restartProc = args[6];                                      // 6: c = restart_proc
+        string hookName = args[7]?.ToString()?.Trim('"') ?? "start-of-turn"; // 7: s = hook_name
+        string statusCodeStr = args[8]?.ToString() ?? " ";                 // 8: s = status_code
+        int detectDc = ToInt(args[9], 0);                                  // 9: d = detect_dc
+        object spriteArg = args[10];                                       // 10: p = sprite
+        bool cumulative = ConvertToBool(args[11]);                         // 11: b = cumulative
+        int duration = ToInt(args[12], -1);                                // 12: d = duration (-1 = permanent)
+
+        // Convert hook name to HookId.
+        HookId hookId = hookName.ToLowerInvariant() switch
+        {
+            "start-of-turn" or "start-of-turn-hook" => HookId.StartOfTurn,
+            "on-add-hook" or "add-hook" => HookId.AddHook,
+            "on-damage" or "damage-hook" => HookId.Damage,
+            "on-keystroke" or "keystroke-hook" => HookId.Keystroke,
+            _ => HookId.StartOfTurn  // Default
+        };
         
+        // Warn if unknown hook name.
+        if (!hookName.ToLowerInvariant().Contains("turn") &&
+            !hookName.ToLowerInvariant().Contains("add") &&
+            !hookName.ToLowerInvariant().Contains("damage") &&
+            !hookName.ToLowerInvariant().Contains("keystroke"))
+        {
+            Console.WriteLine($"  [WARNING] kern-mk-effect: unknown hook '{hookName}', defaulting to start-of-turn");
+        }
+        
+        // Create effect.
         var effect = new Effect
         {
             Tag = tagStr,
             Name = nameStr,
             Description = descStr,
-            HookId = hookId.Value,
-            DetectDC = Convert.ToInt32(detectDc ?? 0),
-            Cumulative = ConvertToBool(cumulative),
-            Duration = Convert.ToInt32(duration ?? -1)
+            HookId = hookId,
+            DetectDC = detectDc,
+            Cumulative = cumulative,
+            Duration = duration
         };
         
         // Store closures (nil becomes null).
@@ -1090,21 +1522,20 @@ public partial class Kernel
         effect.RemoveClosure = IsNil(removeProc) ? null : removeProc;
         effect.RestartClosure = IsNil(restartProc) ? null : restartProc;
         
-        // Status code is a single character string.
-        string statusStr = statusCode?.ToString() ?? " ";
-        effect.StatusCode = statusStr.Length > 0 ? statusStr[0] : ' ';
+        // Status code is a single character.
+        effect.StatusCode = statusCodeStr.Length > 0 ? statusCodeStr[0] : ' ';
         
-        // Sprite (may be nil).
-        if (sprite is Sprite s)
-            effect.Sprite = s;
+        // Set sprite if provided.
+        effect.Sprite = ResolveObject<Sprite>(spriteArg);
         
         // Register the effect.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, effect);
+            $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created effect: {tagStr} - {nameStr} (hook={hookStr}, dur={effect.Duration})");
+        Console.WriteLine($"  Created effect: {tagStr} - {nameStr} (hook={hookName}, dur={duration})");
         
         return effect;
     }
@@ -1402,6 +1833,7 @@ public partial class Kernel
                 ptable.SetCost(mmode, pclass, rows[pclass][mmode]);
     
         Phantasma.RegisterObject("ptable", ptable);
+        $"(define ptable \"ptable\")".Eval();
     
         Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} table");
         return Builtins.Unspecified;
@@ -1419,64 +1851,61 @@ public partial class Kernel
     ///   KERN_API_CALL(kern_mk_dtable) - args is list of rows
     ///   Returns a pointer to the dtable (for use with kern-dtable-* functions)
     /// </remarks>
-    public static object MakeDiplomacyTable(object args)
+    public static object MakeDiplomacyTable(object[] args)
     {
-        try
+        if (args == null || args.Length == 0)
         {
-            // Convert args to list of rows.
-            var rows = ConvertToListOfLists(args);
-            
-            if (rows.Count == 0)
-            {
-                Console.Error.WriteLine("[kern-mk-dtable] Error: 0 factions given");
-                return Builtins.Unspecified;
-            }
-            
-            int numFactions = rows.Count;
-            
-            // Validate square table.
-            if (rows[0].Count != numFactions)
-            {
-                Console.Error.WriteLine("[kern-mk-dtable] Error: # of rows and columns must be same");
-                return Builtins.Unspecified;
-            }
-            
-            // Validate all rows have correct number of columns.
-            for (int i = 0; i < rows.Count; i++)
-            {
-                if (rows[i].Count < numFactions)
-                {
-                    Console.Error.WriteLine($"[kern-mk-dtable] Error: row {i} has only {rows[i].Count} columns (expected {numFactions})");
-                    return Builtins.Unspecified;
-                }
-            }
-            
-            // Create the diplomacy table.
-            var dtable = new DiplomacyTable(numFactions);
-            
-            // Fill in the values.
-            for (int f1 = 0; f1 < numFactions; f1++)
-            {
-                for (int f2 = 0; f2 < numFactions; f2++)
-                {
-                    int level = rows[f1][f2];
-                    // Note: DiplomacyTable.Set already handles symmetry.
-                    // But we set both directions explicitly as Nazghul does.
-                    dtable.Set(f1, f2, level);
-                }
-            }
-            
-            Phantasma.RegisterObject("dtable", dtable);
-            
-            Console.WriteLine($"[kern-mk-dtable] Created {numFactions}×{numFactions} diplomacy table");
-            
-            return dtable;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[kern-mk-dtable] Error: {ex.Message}");
+            Console.Error.WriteLine("[kern-mk-dtable] Error: 0 factions given");
             return Builtins.Unspecified;
         }
+    
+        // Each arg is a list of diplomacy levels for one faction.
+        var rows = new List<List<int>>();
+    
+        foreach (var arg in args)
+        {
+            var row = ConvertToIntList(arg);
+            rows.Add(row);
+        }
+    
+        int numFactions = rows.Count;
+    
+        // Validate square table.
+        if (rows[0].Count != numFactions)
+        {
+            Console.Error.WriteLine($"[kern-mk-dtable] Error: # of rows ({numFactions}) and columns ({rows[0].Count}) must be same");
+            return Builtins.Unspecified;
+        }
+    
+        // Validate all rows have correct number of columns.
+        for (int i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].Count < numFactions)
+            {
+                Console.Error.WriteLine($"[kern-mk-dtable] Error: row {i} has only {rows[i].Count} columns (expected {numFactions})");
+                return Builtins.Unspecified;
+            }
+        }
+    
+        // Create the diplomacy table.
+        var dtable = new DiplomacyTable(numFactions);
+    
+        // Fill in the values.
+        for (int f1 = 0; f1 < numFactions; f1++)
+        {
+            for (int f2 = 0; f2 < numFactions; f2++)
+            {
+                int level = rows[f1][f2];
+                dtable.Set(f1, f2, level);
+            }
+        }
+    
+        Phantasma.RegisterObject("dtable", dtable);
+        $"(define dtable \"dtable\")".Eval();
+    
+        Console.WriteLine($"[kern-mk-dtable] Created {numFactions}x{numFactions} diplomacy table");
+    
+        return dtable;
     }
     
     /// <summary>

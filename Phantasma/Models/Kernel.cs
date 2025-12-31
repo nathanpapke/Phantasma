@@ -77,7 +77,7 @@ public partial class Kernel
         DefineFunction("kern-mk-palette", MakePalette);
         DefineFunction("kern-mk-map", MakeMap);
         DefineFunction("kern-mk-place", MakePlace);
-        DefineFunction("kern-mk-mmode", MakeMovementMode);//
+        DefineFunction("kern-mk-mmode", MakeMovementMode);
         DefineFunction("kern-mk-species", MakeSpecies);
         DefineFunction("kern-mk-occ", MakeOccupation);
         DefineFunction("kern-mk-char", MakeCharacter);
@@ -95,7 +95,7 @@ public partial class Kernel
         DefineFunction("kern-mk-vehicle-type", MakeVehicleType);
         DefineFunction("kern-mk-vehicle", MakeVehicle);
         DefineFunction("kern-mk-sound", MakeSound);
-        DefineFunction("kern-mk-ptable", MakePassabilityTable);//
+        DefineFunction("kern-mk-ptable", MakePassabilityTable);
         DefineFunction("kern-mk-dtable", MakeDiplomacyTable);
         DefineFunction("kern-mk-field-type", MakeFieldType);
         DefineFunction("kern-mk-party-type", MakePartyType);
@@ -132,6 +132,7 @@ public partial class Kernel
         DefineFunction("kern-add-time-stop", AddTimeStop);
         DefineFunction("kern-add-magic-negated", AddMagicNegated);
         DefineFunction("kern-add-xray-vision", AddXrayVision);
+        DefineFunction("kern-add-spell", AddSpell);
         
         // ===================================================================
         // KERN-GET API - Accessor Functions
@@ -142,6 +143,7 @@ public partial class Kernel
         DefineFunction("kern-get-distance", GetDistance);
         DefineFunction("kern-get-objects-at", GetObjectsAt);
         DefineFunction("kern-get-ticks", GetTicks);
+        DefineFunction("kern-type-get-gifc", TypeGetGameInterface);
         
         // ===================================================================
         // KERN-PLACE API - Map/Place Manipulation Functions
@@ -168,6 +170,7 @@ public partial class Kernel
         
         DefineFunction("kern-obj-put-at", ObjectPutAt);
         DefineFunction("kern-obj-get-name", ObjectGetName);
+        DefineFunction("kern-obj-get-type", ObjectGetType);
         DefineFunction("kern-obj-get-location", ObjectGetLocation);
         DefineFunction("kern-obj-get-conversation", ObjectGetConversation);
         DefineFunction("kern-obj-apply-damage", ObjectApplyDamage);
@@ -179,11 +182,23 @@ public partial class Kernel
         DefineFunction("kern-obj-find-path", ObjectFindPath);
         DefineFunction("kern-obj-wander", ObjectWander);
         DefineFunction("kern-obj-is-visible?", ObjectIsVisible);
+        DefineFunction("kern-obj-set-visible", ObjectSetVisible);
         DefineFunction("kern-obj-move", ObjectMove);
         DefineFunction("kern-obj-get-ap", ObjectGetActionPoints);
         DefineFunction("kern-obj-set-ap", ObjectSetActionPoints);
         DefineFunction("kern-obj-dec-ap", ObjectDecreaseActionPoints);
         DefineFunction("kern-obj-is-being?", ObjectIsBeing);
+        DefineFunction("kern-obj-get-gob", ObjectGetGob);
+        DefineFunction("kern-obj-set-gob", ObjectSetGob);
+        
+        // ===================================================================
+        // KERN-SPECIES API - Species Functions
+        // ===================================================================
+        
+        DefineFunction("kern-species-get-hp-mod", SpeciesGetHpMod);
+        DefineFunction("kern-species-get-hp-mult", SpeciesGetHpMult);
+        DefineFunction("kern-species-get-mp-mod", SpeciesGetMpMod);
+        DefineFunction("kern-species-get-mp-mult", SpeciesGetMpMult);
         
         // ===================================================================
         // KERN-BEING API - Being Functions
@@ -221,6 +236,15 @@ public partial class Kernel
         DefineFunction("kern-char-has-ammo?", CharacterHasAmmo);
         DefineFunction("kern-char-ready", CharacterReady);
         DefineFunction("kern-char-unready", CharacterUnready);
+        
+        // ===================================================================
+        // KERN-OCC API - Occupation Functions
+        // ===================================================================
+        
+        DefineFunction("kern-occ-get-hp-mod", OccupationGetHpMod);
+        DefineFunction("kern-occ-get-hp-mult", OccupationGetHpMult);
+        DefineFunction("kern-occ-get-mp-mod", OccupationGetMpMod);
+        DefineFunction("kern-occ-get-mp-mult", OccupationGetMpMult);
         
         // ===================================================================
         // KERN-DIPLOMACY API - Diplomacy Functions

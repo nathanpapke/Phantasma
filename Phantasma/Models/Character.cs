@@ -51,6 +51,10 @@ public class Character : Being
     // Conversation - IronScheme Closure for NPC dialog
     public object Conversation { get; set; }
     
+    public Schedule? Schedule { get; set; }
+    public int CurrentAppointmentIndex { get; set; }
+    public Activity CurrentActivity { get; set; }
+    
     // Equipment Slots
     private ArmsType?[]? readiedArms;
     private Container inventory;
@@ -200,10 +204,19 @@ public class Character : Being
     {
         return VisionRadius;
     }
-    
+    public int GetStrength()
+    {
+        return Species.Str + Strength;  // species base + modifier
+    }
+
+    public int GetIntelligence()
+    {
+        return Species.Intl + Intelligence;
+    }
+
     public int GetDexterity()
     {
-        return Dexterity;
+        return Species.Dex + Dexterity;
     }
     
     /// <summary>

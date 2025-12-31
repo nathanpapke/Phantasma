@@ -22,6 +22,8 @@ public abstract class Object
     public int Light { get; set; } = 0;
     public Gob? Gob { get; set; }  // Scheme object reference
     
+    private int visible = 1;
+    
     /// <summary>
     /// Array of hook lists, one per hook type.
     /// </summary>
@@ -99,7 +101,15 @@ public abstract class Object
     /// </summary>
     public virtual bool IsVisible()
     {
-        return true;
+        return visible > 0;
+    }
+
+    public void SetVisible(bool val)
+    {
+        if (val)
+            visible++;
+        else
+            visible--;
     }
     
     public bool IsItem()
