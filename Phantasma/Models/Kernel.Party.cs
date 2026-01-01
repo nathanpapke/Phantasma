@@ -1,11 +1,11 @@
 using System;
+using IronScheme;
 using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
 public partial class Kernel
 {
-    
     // ===================================================================
     // KERN-PARTY API IMPLEMENTATIONS
     // These set party properties.
@@ -17,9 +17,27 @@ public partial class Kernel
     /// </summary>
     public static object PartyAddMember(object party, object character)
     {
-        var group = party as Party;
-        var member = character as Character;
-
+        var group = ResolveObject<Party>(party);
+        
+        // Fallback: if "player" was passed and not found, try the global player party.
+        if (group == null)
+        {
+            group = Phantasma.GetRegisteredObject(KEY_PLAYER_PARTY) as Party;
+        }
+        
+        var member = ResolveObject<Character>(character);
+        
+        if (group == null)
+        {
+            Console.WriteLine("[ERROR] kern-party-add-member: party not found.");
+            return false;
+        }
+        if (member == null)
+        {
+            Console.WriteLine("[ERROR] kern-party-add-member: character not found.");
+            return false;
+        }
+        
         return group.AddMember(member);
     }
     

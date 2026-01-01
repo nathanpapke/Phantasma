@@ -60,6 +60,12 @@ public partial class Kernel
     /// </summary>
     public void LoadSchemeFile(string filename)
     {
+        // Intercept Haxima's init.scm -> use our compatible version
+        if (filename.Equals("init.scm"))
+        {
+            filename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "init.scm");
+        }
+        
         if (!File.Exists(filename))
         {
             Console.Error.WriteLine($"[Kernel] Scheme file not found: {filename}");

@@ -706,13 +706,13 @@ public partial class Kernel
         if (args == null)
         {
             LoadError("kern-mk-char: args is null");
-            return Builtins.Unspecified;
+            return null;
         }
         
         if (args.Length < 21)
         {
             LoadError($"kern-mk-char: expected at least 21 args, got {args.Length}");
-            return Builtins.Unspecified;
+            return null;
         }
         
         // Extract parameters with bounds checking.
@@ -847,7 +847,7 @@ public partial class Kernel
                 var item = currentReadied.car;
                 
                 // Skip null, nil, or unspecified items.
-                if (item == null || IsNil(item) || item == Builtins.Unspecified)
+                if (item == null || IsNil(item) || item == null)
                 {
                     currentReadied = currentReadied.cdr as Cons;
                     continue;
@@ -889,7 +889,7 @@ public partial class Kernel
             {
                 var hookItem = currentHook.car;
                 
-                if (hookItem == null || IsNil(hookItem) || hookItem == Builtins.Unspecified)
+                if (hookItem == null || IsNil(hookItem) || hookItem == null)
                 {
                     currentHook = currentHook.cdr as Cons;
                     continue;
@@ -1315,9 +1315,10 @@ public partial class Kernel
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, party);
-            $"(define {tagStr} \"{tagStr}\")".Eval();
+            $"(define {tagStr} \"{party.Tag}\")".Eval();
         }
         Phantasma.RegisterObject(KEY_PLAYER_PARTY, party);
+        $"(define {KEY_PLAYER_PARTY} \"{party.Tag}\")".Eval();
         
         // Register the first member as the player character.
         if (firstMember != null)

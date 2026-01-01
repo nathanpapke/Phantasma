@@ -302,6 +302,7 @@ public partial class Kernel
     /// </summary>
     private void DefineFunction(string schemeName, Delegate csharpMethod)
     {
+        Console.WriteLine($"[DefineFunction-Delegate] Registering {schemeName}");
         var closure = Closure.Create(csharpMethod, -1);
         $"(define {schemeName} {{0}})".Eval(closure);
     }
@@ -312,7 +313,22 @@ public partial class Kernel
     /// </summary>
     private void DefineFunction(string schemeName, Func<object[], object> method)
     {
-        CallTargetN target = args => method(args);
+        Console.WriteLine($"[DefineFunction-CallTargetN] Registering {schemeName}");
+        //CallTargetN target = args => method(args);
+        //var closure = Closure.Create(target, -1);
+        //$"(define {schemeName} {{0}})".Eval(closure);
+        CallTargetN target = args => {
+            Console.WriteLine($"[CallTargetN INVOKE] {schemeName} with {args?.Length ?? 0} args");
+            try
+            {
+                return method(args);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CallTargetN ERROR] {schemeName}: {ex.Message}");
+                throw;
+            }
+        };
         var closure = Closure.Create(target, -1);
         $"(define {schemeName} {{0}})".Eval(closure);
     }
