@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text;
 using Avalonia.Media.Imaging;
 using IronScheme;
 using IronScheme.Compiler;
@@ -50,6 +52,7 @@ public partial class Kernel
         {
             // Register all kern-* API functions.
             RegisterKernelApi();
+            RegisterAllFunctions();
         }
         catch (Exception ex)
         {
@@ -58,6 +61,45 @@ public partial class Kernel
         
         // Load R5RS compatibility layer first.
         LoadCompatibilityLayer();
+    }
+    
+    /// <summary>
+    /// Registers all public static Kern* methods as IronScheme Callables.
+    /// Call this once at startup before loading any Scheme files.
+    /// </summary>
+    public static void RegisterAllFunctions()
+    {
+        var methods = typeof(Kernel).GetMethods(BindingFlags.Public | BindingFlags.Static);
+        int count = 0;
+    
+        foreach (var method in methods)
+        {
+            // Only register methods that return object and take all object parameters.
+            if (method.ReturnType != typeof(object)) continue;
+            if (!method.GetParameters().All(p => p.ParameterType == typeof(object))) continue;
+        
+            // Convert "KernMkSpell" or "MkSpell" to "kern-mk-spell" or "mk-spell".
+            var sb = new StringBuilder();
+            foreach (char c in method.Name)
+            {
+                if (char.IsUpper(c))
+                {
+                    if (sb.Length > 0) sb.Append('-');
+                    sb.Append(char.ToLower(c));
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            string schemeName = sb.ToString();
+        
+            var callable = new CallableMethod(method, schemeName);
+            Builtins.SetSymbolValueFast(SymbolTable.StringToObject(schemeName), callable);
+            count++;
+        }
+    
+        Console.WriteLine($"[Kernel] Registered {count} functions as Callables");
     }
     
     /// <summary>
@@ -302,7 +344,6 @@ public partial class Kernel
     /// </summary>
     private void DefineFunction(string schemeName, Delegate csharpMethod)
     {
-        Console.WriteLine($"[DefineFunction-Delegate] Registering {schemeName}");
         var closure = Closure.Create(csharpMethod, -1);
         $"(define {schemeName} {{0}})".Eval(closure);
     }
@@ -313,22 +354,7 @@ public partial class Kernel
     /// </summary>
     private void DefineFunction(string schemeName, Func<object[], object> method)
     {
-        Console.WriteLine($"[DefineFunction-CallTargetN] Registering {schemeName}");
-        //CallTargetN target = args => method(args);
-        //var closure = Closure.Create(target, -1);
-        //$"(define {schemeName} {{0}})".Eval(closure);
-        CallTargetN target = args => {
-            Console.WriteLine($"[CallTargetN INVOKE] {schemeName} with {args?.Length ?? 0} args");
-            try
-            {
-                return method(args);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[CallTargetN ERROR] {schemeName}: {ex.Message}");
-                throw;
-            }
-        };
+        CallTargetN target = args => method(args);
         var closure = Closure.Create(target, -1);
         $"(define {schemeName} {{0}})".Eval(closure);
     }
@@ -392,6 +418,7 @@ public partial class Kernel
         // Extract first argument.
         var firstArg = args.Length > 0 ? args[0] : null;
         string rawPath = ExtractFilename(firstArg);
+        var kernel = Phantasma.Kernel;
     
         if (string.IsNullOrEmpty(rawPath))
         {
@@ -399,11 +426,18 @@ public partial class Kernel
             return Builtins.Unspecified;
         }
     
-        // Skip init.scm - its TinyScheme macros don't work in IronScheme.
+        // Redirect Haxima's init.scm to Phantasma's compatible version.
+        // Phantasma's init.scm contains the custom 'apply' that handles CallTargetN closures.
         if (rawPath.Equals("init.scm", StringComparison.OrdinalIgnoreCase) ||
             rawPath.EndsWith("/init.scm", StringComparison.OrdinalIgnoreCase) ||
             rawPath.EndsWith("\\init.scm", StringComparison.OrdinalIgnoreCase))
         {
+            string phantasmaInit = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", "init.scm");
+            if (File.Exists(phantasmaInit))
+            {
+                Console.WriteLine($"[kern-load-file] Redirecting init.scm to Phantasma version");
+                kernel?.LoadSchemeFileInternal(phantasmaInit);
+            }
             return Builtins.Unspecified;
         }
     
@@ -414,8 +448,7 @@ public partial class Kernel
             Console.Error.WriteLine($"[kern-load-file] File not found: {path}");
             return Builtins.Unspecified;
         }
-    
-        var kernel = Phantasma.Kernel;
+        
         if (kernel == null)
         {
             Console.Error.WriteLine("[kern-load-file] Error: Kernel is null");

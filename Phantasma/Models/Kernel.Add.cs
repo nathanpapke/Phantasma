@@ -160,24 +160,31 @@ public partial class Kernel
     /// (kern-add-spell type code level cost context flags range action-points (reagent-list))
     /// Adds a spell to the magic system indexed by its code (e.g., "AN" for An Nox).
     /// </summary>
-    public static object AddSpell(
-        object typeArg, object codeArg, object levelArg, object costArg,
-        object contextArg, object flagsArg, object rangeArg, object actionPointsArg,
-        object reagentsArg)
+    public static object AddSpell(object[] args)
     {
+        var typeArg = args.Length > 0 ? args[0] : null;
+        var codeArg = args.Length > 1 ? args[1] : null;
+        var levelArg = args.Length > 2 ? args[2] : null;
+        var costArg = args.Length > 3 ? args[3] : null;
+        var contextArg = args.Length > 4 ? args[4] : null;
+        var flagsArg = args.Length > 5 ? args[5] : null;
+        var rangeArg = args.Length > 6 ? args[6] : null;
+        var actionPointsArg = args.Length > 7 ? args[7] : null;
+        var reagentsArg = args.Length > 8 ? args[8] : null;
+        
         var typeTag = typeArg?.ToString()?.TrimStart('\'') ?? "";
         var code = codeArg?.ToString()?.ToUpperInvariant() ?? "";
     
         var objectType = Phantasma.GetRegisteredObject(typeTag) as ObjectType;
     
-        int level = Convert.ToInt32(levelArg ?? 0);
-        int cost = Convert.ToInt32(costArg ?? 0);
-        int context = Convert.ToInt32(contextArg ?? 0);
-        int flags = Convert.ToInt32(flagsArg ?? 0);
-        int range = Convert.ToInt32(rangeArg ?? 0);
-        int actionPoints = Convert.ToInt32(actionPointsArg ?? 0);
+        int level = (int)Convert.ToDouble(levelArg ?? 0);
+        int cost = (int)Convert.ToDouble(costArg ?? 0);
+        int context = (int)Convert.ToDouble(contextArg ?? 0);
+        int flags = (int)Convert.ToDouble(flagsArg ?? 0);
+        int range = (int)Convert.ToDouble(rangeArg ?? 0);
+        int actionPoints = (int)Convert.ToDouble(actionPointsArg ?? 0);
     
-        // Parse reagent list
+        // Parse reagent list.
         var reagents = new List<ObjectType>();
         if (reagentsArg is Cons cons)
         {
