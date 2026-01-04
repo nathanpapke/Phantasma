@@ -162,15 +162,22 @@ public partial class Kernel
     /// </summary>
     public static object AddSpell(object[] args)
     {
-        var typeArg = args.Length > 0 ? args[0] : null;
-        var codeArg = args.Length > 1 ? args[1] : null;
-        var levelArg = args.Length > 2 ? args[2] : null;
-        var costArg = args.Length > 3 ? args[3] : null;
-        var contextArg = args.Length > 4 ? args[4] : null;
-        var flagsArg = args.Length > 5 ? args[5] : null;
-        var rangeArg = args.Length > 6 ? args[6] : null;
-        var actionPointsArg = args.Length > 7 ? args[7] : null;
-        var reagentsArg = args.Length > 8 ? args[8] : null;
+        int i = 0;
+        
+        // Required Parameters (0-7)
+        object typeArg = args[i++];
+        object codeArg = args[i++];
+        object levelArg = args[i++];
+        object costArg = args[i++];
+        object contextArg = args[i++];
+        object flagsArg = args[i++];
+        object rangeArg = args[i++];
+        
+        // Last required - only increment if there's an optional param following.
+        object actionPointsArg = i < args.Length - 1 ? args[i++] : args[i];
+        
+        // Optional Parameter
+        object reagentsArg = i < args.Length ? args[i] : null;
         
         var typeTag = typeArg?.ToString()?.TrimStart('\'') ?? "";
         var code = codeArg?.ToString()?.ToUpperInvariant() ?? "";

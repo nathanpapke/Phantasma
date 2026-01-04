@@ -106,16 +106,26 @@ public partial class Kernel
     public static object MakeTerrain(object[] args)
     {
         if (args.Length < 6) { /* error */ }
+        
+        int i = 0;
+        
+        // Required Parameters (0-5)
+        string tagStr = ToTag(args[i++]);
+        string name = args[i++]?.ToString()?.Trim('"') ?? tagStr;
+        int pclass = ToInt(args[i++], 0);
+        object spriteArg = args[i++];
+        int alpha = ToInt(args[i++], 255);
+        
+        // Last required - only increment if there's an optional param following.
+        int light = i < args.Length - 1 ? ToInt(args[i++], 0) : ToInt(args[i], 0);
+        
+        // Optional Parameter
+        object effectProc = i < args.Length ? args[i] : null;
+        
+        // Resolve sprite after extraction.
+        var sprite = spriteArg as Sprite ?? ResolveObject<Sprite>(spriteArg);
     
-        string tagStr = ToTag(args[0]);
-        string name = args[1]?.ToString()?.Trim('"') ?? tagStr;
-        int pclass = ToInt(args[2], 0);
-        var sprite = args[3] as Sprite ?? ResolveObject<Sprite>(args[3]);
-        int alpha = ToInt(args[4], 255);
-        int light = ToInt(args[5], 0);
-        object effectProc = args.Length > 6 ? args[6] : null;
-    
-        var terrain = new Terrain { /* ... */ };
+        Terrain terrain = new Terrain(tagStr, name, sprite, pclass, alpha, light);
         Phantasma.RegisterObject(tagStr, terrain);
         $"(define {tagStr} \"{tagStr}\")".Eval();
 
