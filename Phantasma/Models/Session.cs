@@ -40,7 +40,7 @@ public class Session
     /// Current combat state for this session.
     /// </summary>
     private CombatState combatState = CombatState.Done;
-
+    
     // Targeting
     public bool IsTargeting { get; private set; }
     public int TargetOriginX { get; private set; }
@@ -48,7 +48,7 @@ public class Session
     public int TargetRange { get; private set; }
     public int TargetX { get; private set; }
     public int TargetY { get; private set; }
-
+    
     /// <summary>
     /// Key handler stack.
     /// Top handler receives all key events.
@@ -57,62 +57,62 @@ public class Session
     
     private object startProc;      // Scheme closure for game start
     private object campingProc;    // Scheme closure for camping callback
-
+    
     // ===================================================================
     // UI EVENTS - For displaying messages to user
     // ===================================================================
-
+    
     /// <summary>
     /// Fired when a message should be displayed in the command window.
     /// </summary>
     public event Action<string> MessageDisplayed;
-
+    
     /// <summary>
     /// Fired when the command prompt changes (e.g., "Talk-", "Ready-").
     /// </summary>
     public event Action<string> PromptChanged;
-
+    
     /// <summary>
     /// Fired when a message should be displayed in the console (multi-line scrollable).
     /// Used for NPC dialog, combat log, game messages.
     /// </summary>
     public event Action<string> ConsoleMessage;
-
+    
     /// <summary>
     /// Fired when command input text changes (user typing).
     /// </summary>
     public event Action<string> CommandInputChanged;
-
+    
     // ===================================================================
     // SAVE/LOAD REGISTRY
     // ===================================================================
-
+    
     /// <summary>
     /// List of objects registered for save/load/destroy.
     /// Order is preserved - objects are saved in the order they were registered.
     /// </summary>
     private readonly List<SaveEntry> saveEntries = new();
-
+    
     /// <summary>
     /// Session ID increments with each save.
     /// Objects use this to detect if they've already been saved this session.
     /// </summary>
     public int SessionId { get; private set; } = 0;
-
+    
     // ===================================================================
     // PUBLIC PROPERTIES
     // ===================================================================
-
+    
     public Place CurrentPlace => currentPlace;
     public Character Player => playerCharacter;
     public Party Party => playerParty;
-
+    
     public PassabilityTable PassabilityTable
     {
         get => passabilityTable;
         set => passabilityTable = value;
     }
-
+    
     public DiplomacyTable DiplomacyTable
     {
         get => diplomacyTable;
@@ -132,7 +132,7 @@ public class Session
     /// </summary>
     public IKeyHandler CurrentKeyHandler => 
         keyHandlers.Count > 0 ? keyHandlers.Peek() : null;
-
+    
     /// <summary>
     /// True if there's an active key handler (not in normal input mode).
     /// </summary>
@@ -142,13 +142,13 @@ public class Session
     /// Gets the current combat state.
     /// </summary>
     public CombatState CombatState => combatState;
-
+    
     /// <summary>
     /// The Scheme procedure to call when the game session starts.
     /// Called with the player party as an argument.
     /// </summary>
     public object StartProc => startProc;
-
+    
     /// <summary>
     /// The Scheme procedure to call each turn while camping in the wilderness.
     /// </summary>
@@ -157,57 +157,88 @@ public class Session
     // ===================================================================
     // INITIALIZATION
     // ===================================================================
-    
+
     /// <summary>
-    /// Create a session with the given Place and player Character.
+    /// Create a session with the given Place, player Character, and Party.
     /// This works for both main game sessions and agent simulation sessions.
     /// </summary>
     /// <param name="place">The Place (map) for this session. If null, creates a test map.</param>
-    /// <param name="player">The player Character. If null, creates a test player.</param>
-    public Session(Place place = null, Character player = null)
+    /// <param name="player">The player Character. If null, uses party leader or creates test player.</param>
+    /// <param name="party">The player Party. If null, creates a new party with the player.</param>
+    public Session(Place place = null, Character player = null, Party party = null)
     {
-        // Use provided objects or create test fallbacks.
+        Console.WriteLine($"[Session Constructor] place={place?.Name ?? "null"}, " +
+                          $"player={player?.GetName() ?? "null"}, party={party?.Size ?? 0} members");
+        
+        // === PLACE SETUP ===
         if (place != null)
         {
             currentPlace = place;
+            Console.WriteLine($"[Session] Using provided place: {place.Name}");
         }
         else
         {
             // Fallback: create test map.
+            Console.WriteLine("[Session] No place provided, creating test map.");
             currentPlace = new Place();
             currentPlace.GenerateTestMap();
         }
         
-        if (player != null)
+        // === PARTY AND PLAYER SETUP ===
+        if (party != null && party.Size > 0)
         {
+            // Use the loaded party.
+            playerParty = party;
+            
+            // Use provided player or get from party leader.
+            playerCharacter = player ?? party.GetLeader();
+            
+            Console.WriteLine($"[Session] Using loaded party with {party.Size} members, leader: " +
+                              $"{playerCharacter?.GetName() ?? "none"}");
+        }
+        else if (player != null)
+        {
+            // Have a player but no party - create party for them.
             playerCharacter = player;
+            playerParty = new Party();
+            playerParty.AddMember(playerCharacter);
+            Console.WriteLine($"[Session] Created party for single player: {player.GetName()}");
         }
         else
         {
-            // Fallback: create test player.
-            CreatePlayer();  // should be? playerCharacter = 
-            //playerCharacter = new Character();
-            //playerCharacter.GenerateTestPlayer();
+            // No player and no party - create test player.
+            Console.WriteLine("[Session] No player/party provided, creating test player.");
+            CreatePlayer();
         }
         
-        // Create party and add player.
-        playerParty = new Party();
-        playerParty.AddMember(playerCharacter);
-        
-        // Create map rendering system.
+        // === MAP RENDERING SYSTEM ===
         map = new Map(800, 600, 32);
         map.SetPlace(currentPlace);
-            
+        
         // Attach camera to player.
         if (playerCharacter != null && map != null)
         {
             map.AttachCamera(playerCharacter);
+            Console.WriteLine($"[Session] Camera attached to {playerCharacter.GetName()}");
         }
         
-        // Initialize time systems
-        clock.Reset();
+        // === TIME SYSTEMS ===
+        // Only reset clock if it hasn't been set by game data.
+        if (!clock.IsSet)
+        {
+            // Default to 6 AM for better visibility during testing.
+            clock.Set(0, 0, 0, 0, 6, 0);
+            Console.WriteLine("[Session] Clock set to default 6:00 AM");
+        }
+        else
+        {
+            Console.WriteLine($"[Session] Clock already set to {clock.TimeHHMM}");
+        }
+        
         sky.Init(clock);
         wind.Init();
+        
+        Console.WriteLine($"[Session] Initialization complete.");
     }
         
     private void CreatePlayer()

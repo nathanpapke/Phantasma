@@ -166,16 +166,19 @@ public partial class Kernel
         int day = Convert.ToInt32(dayObj ?? 0);
         int hour = Convert.ToInt32(hourObj ?? 0);
         int min = Convert.ToInt32(minObj ?? 0);
-    
+        
         var session = Phantasma.MainSession;
         if (session == null)
         {
-            Console.WriteLine("[SetClock] Warning: No main session.");
+            // Session doesn't exist yet - store for later application.
+            // This happens when the game data is loaded before the session is created.
+            Phantasma.SetPendingClockData(year, month, week, day, hour, min);
             return Builtins.Unspecified;
         }
-    
+        
+        // Session exists - set the clock directly.
         session.Clock.Set(year, month, week, day, hour, min);
-    
+        
         return Builtins.Unspecified;
     }
     

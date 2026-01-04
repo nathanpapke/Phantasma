@@ -715,31 +715,37 @@ public partial class Kernel
             return null;
         }
         
-        // Extract parameters with bounds checking.
-        string tagStr = ToTag(args[0]);
-        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";
-        object speciesArg = args[2];
-        object occArg = args[3];
-        object spriteArg = args[4];
-        int baseFaction = ToInt(args[5], 0);
-        int str = ToInt(args[6], 10);
-        int intl = ToInt(args[7], 10);
-        int dex = ToInt(args[8], 10);
-        int hpmod = ToInt(args[9], 0);
-        int hpmult = ToInt(args[10], 0);
-        int mpmod = ToInt(args[11], 0);
-        int mpmult = ToInt(args[12], 0);
-        int hp = ToInt(args[13], 0);
-        int xp = ToInt(args[14], 0);
-        int mp = ToInt(args[15], 0);
-        int lvl = ToInt(args[16], 1);
-        bool dead = ConvertToBool(args[17]);
-        object convArg = args[18];
-        object schedArg = args[19];
-        object aiArg = args[20];
-        object inventoryArg = args.Length > 21 ? args[21] : null;
-        object readiedArg = args.Length > 22 ? args[22] : null;
-        object hooksArg = args.Length > 23 ? args[23] : null;
+        int i = 0;
+        
+        // Required Parameters (0-17)
+        string tagStr = ToTag(args[i++]);
+        string nameStr = args[i++]?.ToString()?.Trim('"') ?? "Unknown";
+        object speciesArg = args[i++];
+        object occArg = args[i++];
+        object spriteArg = args[i++];
+        int baseFaction = ToInt(args[i++], 0);
+        int str = ToInt(args[i++], 10);
+        int intl = ToInt(args[i++], 10);
+        int dex = ToInt(args[i++], 10);
+        int hpmod = ToInt(args[i++], 0);
+        int hpmult = ToInt(args[i++], 0);
+        int mpmod = ToInt(args[i++], 0);
+        int mpmult = ToInt(args[i++], 0);
+        int hp = ToInt(args[i++], 0);
+        int xp = ToInt(args[i++], 0);
+        int mp = ToInt(args[i++], 0);
+        int lvl = ToInt(args[i++], 1);
+        
+        // Last required - only increment if there are optional params following.
+        bool dead = i < args.Length - 1 ? ConvertToBool(args[i++]) : ConvertToBool(args[i]);
+        
+        // Optional parameters - only increment if there's another element after.
+        object convArg = i < args.Length - 1 ? args[i++] : null;
+        object schedArg = i < args.Length - 1 ? args[i++] : null;
+        object aiArg = i < args.Length - 1 ? args[i++] : null;
+        object inventoryArg = i < args.Length - 1 ? args[i++] : null;
+        object readiedArg = i < args.Length - 1 ? args[i++] : null;
+        object hooksArg = i < args.Length ? args[i] : null;  // Last one - just check existence.
         
         // Resolve sprite.
         Sprite sprite = null;
@@ -1326,6 +1332,12 @@ public partial class Kernel
             Phantasma.RegisterObject(KEY_PLAYER_CHARACTER, firstMember);
             $"(define {KEY_PLAYER_CHARACTER} \"{firstMember}\")".Eval();
             Console.WriteLine($"  Set player character: {firstMember.GetName()}");
+        }
+        
+        Phantasma.SetPendingPlayerParty(party);
+        if (firstMember != null)
+        {
+            Phantasma.SetPendingPlayerCharacter(firstMember);
         }
         
         Console.WriteLine($"  Created player party with {party.Size} members (food={party.Food}, gold={party.Gold})");

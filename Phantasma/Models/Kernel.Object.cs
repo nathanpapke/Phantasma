@@ -17,54 +17,87 @@ public partial class Kernel
     /// </summary>
     public static object ObjectPutAt(object obj, object location)
     {
-        Console.WriteLine($"  ObjectPutAt called:");
-        Console.WriteLine($"    obj type: {obj?.GetType().Name ?? "NULL"}");
-        Console.WriteLine($"    location type: {location?.GetType().Name ?? "NULL"}");
-
+        // Resolve the object (might be a Character, Object, etc.).
         var gameObj = obj as Object;
-    
+        
         if (gameObj == null)
         {
+            // Try to resolve from tag if it's a string.
+            if (obj is string objTag)
+            {
+                gameObj = Phantasma.GetRegisteredObject(objTag) as Object;
+            }
+        }
+        
+        if (gameObj == null)
+        {
+            Console.WriteLine($"[kern-obj-put-at] Error: null or invalid object");
             return Builtins.Unspecified;
         }
-    
+        
         if (location is Cons locList)
         {
-            Console.WriteLine($"    locList.car type: {locList.car?.GetType().Name ?? "NULL"}");
-            Console.WriteLine($"    locList.cdr type: {locList.cdr?.GetType().Name ?? "NULL"}");
-
-            var place = locList.car as Place;
-            var rest = locList.cdr as Cons;
-        
-            if (place == null)
+            // The place might be a Place object directly, or a string tag.
+            Place place = null;
+            
+            if (locList.car is Place p)
             {
+                place = p;
+            }
+            else if (locList.car is string placeTag)
+            {
+                // Look up the place by its tag.
+                place = Phantasma.GetRegisteredObject(placeTag) as Place;
+                
+                if (place == null)
+                {
+                    // Try with quote prefix stripped.
+                    string cleanTag = placeTag.TrimStart('\'').Trim('"');
+                    place = Phantasma.GetRegisteredObject(cleanTag) as Place;
+                }
+                
+                if (place == null)
+                {
+                    Console.WriteLine($"[kern-obj-put-at] Error: could not resolve place tag '{placeTag}'");
+                    return Builtins.Unspecified;
+                }
+            }
+            else
+            {
+                Console.WriteLine($"[kern-obj-put-at] Error: place is neither Place nor string (type: {locList.car?.GetType().Name ?? "NULL"})");
                 return Builtins.Unspecified;
             }
-        
-            if (rest != null)
+            
+            // Extract coordinates.
+            var rest = locList.cdr as Cons;
+            
+            if (rest == null)
             {
-                int x = Convert.ToInt32(rest.car ?? 0);
-                var rest2 = rest.cdr as Cons;
-                int y = rest2 != null ? Convert.ToInt32(rest2.car ?? 0) : 0;
-                
-                Console.WriteLine($"    Placing at: {place.Name} ({x}, {y})");
+                Console.WriteLine($"[kern-obj-put-at] Error: missing coordinates in location list");
+                return Builtins.Unspecified;
+            }
             
-                // Verify position BEFORE.
-                var posBefore = gameObj.GetPosition();
-                Console.WriteLine($"    Position BEFORE: Place={posBefore?.Place?.Name ?? "NULL"}, X={posBefore?.X}, Y={posBefore?.Y}");
+            int x = Convert.ToInt32(rest.car ?? 0);
+            var rest2 = rest.cdr as Cons;
+            int y = rest2 != null ? Convert.ToInt32(rest2.car ?? 0) : 0;
             
-                place.AddObject(gameObj, x, y);
+            // Place the object.
+            Console.WriteLine($"[kern-obj-put-at] Placing {gameObj.Name} at {place.Name} ({x}, {y})");
             
-                // Verify position AFTER.
-                var posAfter = gameObj.GetPosition();
-                Console.WriteLine($"    Position AFTER: Place={posAfter?.Place?.Name ?? "NULL"}, X={posAfter?.X}, Y={posAfter?.Y}");
+            place.AddObject(gameObj, x, y);
+            
+            // Verify placement worked.
+            var posAfter = gameObj.GetPosition();
+            if (posAfter?.Place == null)
+            {
+                Console.WriteLine($"[kern-obj-put-at] WARNING: Object position not set after AddObject!");
             }
         }
         else
         {
-            Console.WriteLine($"    [ERROR] location is not a Cons!");
+            Console.WriteLine($"[kern-obj-put-at] Error: location is not a list (type: {location?.GetType().Name ?? "NULL"})");
         }
-    
+        
         return Builtins.Unspecified;
     }
 

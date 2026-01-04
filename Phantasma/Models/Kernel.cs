@@ -339,7 +339,7 @@ public partial class Kernel
         // We'll add them incrementally as we need them.
     }
     
-    /// <summary> 
+    /// <summary>
     /// Helps to define a Scheme function that calls a C# delegate.
     /// </summary>
     private void DefineFunction(string schemeName, Delegate csharpMethod)
@@ -1090,14 +1090,7 @@ public partial class Kernel
         // Symbols can't be converted to integers
         if (IsSymbol(obj)) return defaultValue;
         
-        try
-        {
-            return Convert.ToInt32(obj);
-        }
-        catch
-        {
-            return defaultValue;
-        }
+        return (int)Convert.ToDouble(obj);
     }
 
     /// <summary>

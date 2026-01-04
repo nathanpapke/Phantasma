@@ -51,6 +51,11 @@ public class Phantasma
     // Object Registry - maps Scheme tags to C# objects.
     // This is global so all sessions can access defined types.
     private Dictionary<string, object> registeredObjects;
+    
+    // Pending Session Configuration (stored during loading before session exists)
+    private static (int year, int month, int week, int day, int hour, int min)? pendingClockData;
+    private static Party pendingPlayerParty;
+    private static Character pendingPlayerCharacter;
 
     public static Dictionary<string, string> Configuration => instance.configuration;
     public static Common Common => instance.common;
@@ -93,6 +98,35 @@ public class Phantasma
 
     public static void DestroyAgentSession(Session session) 
         => instance.destroyAgentSession(session);
+    
+    /// <summary>
+    /// Store clock data to apply after session is created.
+    /// Called by kern-set-clock when MainSession is null.
+    /// </summary>
+    public static void SetPendingClockData(int year, int month, int week, int day, int hour, int min)
+    {
+        pendingClockData = (year, month, week, day, hour, min);
+        Console.WriteLine($"[Phantasma] Stored pending clock data: Year {year}, {hour}:{min:D2}");
+    }
+    
+    /// <summary>
+    /// Store player party to apply after session is created.
+    /// Called by kern-mk-player.
+    /// </summary>
+    public static void SetPendingPlayerParty(Party party)
+    {
+        pendingPlayerParty = party;
+        Console.WriteLine($"[Phantasma] Stored pending player party with {party?.Size ?? 0} members");
+    }
+    
+    /// <summary>
+    /// Store player character to apply after session is created.
+    /// </summary>
+    public static void SetPendingPlayerCharacter(Character player)
+    {
+        pendingPlayerCharacter = player;
+        Console.WriteLine($"[Phantasma] Stored pending player character: {player?.GetName() ?? "null"}");
+    }
     
     // ===================================================================
     // SESSION MANAGEMENT (Multiple Sessions Allowed)
@@ -232,12 +266,58 @@ public class Phantasma
             return;
         }
         
-        // Try to get the world objects from Scheme.
-        var place = GetRegisteredObject(Kernel.KEY_CURRENT_PLACE) as Place;
-        var player = GetRegisteredObject(Kernel.KEY_PLAYER_CHARACTER) as Character;
+        // Get player party and character from pending data or registry.
+        Party party = pendingPlayerParty ?? GetRegisteredObject(Kernel.KEY_PLAYER_PARTY) as Party;
+        Character player = pendingPlayerCharacter ?? GetRegisteredObject(Kernel.KEY_PLAYER_CHARACTER) as Character;
         
-        // Create session with Scheme objects (or nulls, which will use fallback).
-        mainSession = new Session(place, player);
+        Console.WriteLine($"[CreateMainSession] Party: {(party != null ? $"{party.Size} members" : "null")}");
+        Console.WriteLine($"[CreateMainSession] Player: {player?.GetName() ?? "null"}");
+        
+        // Get the starting place from the party members.
+        Place place = null;
+        if (party != null)
+        {
+            place = GetPlaceFromPartyMembers(party);
+            if (place != null)
+            {
+                Console.WriteLine($"[CreateMainSession] Got starting place from party: {place.Name}");
+            }
+        }
+        
+        // Fallback to registry if no place from party.
+        if (place == null)
+        {
+            place = GetRegisteredObject(Kernel.KEY_CURRENT_PLACE) as Place;
+            if (place != null)
+            {
+                Console.WriteLine($"[CreateMainSession] Got place from registry: {place.Name}");
+            }
+        }
+        
+        if (place == null)
+        {
+            Console.WriteLine("[CreateMainSession] No place found, will use test map.");
+        }
+        
+        // Create session with loaded objects.
+        mainSession = new Session(place, player, party);
+        
+        // Apply pending clock data if we have it.
+        if (pendingClockData.HasValue)
+        {
+            var cd = pendingClockData.Value;
+            mainSession.Clock.Set(cd.year, cd.month, cd.week, cd.day, cd.hour, cd.min);
+            Console.WriteLine($"[CreateMainSession] Applied pending clock: Year {cd.year}, {cd.hour}:{cd.min:D2}");
+            pendingClockData = null;
+        }
+        else
+        {
+            Console.WriteLine("[CreateMainSession] No pending clock data.");
+        }
+        
+        // Clear pending data.
+        pendingPlayerParty = null;
+        pendingPlayerCharacter = null;
     }
     
     /// <summary>
@@ -896,5 +976,43 @@ public class Phantasma
         Console.WriteLine($"[Phantasma] Script: {scriptPath}");
 
         return scriptPath;
+    }
+
+    /// <summary>
+    /// Get the starting place from party members.
+    /// </summary>
+    private Place GetPlaceFromPartyMembers(Party party)
+    {
+        if (party == null) return null;
+        
+        // Try the leader first.
+        var leader = party.GetLeader();
+        if (leader != null)
+        {
+            var leaderPlace = leader.GetPlace();
+            if (leaderPlace != null)
+            {
+                Console.WriteLine($"[GetPlaceFromPartyMembers] Leader {leader.GetName()} is in {leaderPlace.Name}");
+                return leaderPlace;
+            }
+            Console.WriteLine($"[GetPlaceFromPartyMembers] Leader {leader.GetName()} has no place");
+        }
+        
+        // Try each member.
+        foreach (var member in party.Members)
+        {
+            if (member != null)
+            {
+                var memberPlace = member.GetPlace();
+                if (memberPlace != null)
+                {
+                    Console.WriteLine($"[GetPlaceFromPartyMembers] Member {member.GetName()} is in {memberPlace.Name}");
+                    return memberPlace;
+                }
+            }
+        }
+        
+        Console.WriteLine("[GetPlaceFromPartyMembers] No member has a place");
+        return null;
     }
 }
