@@ -305,19 +305,26 @@ public partial class Kernel
             return Builtins.Unspecified;
         }
         
-        string tagStr = ToTag(args[0]);
-        string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unnamed Place";
-        object spriteArg = args[2];
-        object mapArg = args[3];
-        bool wraps = ConvertToBool(args[4]);
-        bool underground = ConvertToBool(args[5]);
-        bool wild = ConvertToBool(args[6]);
-        bool combat = ConvertToBool(args[7]);
-        object subplacesArg = args.Length > 8 ? args[8] : null;
-        object neighborsArg = args.Length > 9 ? args[9] : null;
-        object contentsArg = args.Length > 10 ? args[10] : null;
-        object hooksArg = args.Length > 11 ? args[11] : null;
-        object entrancesArg = args.Length > 12 ? args[12] : null;
+        int i = 0;
+        
+        // Required parameters (0-7)
+        string tagStr = ToTag(args[i++]);
+        string nameStr = args[i++]?.ToString()?.Trim('"') ?? "Unnamed Place";
+        object spriteArg = args[i++];
+        object mapArg = args[i++];
+        bool wraps = ConvertToBool(args[i++]);
+        bool underground = ConvertToBool(args[i++]);
+        bool wild = ConvertToBool(args[i++]);
+        
+        // Last required - only increment if there are optional params following.
+        bool combat = i < args.Length - 1 ? ConvertToBool(args[i++]) : ConvertToBool(args[i]);
+        
+        // Optional parameters - only increment if there's another element after.
+        object subplacesArg = i < args.Length - 1 ? args[i++] : null;
+        object neighborsArg = i < args.Length - 1 ? args[i++] : null;
+        object contentsArg = i < args.Length - 1 ? args[i++] : null;
+        object hooksArg = i < args.Length - 1 ? args[i++] : null;
+        object entrancesArg = i < args.Length ? args[i] : null;  // Last one
         
         Console.WriteLine($"  Creating place: {tagStr} - {nameStr}");
         
