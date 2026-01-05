@@ -93,9 +93,6 @@
       (recursive-for-each proc (cdr lst)))))
 
 (define (for-each proc lst)
-  (display "[DEBUG] Custom for-each called with list length: ")
-  (display (length lst))
-  (display "\n\r")
   (recursive-for-each proc lst))
 
 ;; -----------------------------------------------------------------------------
@@ -234,7 +231,3 @@
       (if (memq 'feature *features*)
         (begin body ...)
         (cond-expand more ...)))))
-
-;; -----------------------------------------------------------------------------
-;; End of init.scm
-;; -----------------------------------------------------------------------------
