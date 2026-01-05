@@ -204,7 +204,12 @@ public partial class Kernel
         DefineFunction("kern-place-get-beings", PlaceGetBeings);
         DefineFunction("kern-place-is-passable", PlaceIsPassable);
         DefineFunction("kern-place-is-hazardous", PlaceIsHazardous);
+        
         DefineFunction("kern-terrain-set-combat-map", TerrainSetCombatMap);
+        
+        DefineFunction("kern-place-map", PlaceMap);
+        DefineFunction("kern-place-synch", PlaceSynch);
+        DefineFunction("kern-place-get-objects", PlaceGetObjects);
         
         // ===================================================================
         // KERN-OBJ API - Object Manipulation Functions
@@ -322,6 +327,13 @@ public partial class Kernel
         DefineFunction("kern-astral-body-get-phase", AstralBodyGetPhase);
         DefineFunction("kern-astral-body-get-gob", AstralBodyGetGob);
         DefineFunction("kern-astral-body-set-gob", AstralBodySetGob);
+        
+        // ===================================================================
+        // MAP API - Map Functions
+        // ===================================================================
+        
+        DefineFunction("kern-blit-map", BlitMap);
+        DefineFunction("kern-map-rotate", MapRotate);
         
         // ===================================================================
         // MISC API - Utility Functions

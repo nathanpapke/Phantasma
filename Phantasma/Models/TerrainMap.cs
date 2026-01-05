@@ -4,7 +4,7 @@ namespace Phantasma.Models;
 /// Terrain map containing the actual terrain grid for a place.
 /// Created from glyph strings using a terrain palette.
 /// </summary>
-public struct TerrainMap
+public class TerrainMap
 {
     public string? Tag { get; set; }
     public int Width { get; set; }
@@ -40,5 +40,16 @@ public struct TerrainMap
         {
             TerrainGrid[x, y] = terrain;
         }
+    }
+    
+    /// <summary>
+    /// Replace the terrain grid with a rotated version.
+    /// Called by kern-map-rotate after computing the rotated grid.
+    /// </summary>
+    public void Rotate(int newWidth, int newHeight, Terrain[,] newGrid)
+    {
+        Width = newWidth;
+        Height = newHeight;
+        TerrainGrid = newGrid;
     }
 }

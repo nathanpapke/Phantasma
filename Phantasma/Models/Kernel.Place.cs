@@ -251,4 +251,61 @@ public partial class Kernel
         
         return terrain;
     }
+    
+    /// <summary>
+    /// (kern-place-map place)
+    /// Get the terrain map from a place.
+    /// </summary>
+    /// <param name="placeArg"></param>
+    /// <returns></returns>
+    public static object PlaceMap(object placeArg)
+    {
+        var place = ResolveObject<Place>(placeArg);
+        
+        if (place == null || place.TerrainGrid == null)
+        {
+            RuntimeError("kern-place-map: null place or map");
+            return Builtins.Unspecified;
+        }
+
+        TerrainMap map = new TerrainMap(place.Tag.Replace("p_", "m_"), place.Width, place.Height);
+        map.TerrainGrid = place.TerrainGrid;
+        
+        return map;
+    }
+    
+    /// <summary>
+    /// (kern-place-synch place)
+    /// Synchronize a place.
+    /// </summary>
+    /// <param name="placeArg"></param>
+    /// <returns></returns>
+    public static object PlaceSynch(object placeArg)
+    {
+        var place = ResolveObject<Place>(placeArg);
+        
+        if (place == null)
+        {
+            RuntimeError("kern-place-synch: null place");
+            return Builtins.Unspecified;
+        }
+        
+        //place.Synchronize();
+        // TODO: Implement synchronization of characters' schedules.
+        return Builtins.Unspecified;
+    }
+    
+    /// <summary>
+    /// (kern-place-get-objects place)
+    /// et all objects in a place.
+    /// </summary>
+    /// <param name="placeObj"></param>
+    /// <returns></returns>
+    public static object PlaceGetObjects(object placeObj)
+    {
+        if (placeObj is not Place place) 
+            return Cons.FromList(new List<object>());
+    
+        return Cons.FromList(new List<object>(place.Objects));
+    }
 }

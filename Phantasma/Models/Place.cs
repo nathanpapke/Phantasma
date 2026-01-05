@@ -38,7 +38,7 @@ public class Place
     public bool Underground { get; set; } = false;
     public bool Wilderness { get; set; } = false;
     public bool CombatEnabled { get; set; } = true;
-        
+    
     // Object Tracking
     public List<Object> Objects;
     
@@ -46,10 +46,10 @@ public class Place
     private Dictionary<(int x, int y, ObjectLayer layer), Object> objectsByLocation;
     private Dictionary<(int x, int y), Place> subplacesByLocation = new();
     public List<(int x, int y, Place? destination)> Entrances { get; set; } = new();
-
+    
     // Magic number for type checking (from Nazghul).
     public int Magic { get; set; } = 0x1234ABCD;
-
+    
     public Place()
     {
         Width = Phantasma.Dimensions.MAP_TILE_W;
