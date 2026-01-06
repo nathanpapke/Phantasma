@@ -32,7 +32,7 @@ public partial class Kernel
         if (gameObj == null)
         {
             Console.WriteLine($"[kern-obj-put-at] Error: null or invalid object");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         if (location is Cons locList)
@@ -59,13 +59,13 @@ public partial class Kernel
                 if (place == null)
                 {
                     Console.WriteLine($"[kern-obj-put-at] Error: could not resolve place tag '{placeTag}'");
-                    return Builtins.Unspecified;
+                    return "nil".Eval();
                 }
             }
             else
             {
                 Console.WriteLine($"[kern-obj-put-at] Error: place is neither Place nor string (type: {locList.car?.GetType().Name ?? "NULL"})");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Extract coordinates.
@@ -74,7 +74,7 @@ public partial class Kernel
             if (rest == null)
             {
                 Console.WriteLine($"[kern-obj-put-at] Error: missing coordinates in location list");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             int x = Convert.ToInt32(rest.car ?? 0);
@@ -98,7 +98,7 @@ public partial class Kernel
             Console.WriteLine($"[kern-obj-put-at] Error: location is not a list (type: {location?.GetType().Name ?? "NULL"})");
         }
         
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ public partial class Kernel
     public static object ObjectGetLocation(object args)
     {
         // TODO: Implement
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -277,7 +277,7 @@ public partial class Kernel
         if (obj is not Object gameObj)
         {
             RuntimeError("kern-obj-remove: not a game object");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Remove from place.
@@ -287,7 +287,7 @@ public partial class Kernel
             place.RemoveObject(gameObj);
         }
         
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -400,7 +400,7 @@ public partial class Kernel
         if (obj == null || IsNil(obj))
         {
             Console.WriteLine("[kern-obj-set-visible] null object");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         bool val = Convert.ToBoolean(visible);
@@ -545,13 +545,13 @@ public partial class Kernel
         if (obj == null)
         {
             RuntimeError("kern-obj-get-gob: bad args");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         if (obj.Gob == null || obj.Gob?.SchemeData == null)
         {
             RuntimeError($"kern-obj-get-gob: no gob for {obj.Name ?? "unknown"}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Return the Scheme data directly - it's already an IronScheme object.
@@ -576,14 +576,14 @@ public partial class Kernel
         if (objArg == null)
         {
             Console.WriteLine("[RUNTIME ERROR] kern-obj-set-gob: null object");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Check for Unspecified (this is what happens when kern-mk-obj fails).
-        if (objArg == Builtins.Unspecified)
+        if (objArg == "nil".Eval())
         {
             Console.WriteLine("[RUNTIME ERROR] kern-obj-set-gob: object is #<unspecified> (kern-mk-obj may have failed)");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Try to get the object directly or by tag.
@@ -615,14 +615,14 @@ public partial class Kernel
         if (obj == null)
         {
             Console.WriteLine($"[RUNTIME ERROR] kern-obj-set-gob: bad args (got {objArg?.GetType().Name ?? "null"})");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Handle null gob data.
         if (gobData == null || IsNil(gobData))
         {
             obj.Gob = null;
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Create a new Gob with the Scheme data.
@@ -631,6 +631,6 @@ public partial class Kernel
             Flags = Gob.GOB_SAVECAR
         };
         
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
 }

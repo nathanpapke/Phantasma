@@ -17,13 +17,13 @@ public partial class Kernel
         if (beingObj is not Being being)
         {
             Console.WriteLine("[kern-being-pathfind-to] Invalid being");
-            return false;
+            return "#f".Eval();
         }
 
         if (placeObj is not Place place)
         {
             Console.WriteLine("[kern-being-pathfind-to] Invalid place");
-            return false;
+            return "#f".Eval();
         }
 
         int x = Convert.ToInt32(xObj);
@@ -42,12 +42,12 @@ public partial class Kernel
         if (being1Obj is not Being being1 || being2Obj is not Being being2)
         {
             Console.WriteLine("[kern-being-is-hostile?] Invalid being(s)");
-            return false;
+            return "#f".Eval();
         }
 
         var dtable = Phantasma.MainSession?.DiplomacyTable;
         if (dtable == null)
-            return false;
+            return "#f".Eval();
 
         int f1 = being1.GetCurrentFaction();
         int f2 = being2.GetCurrentFaction();
@@ -119,7 +119,7 @@ public partial class Kernel
         if (beingObj is not Being being)
         {
             Console.WriteLine("[kern-being-set-base-faction] Invalid being");
-            return false;
+            return "#f".Eval();
         }
 
         int faction = Convert.ToInt32(factionObj);

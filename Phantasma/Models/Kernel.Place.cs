@@ -42,7 +42,7 @@ public partial class Kernel
             }
         }
         
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     public static object PlaceGetTerrain(object place, object x, object y)
@@ -56,11 +56,11 @@ public partial class Kernel
             if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
             {
                 var terrain = p.TerrainGrid[xPos, yPos];
-                return terrain ?? Builtins.Unspecified;
+                return terrain ?? "nil".Eval();
             }
         }
     
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -77,7 +77,7 @@ public partial class Kernel
         }
     
         Console.WriteLine("[WARNING] kern-place-set-current: Invalid place object");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -265,7 +265,7 @@ public partial class Kernel
         if (place == null || place.TerrainGrid == null)
         {
             RuntimeError("kern-place-map: null place or map");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
 
         TerrainMap map = new TerrainMap(place.Tag.Replace("p_", "m_"), place.Width, place.Height);
@@ -287,12 +287,12 @@ public partial class Kernel
         if (place == null)
         {
             RuntimeError("kern-place-synch: null place");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         //place.Synchronize();
         // TODO: Implement synchronization of characters' schedules.
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>

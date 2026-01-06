@@ -21,13 +21,13 @@ public partial class Kernel
             else
             {
                 RuntimeError("kern-get-player: No active session or player");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
         }
         catch (Exception ex)
         {
             RuntimeError($"kern-get-player: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
 

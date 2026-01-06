@@ -92,7 +92,7 @@ public partial class Kernel
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-get-weapons: not a character");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Build a list of weapons.
@@ -116,7 +116,7 @@ public partial class Kernel
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-arm-self: not a character");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         ch.ArmThyself();
@@ -133,12 +133,12 @@ public partial class Kernel
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-get-inventory: not a character");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         var container = ch.GetInventoryContainer();
         if (container == null)
-            return Builtins.Unspecified;
+            return "nil".Eval();
         
         var items = new List<object>();
         

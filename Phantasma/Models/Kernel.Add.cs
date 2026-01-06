@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using IronScheme;
 using IronScheme.Runtime;
 
 namespace Phantasma.Models;
@@ -31,12 +32,12 @@ public partial class Kernel
                 RuntimeError("kern-add-reveal: null character");
             }
             
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         catch (Exception ex)
         {
             RuntimeError($"kern-add-reveal: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
     
@@ -60,12 +61,12 @@ public partial class Kernel
                 RuntimeError("kern-add-quicken: null character");
             }
             
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         catch (Exception ex)
         {
             RuntimeError($"kern-add-quicken: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
     
@@ -89,12 +90,12 @@ public partial class Kernel
                 RuntimeError("kern-add-time-stop: null character");
             }
             
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         catch (Exception ex)
         {
             RuntimeError($"kern-add-time-stop: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
     
@@ -118,12 +119,12 @@ public partial class Kernel
                 RuntimeError("kern-add-magic-negated: null character");
             }
             
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         catch (Exception ex)
         {
             RuntimeError($"kern-add-magic-negated: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
     
@@ -147,12 +148,12 @@ public partial class Kernel
                 RuntimeError("kern-add-xray-vision: null character");
             }
             
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         catch (Exception ex)
         {
             RuntimeError($"kern-add-xray-vision: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
     
@@ -210,6 +211,6 @@ public partial class Kernel
         Magic.AddSpellByCode(code, objectType, level, cost, context, flags, range, actionPoints, reagents);
     
         Console.WriteLine($"  Added spell: {code} -> {typeTag} (level={level}, cost={cost})");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
 }

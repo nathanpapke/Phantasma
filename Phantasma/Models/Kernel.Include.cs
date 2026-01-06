@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using IronScheme;
 using IronScheme.Runtime;
 using IronScheme.Scripting;
 
@@ -30,7 +31,7 @@ public partial class Kernel
             if (string.IsNullOrEmpty(rawPath))
             {
                 Console.Error.WriteLine("[kern-include] Error: could not extract filename from args.");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Resolve the path.
@@ -39,7 +40,7 @@ public partial class Kernel
             if (!File.Exists(path))
             {
                 Console.Error.WriteLine($"[kern-include] File not found: {path}");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Check if already loaded (prevents double-loading).
@@ -47,7 +48,7 @@ public partial class Kernel
             if (loadedFiles.Contains(normalizedPath))
             {
                 // Already loaded - skip silently (this is normal)
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Mark as loaded BEFORE loading to handle circular includes.
@@ -58,13 +59,13 @@ public partial class Kernel
             if (kernel == null)
             {
                 Console.Error.WriteLine("[kern-include] Error: Phantasma.Kernel is null");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Load the file - LoadSchemeFile handles its own errors.
             kernel.LoadSchemeFile(path);
             
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         catch (Exception ex)
         {
@@ -74,7 +75,7 @@ public partial class Kernel
             {
                 Console.Error.WriteLine($"[kern-include] Inner: {ex.InnerException.Message}");
             }
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
 

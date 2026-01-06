@@ -30,10 +30,10 @@ public partial class Kernel
         if (armsType is not ArmsType arms)
         {
             Console.WriteLine("[ERROR] kern-arms-type-get-ammo-type: not an arms type");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         var ammoType = arms.GetAmmoType();
-        return ammoType ?? (object)Builtins.Unspecified;
+        return ammoType ?? (object)"nil".Eval();
     }
 }

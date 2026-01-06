@@ -1,5 +1,5 @@
 using System;
-using IronScheme.Runtime;
+using IronScheme;
 
 namespace Phantasma.Models;
 
@@ -28,13 +28,13 @@ public partial class Kernel
         if (dstMap == null)
         {
             RuntimeError("kern-blit-map: null destination map");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         if (srcMap == null)
         {
             RuntimeError("kern-blit-map: null source map");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         int dx = ToInt(dstX, 0);
@@ -86,7 +86,7 @@ public partial class Kernel
         if (map == null)
         {
             RuntimeError("kern-map-rotate: null map");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         int deg = ToInt(degrees, 0) % 360;

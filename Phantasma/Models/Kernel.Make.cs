@@ -255,7 +255,7 @@ public partial class Kernel
         if (pal == null)
         {
             Console.WriteLine($"[kern-mk-map] {tagStr}: could not resolve palette '{palette}'");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         var map = new TerrainMap(tagStr, w, h);
@@ -312,7 +312,7 @@ public partial class Kernel
         if (args == null || args.Length < 8)
         {
             LoadError($"kern-mk-place: expected at least 8 args, got {args?.Length ?? 0}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         int i = 0;
@@ -472,7 +472,7 @@ public partial class Kernel
                     var objRef = entry.car;
                     var rest = entry.cdr as Cons;
                     
-                    if (objRef != null && !IsNil(objRef) && objRef != Builtins.Unspecified && rest != null)
+                    if (objRef != null && !IsNil(objRef) && objRef != "nil".Eval() && rest != null)
                     {
                         int x = ToInt(rest.car, 0);
                         int y = rest.cdr is Cons rest2 ? ToInt(rest2.car, 0) : 0;
@@ -574,7 +574,7 @@ public partial class Kernel
         if (args.Length < 21)
         {
             LoadError($"kern-mk-species: expected 21 args, got {args.Length}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Extract parameters.
@@ -1127,7 +1127,7 @@ public partial class Kernel
         if (args.Length < 18)
         {
             LoadError($"kern-mk-arms-type: expected 18 args, got {args.Length}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Extract parameters.
@@ -1154,22 +1154,22 @@ public partial class Kernel
         if (!Dice.IsValid(toHitDice))
         {
             LoadError($"kern-mk-arms-type {tagStr}: bad to-hit dice '{toHitDice}'");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         if (!Dice.IsValid(damageDice))
         {
             LoadError($"kern-mk-arms-type {tagStr}: bad damage dice '{damageDice}'");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         if (!Dice.IsValid(armorDice))
         {
             LoadError($"kern-mk-arms-type {tagStr}: bad armor dice '{armorDice}'");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         if (!Dice.IsValid(defendDice))
         {
             LoadError($"kern-mk-arms-type {tagStr}: bad defend dice '{defendDice}'");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Resolve missile type (for ranged weapons).
@@ -1497,7 +1497,7 @@ public partial class Kernel
         if (args.Length < 13)
         {
             LoadError($"kern-mk-effect: expected 13 args, got {args.Length}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
 
         // Extract parameters.
@@ -1604,7 +1604,7 @@ public partial class Kernel
         if (phaseVector is not object[] phases || phases.Length == 0)
         {
             Console.WriteLine($"[MakeAstralBody] Error: {tag} has no phases");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         var body = new AstralBody(tag, name, phases.Length)
@@ -1805,7 +1805,7 @@ public partial class Kernel
         if (string.IsNullOrEmpty(filenameStr))
         {
             Console.WriteLine($"[kern-mk-sound] {tagStr}: null or empty filename");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Load the sound.
@@ -1814,7 +1814,7 @@ public partial class Kernel
         if (sound == null)
         {
             Console.WriteLine($"[kern-mk-sound] {tagStr}: failed to load '{filenameStr}'");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Register with Phantasma for lookup by tag.
@@ -1866,7 +1866,7 @@ public partial class Kernel
         $"(define ptable \"ptable\")".Eval();
     
         Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} table");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -1886,7 +1886,7 @@ public partial class Kernel
         if (args == null || args.Length == 0)
         {
             Console.Error.WriteLine("[kern-mk-dtable] Error: 0 factions given");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         // Each arg is a list of diplomacy levels for one faction.
@@ -1904,7 +1904,7 @@ public partial class Kernel
         if (rows[0].Count != numFactions)
         {
             Console.Error.WriteLine($"[kern-mk-dtable] Error: # of rows ({numFactions}) and columns ({rows[0].Count}) must be same");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         // Validate all rows have correct number of columns.
@@ -1913,7 +1913,7 @@ public partial class Kernel
             if (rows[i].Count < numFactions)
             {
                 Console.Error.WriteLine($"[kern-mk-dtable] Error: row {i} has only {rows[i].Count} columns (expected {numFactions})");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
         }
     

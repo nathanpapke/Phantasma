@@ -20,7 +20,7 @@ public partial class Kernel
         string message = text?.ToString() ?? "";
         var session = Phantasma.MainSession;
         session?.LogMessage(message);
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -68,7 +68,7 @@ public partial class Kernel
     {
         // TODO: Implement trading system.
         Console.WriteLine("[Conversation] Trade interface (not yet implemented)");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -79,6 +79,6 @@ public partial class Kernel
     {
         Console.WriteLine("[Conversation] Ending conversation.");
         Conversation.End();
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
 }

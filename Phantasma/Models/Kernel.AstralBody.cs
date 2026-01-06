@@ -1,5 +1,5 @@
 using System;
-using IronScheme.Runtime;
+using IronScheme;
 
 namespace Phantasma.Models;
 
@@ -33,13 +33,13 @@ public partial class Kernel
         if (bodyObj is not AstralBody body)
         {
             Console.WriteLine("[AstralBodyGetGob] Error: not an astral body");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         if (body.Gob == null)
         {
             Console.WriteLine($"[AstralBodyGetGob] Error: no gob for {body.Name}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         return body.Gob;
@@ -57,7 +57,7 @@ public partial class Kernel
         if (bodyObj is not AstralBody body)
         {
             Console.WriteLine("[AstralBodySetGob] Error: not an astral body");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Create Gob struct from the Scheme object.
@@ -68,6 +68,6 @@ public partial class Kernel
             RefCount = 1
         };
         
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
 }

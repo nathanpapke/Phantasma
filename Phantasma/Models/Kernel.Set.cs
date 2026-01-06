@@ -26,7 +26,7 @@ public partial class Kernel
         }
     
         Console.WriteLine($"  WARNING: SetPlayer expected Character, got {character?.GetType().Name}");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     public static object SetCrosshair(object objTypeRef)
@@ -43,7 +43,7 @@ public partial class Kernel
         if (objType == null)
         {
             Console.WriteLine("kern-set-crosshair: invalid object type");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
 
         // Store with well-known "crosshair" key.
@@ -74,7 +74,7 @@ public partial class Kernel
         if (sprite == null)
         {
             Console.WriteLine("kern-set-cursor: invalid sprite");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
 
         // Store with well-known "cursor-sprite" key.
@@ -91,7 +91,7 @@ public partial class Kernel
         if (args.Length < 13)
         {
             Console.Error.WriteLine($"[kern-set-frame] Error: expected 13 sprites, got {args.Length}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         // Store as anonymous object - access via dynamic later.
@@ -116,7 +116,7 @@ public partial class Kernel
         Phantasma.RegisterObject("frame-sprites", frameSprites);
     
         Console.WriteLine("  Set frame sprites");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     public static object SetAscii(object[] args)
@@ -124,7 +124,7 @@ public partial class Kernel
         if (args.Length < 2)
         {
             Console.Error.WriteLine($"[kern-set-ascii] Error: expected 2 args, got {args.Length}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         // Get the sprite set (could be tag string or the object itself).
@@ -142,7 +142,7 @@ public partial class Kernel
         Phantasma.RegisterObject("ascii-config", asciiConfig);
     
         Console.WriteLine($"  Set ASCII sprite set (offset={offset})");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -173,13 +173,13 @@ public partial class Kernel
             // Session doesn't exist yet - store for later application.
             // This happens when the game data is loaded before the session is created.
             Phantasma.SetPendingClockData(year, month, week, day, hour, min);
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Session exists - set the clock directly.
         session.Clock.Set(year, month, week, day, hour, min);
         
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -198,13 +198,13 @@ public partial class Kernel
         if (session == null)
         {
             Console.WriteLine("[SetTimeAccel] Warning: No main session.");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         session.TimeAcceleration = accel;
         Console.WriteLine($"[SetTimeAccel] Time acceleration set to {accel}x.");
     
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
 
     /// <summary>
@@ -279,7 +279,7 @@ public partial class Kernel
             if (proc == null)
             {
                 Console.Error.WriteLine("[kern-set-camping-proc] Error: bad args");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Store in session.
@@ -301,7 +301,7 @@ public partial class Kernel
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[kern-set-camping-proc] Error: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
     
@@ -328,7 +328,7 @@ public partial class Kernel
             if (proc == null)
             {
                 Console.Error.WriteLine("[kern-set-start-proc] Error: bad args");
-                return Builtins.Unspecified;
+                return "nil".Eval();
             }
             
             // Store in session.
@@ -350,7 +350,7 @@ public partial class Kernel
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[kern-set-start-proc] Error: {ex.Message}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     }
 }

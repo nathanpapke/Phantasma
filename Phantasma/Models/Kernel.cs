@@ -409,7 +409,7 @@ public partial class Kernel
         }
     
         Console.WriteLine($"[Scheme] {message}");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -423,13 +423,13 @@ public partial class Kernel
     
         if (string.IsNullOrEmpty(rawPath))
         {
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         // Just register for save tracking - don't actually load.
         // TODO: Add Session.RegisterIncludedFile(rawPath) when implementing save/load.
     
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -447,7 +447,7 @@ public partial class Kernel
         if (string.IsNullOrEmpty(rawPath))
         {
             Console.Error.WriteLine("[kern-load-file] Error: could not extract filename");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         // Redirect Haxima's init.scm to Phantasma's compatible version.
@@ -462,7 +462,7 @@ public partial class Kernel
                 Console.WriteLine($"[kern-load-file] Redirecting init.scm to Phantasma version");
                 kernel?.LoadSchemeFileInternal(phantasmaInit);
             }
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         string path = Phantasma.ResolvePath(rawPath);
@@ -470,17 +470,17 @@ public partial class Kernel
         if (!File.Exists(path))
         {
             Console.Error.WriteLine($"[kern-load-file] File not found: {path}");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         if (kernel == null)
         {
             Console.Error.WriteLine("[kern-load-file] Error: Kernel is null");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
     
         kernel.LoadSchemeFile(path);
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -517,13 +517,13 @@ public partial class Kernel
         if (soundObj == null)
         {
             // Silent fail.
-            return IronScheme.Runtime.Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Play at max volume.
         SoundManager.Instance.Play(soundObj, SoundManager.MaxVolume);
         
-        return IronScheme.Runtime.Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -897,10 +897,10 @@ public partial class Kernel
     private static object ListToScheme(List<object> items)
     {
         if (items.Count == 0)
-            return Builtins.Unspecified;
+            return "nil".Eval();
         
         // Build list from end to start
-        object result = Builtins.Unspecified;
+        object result = "nil".Eval();
         for (int i = items.Count - 1; i >= 0; i--)
         {
             result = new Cons(items[i], result);
@@ -936,7 +936,7 @@ public partial class Kernel
         
         // Handle the outer list (rows).
         object current = args;
-        while (current != null && current != Builtins.Unspecified)
+        while (current != null && current != "nil".Eval())
         {
             if (current is Cons cons)
             {
@@ -968,7 +968,7 @@ public partial class Kernel
         var result = new List<int>();
 
         object current = listObj;
-        while (current != null && current != Builtins.Unspecified)
+        while (current != null && current != "nil".Eval())
         {
             if (current is Cons cons)
             {
