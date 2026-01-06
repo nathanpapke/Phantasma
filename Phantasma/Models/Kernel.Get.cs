@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using IronScheme;
 using IronScheme.Runtime;
 
 namespace Phantasma.Models;
@@ -80,7 +81,7 @@ public partial class Kernel
         // "Some objects (like characters) have no type"
         if (type == null || IsNil(type))
         {
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Try to get ObjectType directly or by tag.
@@ -94,10 +95,10 @@ public partial class Kernel
         if (objType == null)
         {
             // Not an ObjectType - could be Character, etc. Return nil.
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Return the interaction handler (gifc) or nil.
-        return objType.InteractionHandler ?? Builtins.Unspecified;
+        return objType.InteractionHandler ?? "nil".Eval();
     }
 }

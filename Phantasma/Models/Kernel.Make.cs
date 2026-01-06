@@ -317,7 +317,7 @@ public partial class Kernel
         
         int i = 0;
         
-        // Required parameters (0-7)
+        // Required Parameters (0-7)
         string tagStr = ToTag(args[i++]);
         string nameStr = args[i++]?.ToString()?.Trim('"') ?? "Unnamed Place";
         object spriteArg = args[i++];
@@ -329,12 +329,12 @@ public partial class Kernel
         // Last required - only increment if there are optional params following.
         bool combat = i < args.Length - 1 ? ConvertToBool(args[i++]) : ConvertToBool(args[i]);
         
-        // Optional parameters - only increment if there's another element after.
+        // Optional parameters (8-12) - use MakeCharacter pattern
         object subplacesArg = i < args.Length - 1 ? args[i++] : null;
         object neighborsArg = i < args.Length - 1 ? args[i++] : null;
         object contentsArg = i < args.Length - 1 ? args[i++] : null;
         object hooksArg = i < args.Length - 1 ? args[i++] : null;
-        object entrancesArg = i < args.Length ? args[i] : null;  // Last one
+        object entrancesArg = i < args.Length ? args[i] : null;
         
         Console.WriteLine($"  Creating place: {tagStr} - {nameStr}");
         
@@ -387,13 +387,13 @@ public partial class Kernel
                 if (list.car is Cons entry)
                 {
                     Place subplace = null;
-                    var subplaceArg = entry.car;
+                    var subplaceRef = entry.car;
                     
-                    if (subplaceArg is Place sp)
+                    if (subplaceRef is Place sp)
                         subplace = sp;
-                    else if (subplaceArg != null && !IsNil(subplaceArg))
+                    else if (subplaceRef != null && !IsNil(subplaceRef))
                     {
-                        var resolved = Phantasma.GetRegisteredObject(ToTag(subplaceArg));
+                        var resolved = Phantasma.GetRegisteredObject(ToTag(subplaceRef));
                         if (resolved is Place resolvedPlace)
                             subplace = resolvedPlace;
                     }
@@ -424,13 +424,13 @@ public partial class Kernel
                 if (list.car is Cons entry)
                 {
                     Place neighbor = null;
-                    var neighborArg = entry.car;
+                    var neighborRef = entry.car;
                     
-                    if (neighborArg is Place np)
+                    if (neighborRef is Place np)
                         neighbor = np;
-                    else if (neighborArg != null && !IsNil(neighborArg))
+                    else if (neighborRef != null && !IsNil(neighborRef))
                     {
-                        var resolved = Phantasma.GetRegisteredObject(ToTag(neighborArg));
+                        var resolved = Phantasma.GetRegisteredObject(ToTag(neighborRef));
                         if (resolved is Place resolvedPlace)
                             neighbor = resolvedPlace;
                     }
@@ -469,20 +469,20 @@ public partial class Kernel
             {
                 if (list.car is Cons entry)
                 {
-                    var objArg = entry.car;
+                    var objRef = entry.car;
                     var rest = entry.cdr as Cons;
                     
-                    if (objArg != null && !IsNil(objArg) && objArg != Builtins.Unspecified && rest != null)
+                    if (objRef != null && !IsNil(objRef) && objRef != Builtins.Unspecified && rest != null)
                     {
                         int x = ToInt(rest.car, 0);
                         int y = rest.cdr is Cons rest2 ? ToInt(rest2.car, 0) : 0;
                         
                         Object gameObj = null;
-                        if (objArg is Object directObj)
+                        if (objRef is Object directObj)
                             gameObj = directObj;
                         else
                         {
-                            var resolved = Phantasma.GetRegisteredObject(ToTag(objArg));
+                            var resolved = Phantasma.GetRegisteredObject(ToTag(objRef));
                             if (resolved is Object resolvedObj)
                                 gameObj = resolvedObj;
                         }
@@ -989,7 +989,7 @@ public partial class Kernel
         if (type == null || IsNil(type))
         {
             Console.WriteLine($"  [WARNING] kern-mk-obj: null or nil type");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Direct ObjectType.
@@ -1031,7 +1031,7 @@ public partial class Kernel
         if (string.IsNullOrEmpty(tagStr))
         {
             Console.WriteLine($"  [WARNING] kern-mk-obj: cannot convert type to tag ({type?.GetType().Name ?? "null"})");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         var resolved = Phantasma.GetRegisteredObject(tagStr);
@@ -1039,7 +1039,7 @@ public partial class Kernel
         if (resolved == null)
         {
             Console.WriteLine($"  [WARNING] kern-mk-obj: type '{tagStr}' not found in registry");
-            return Builtins.Unspecified;
+            return "nil".Eval();
         }
         
         // Resolved to ObjectType.
@@ -1077,7 +1077,7 @@ public partial class Kernel
         }
         
         Console.WriteLine($"  [WARNING] kern-mk-obj: type '{tagStr}' resolved to unsupported type ({resolved.GetType().Name})");
-        return Builtins.Unspecified;
+        return "nil".Eval();
     }
     
     /// <summary>
