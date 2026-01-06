@@ -351,6 +351,7 @@ public partial class Kernel
         DefineFunction("kern-load-file", LoadFile);
         DefineFunction("kern-sound-play", SoundPlay);
         DefineFunction("kern-tag", Tag);
+        DefineFunction("kern-dice-roll", DiceRoll);
         
         // TODO: Add remaining kern-* functions as needed.
         // The full Nazghul kern.c has ~150 functions.
@@ -573,6 +574,20 @@ public partial class Kernel
         }
         
         return obj;
+    }
+    
+    public static object DiceRoll(object[] args)
+    {
+        if (args == null || args.Length < 1)
+        {
+            Console.WriteLine("[LOAD ERROR] kern-dice-roll: expected 1 arg (dice string)");
+            return 0;
+        }
+        
+        string diceExpr = ToTag(args[0]) ?? args[0]?.ToString() ?? "";
+        
+        int result = Dice.Roll(diceExpr);
+        return result;
     }
     
     // ===================================================================
