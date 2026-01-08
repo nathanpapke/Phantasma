@@ -69,14 +69,14 @@ public class Screen
     public void Initialize()
     {
         // Load terrain sprites.
-        SpriteManager.LoadTerrainSprites();
+        //SpriteManager.LoadTerrainSprites();
             
         // Load character sprites.
-        SpriteManager.LoadCharacterSprites();
+        //SpriteManager.LoadCharacterSprites();
         
         // Update render mode based on sprite availability.
-        CurrentRenderMode = SpriteManager.HasSprites() ? 
-            RenderMode.Sprites : RenderMode.ColoredSquares;
+        //CurrentRenderMode = SpriteManager.HasSprites() ? 
+            //RenderMode.Sprites : RenderMode.ColoredSquares;
             
         Console.WriteLine($"Screen initialized in {CurrentRenderMode} mode.");
     }
@@ -123,7 +123,7 @@ public class Screen
     {
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         
-        if (CurrentRenderMode == RenderMode.Sprites && terrain.Sprite?.SourceImage != null)
+        if (terrain.Sprite?.SourceImage != null)
         {
             DrawSprite(context, terrain.Sprite, destRect);
         }
@@ -157,7 +157,7 @@ public class Screen
         // Get sprite from the item's type.
         var sprite = item.Type?.Sprite;
     
-        if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
+        if (sprite?.SourceImage != null)
         {
             DrawSprite(context, sprite, destRect);
         }
@@ -191,7 +191,7 @@ public class Screen
     {
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
             
-        if (CurrentRenderMode == RenderMode.Sprites && being.CurrentSprite?.SourceImage != null)
+        if (being.CurrentSprite?.SourceImage != null)
         {
             DrawSprite(context, being.CurrentSprite, destRect);
         }
@@ -206,7 +206,7 @@ public class Screen
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         var sprite = vehicle.GetSprite();
     
-        if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
+        if (sprite?.SourceImage != null)
         {
             sprite.SetFacing(vehicle.Facing);  // Computes Sequence
             DrawSprite(context, sprite, destRect);
@@ -247,7 +247,7 @@ public class Screen
     
         var sprite = missile.Sprite;
     
-        if (CurrentRenderMode == RenderMode.Sprites && sprite?.SourceImage != null)
+        if (sprite?.SourceImage != null)
         {
             DrawSprite(context, sprite, destRect);
         }
@@ -282,7 +282,7 @@ public class Screen
         var crosshairType = Phantasma.GetRegisteredObject("crosshair") as ObjectType;
     
         // Use configured crosshair sprite if available.
-        if (CurrentRenderMode == RenderMode.Sprites && crosshairType?.Sprite?.SourceImage != null)
+        if (crosshairType?.Sprite?.SourceImage != null)
         {
             DrawSprite(context, crosshairType.Sprite, destRect);
         }

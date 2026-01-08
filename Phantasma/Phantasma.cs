@@ -56,6 +56,8 @@ public class Phantasma
     private static (int year, int month, int week, int day, int hour, int min)? pendingClockData;
     private static Party pendingPlayerParty;
     private static Character pendingPlayerCharacter;
+    private static object pendingStartProc;
+    private static object pendingCampingProc;
 
     public static Dictionary<string, string> Configuration => instance.configuration;
     public static Common Common => instance.common;
@@ -126,6 +128,26 @@ public class Phantasma
     {
         pendingPlayerCharacter = player;
         Console.WriteLine($"[Phantasma] Stored pending player character: {player?.GetName() ?? "null"}");
+    }
+    
+    /// <summary>
+    /// Store start procedure to apply after session is created.
+    /// Called by kern-set-start-proc during game loading.
+    /// </summary>
+    public static void SetPendingStartProc(object proc)
+    {
+        pendingStartProc = proc;
+        Console.WriteLine("[Phantasma] Stored pending start proc");
+    }
+    
+    /// <summary>
+    /// Store camping procedure to apply after session is created.
+    /// Called by kern-set-camping-proc during game loading.
+    /// </summary>
+    public static void SetPendingCampingProc(object proc)
+    {
+        pendingCampingProc = proc;
+        Console.WriteLine("[Phantasma] Stored pending camping proc");
     }
     
     // ===================================================================
@@ -294,6 +316,16 @@ public class Phantasma
             }
         }
         
+        // Try to get Haxima's starting place directly.
+        if (place == null)
+        {
+            place = GetRegisteredObject("p_moongate_clearing") as Place;
+            if (place != null)
+            {
+                Console.WriteLine($"[CreateMainSession] Using Haxima starting place: {place.Name}");
+            }
+        }
+        
         if (place == null)
         {
             Console.WriteLine("[CreateMainSession] No place found, will use test map.");
@@ -314,6 +346,26 @@ public class Phantasma
         {
             Console.WriteLine("[CreateMainSession] No pending clock data.");
         }
+        
+        // Apply pending start proc if we have it.
+        if (pendingStartProc != null)
+        {
+            mainSession.SetStartProc(pendingStartProc);
+            Console.WriteLine("[CreateMainSession] Applied pending start proc");
+            pendingStartProc = null;
+        }
+        
+        // Apply pending camping proc if we have it.
+        if (pendingCampingProc != null)
+        {
+            mainSession.SetCampingProc(pendingCampingProc);
+            Console.WriteLine("[CreateMainSession] Applied pending camping proc");
+            pendingCampingProc = null;
+        }
+        
+        // Run the start procedure to place the player.
+        Console.WriteLine("[CreateMainSession] Running start proc...");
+        mainSession.RunStartProc();
         
         // Clear pending data.
         pendingPlayerParty = null;
@@ -564,6 +616,7 @@ public class Phantasma
             // Initialize game session.
             progress.Report((85, "Initializing game session..."));
             await Task.Run(() => CreateMainSession());
+            await Task.Run(() => MainSession?.RunStartProc());
             
             // Final initialization.
             progress.Report((95, "Starting Phantasma..."));

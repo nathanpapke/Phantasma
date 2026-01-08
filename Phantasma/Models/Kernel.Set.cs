@@ -269,40 +269,29 @@ public partial class Kernel
     ///   KERN_API_CALL(kern_set_camping_proc) - args contains one closure/proc
     ///   session_set_camping_proc(Session, closure_new(sc, proc))
     /// </remarks>
-    public static object SetCampingProc(object args)
+    public static object SetCampingProc(object[] args)
     {
-        try
+        if (args.Length < 1)
         {
-            // Extract the procedure from args.
-            object proc = ExtractFirstArg(args);
-            
-            if (proc == null)
-            {
-                Console.Error.WriteLine("[kern-set-camping-proc] Error: bad args");
-                return "nil".Eval();
-            }
-            
-            // Store in session.
-            var session = Phantasma.MainSession;
-            if (session != null)
-            {
-                session.SetCampingProc(proc);
-            }
-            else
-            {
-                //Phantasma.PendingCampingProc = proc;
-            }
-            
-            Console.WriteLine("[kern-set-camping-proc] Camping procedure set");
-            
-            // Return the proc (Nazghul returns the proc pointer).
-            return proc;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[kern-set-camping-proc] Error: {ex.Message}");
+            Console.WriteLine("[kern-set-camping-proc] No procedure provided");
             return "nil".Eval();
         }
+        
+        // Extract the actual procedure from args[0], not the whole args array!
+        var proc = args[0];
+        
+        if (Phantasma.MainSession == null)
+        {
+            Phantasma.SetPendingCampingProc(proc);
+            Console.WriteLine("[Phantasma] Stored pending camping proc");
+        }
+        else
+        {
+            Phantasma.MainSession.SetCampingProc(proc);
+        }
+        
+        Console.WriteLine("[kern-set-camping-proc] Camping procedure set");
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -318,39 +307,28 @@ public partial class Kernel
     /// Called by session_run_start_proc():
     ///   closure_exec(session->start_proc, "p", player_party)
     /// </remarks>
-    public static object SetStartProc(object args)
+    public static object SetStartProc(object[] args)
     {
-        try
+        if (args.Length < 1)
         {
-            // Extract the procedure from args.
-            object proc = ExtractFirstArg(args);
-            
-            if (proc == null)
-            {
-                Console.Error.WriteLine("[kern-set-start-proc] Error: bad args");
-                return "nil".Eval();
-            }
-            
-            // Store in session.
-            var session = Phantasma.MainSession;
-            if (session != null)
-            {
-                session.SetStartProc(proc);
-            }
-            else
-            {
-                //Phantasma.PendingStartProc = proc;
-            }
-            
-            Console.WriteLine("[kern-set-start-proc] Start procedure set");
-            
-            // Return the proc (Nazghul returns the proc pointer).
-            return proc;
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"[kern-set-start-proc] Error: {ex.Message}");
+            Console.WriteLine("[kern-set-start-proc] No procedure provided");
             return "nil".Eval();
         }
+        
+        // Extract the actual procedure from args[0], not the whole args array!
+        object proc = args[0];
+        
+        if (Phantasma.MainSession == null)
+        {
+            Phantasma.SetPendingStartProc(proc);
+            Console.WriteLine("[Phantasma] Stored pending start proc");
+        }
+        else
+        {
+            Phantasma.MainSession.SetStartProc(proc);
+        }
+        
+        Console.WriteLine("[kern-set-start-proc] Start procedure set");
+        return "nil".Eval();
     }
 }

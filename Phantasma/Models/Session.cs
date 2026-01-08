@@ -184,6 +184,12 @@ public class Session
             currentPlace.GenerateTestMap();
         }
         
+        Console.WriteLine($"[Session] Place terrain check:");
+        var testTerrain = currentPlace?.GetTerrain(0, 0);
+        Console.WriteLine($"[Session]   Terrain at (0,0): {testTerrain?.Name ?? "NULL"}");
+        Console.WriteLine($"[Session]   Has Sprite: {testTerrain?.Sprite != null}");
+        Console.WriteLine($"[Session]   Has SourceImage: {testTerrain?.Sprite?.SourceImage != null}");
+        
         // === PARTY AND PLAYER SETUP ===
         if (party != null && party.Size > 0)
         {
@@ -971,23 +977,54 @@ public class Session
     /// </summary>
     public void RunStartProc()
     {
-        if (startProc == null) return;
-    
+        if (startProc == null)
+        {
+            Console.WriteLine("[Session] No start proc set");
+            return;
+        }
+        
+        Console.WriteLine($"[Session] StartProc type: {startProc.GetType().FullName}");
+        
         try
         {
+            // Try as IronScheme.Runtime.Callable.
             if (startProc is IronScheme.Runtime.Callable callable)
             {
-                // Pass the player party as the argument.
+                Console.WriteLine("[Session] Invoking as Callable");
                 callable.Call(playerParty);
+                return;
             }
-            else
+            
+            // Try invoking via reflection - IronScheme closures may not directly implement Callable.
+            var procType = startProc.GetType();
+            
+            // Look for a Call method that takes no args.
+            var callMethod = procType.GetMethod("Call", Type.EmptyTypes);
+            if (callMethod != null)
             {
-                Console.WriteLine("[Session] StartProc is not callable");
+                Console.WriteLine("[Session] Invoking via reflection Call()");
+                callMethod.Invoke(startProc, null);
+                return;
             }
+            
+            // Look for a Call method that takes object[].
+            callMethod = procType.GetMethod("Call", new Type[] { typeof(object[]) });
+            if (callMethod != null)
+            {
+                Console.WriteLine("[Session] Invoking via reflection Call(object[])");
+                callMethod.Invoke(startProc, new object[] { new object[] { playerParty } });
+                return;
+            }
+            
+            // Try using IronScheme's Eval to call it.
+            Console.WriteLine("[Session] Trying to invoke via Scheme evaluation");
+            var result = $"({startProc})".Eval();
+            Console.WriteLine($"[Session] Start proc result: {result}");
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[Session] Error running start proc: {ex.Message}");
+            Console.Error.WriteLine($"[Session] Stack trace: {ex.StackTrace}");
         }
     }
 

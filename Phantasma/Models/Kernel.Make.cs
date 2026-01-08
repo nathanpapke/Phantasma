@@ -122,9 +122,15 @@ public partial class Kernel
         // Optional Parameter
         object effectProc = i < args.Length ? args[i] : null;
         
+        // DEBUG: Trace sprite resolution.
+        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: spriteArg type={spriteArg?.GetType().Name}, value={spriteArg}");
+        
         // Resolve sprite after extraction.
         var sprite = spriteArg as Sprite ?? ResolveObject<Sprite>(spriteArg);
-    
+        
+        // DEBUG: Check resolution result.
+        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: sprite={sprite != null}, SourceImage={sprite?.SourceImage != null}");
+        
         Terrain terrain = new Terrain(tagStr, name, sprite, pclass, alpha, light);
         Phantasma.RegisterObject(tagStr, terrain);
         $"(define {tagStr} \"{tagStr}\")".Eval();
