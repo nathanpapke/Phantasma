@@ -15,12 +15,85 @@ public partial class Kernel
     /// (kern-conv-say speaker text)
     /// NPC speaks a line of dialog to the player.
     /// </summary>
-    public static object ConversationSay(object speaker, object text)
+    public static object ConversationSay(object[] args)
     {
-        string message = text?.ToString() ?? "";
+        Console.WriteLine($"[kern-conv-say] Called with {args.Length} args");
+        
+        if (args.Length < 1)
+        {
+            Console.WriteLine("[kern-conv-say] No arguments!");
+            return "nil".Eval();
+        }
+        
+        // First arg is speaker.
+        var speaker = args[0];
+        string speakerName = "???";
+        
+        if (speaker is Character ch)
+            speakerName = ch.GetName();
+        else if (speaker is Being b)
+            speakerName = b.GetName();
+        else if (speaker != null)
+            speakerName = speaker.ToString() ?? "???";
+        
+        // Remaining args are text items to concatenate.
+        var sb = new System.Text.StringBuilder();
+        sb.Append(speakerName);
+        sb.Append(": ");
+        
+        for (int i = 1; i < args.Length; i++)
+        {
+            AppendSchemeValue(sb, args[i]);
+        }
+        
+        string message = sb.ToString();
+        Console.WriteLine($"[kern-conv-say] Message: {message}");
+        
         var session = Phantasma.MainSession;
         session?.LogMessage(message);
+        
         return "nil".Eval();
+    }
+
+    /// <summary>
+    /// Recursively append a Scheme value to a StringBuilder.
+    /// Handles Cons lists, strings, numbers, etc.
+    /// </summary>
+    private static void AppendSchemeValue(System.Text.StringBuilder sb, object value)
+    {
+        if (value == null)
+            return;
+        
+        // Handle Cons (Scheme list) - iterate through elements
+        if (value is Cons cons)
+        {
+            while (cons != null)
+            {
+                AppendSchemeValue(sb, cons.car);
+                cons = cons.cdr as Cons;
+            }
+        }
+        else if (value is string s)
+        {
+            sb.Append(s);
+        }
+        else if (value is int || value is long || value is double || value is float)
+        {
+            sb.Append(value);
+        }
+        else
+        {
+            // For other types, try ToString but log it.
+            string str = value.ToString() ?? "";
+            if (!string.IsNullOrEmpty(str) && !str.Contains("IronScheme"))
+            {
+                sb.Append(str);
+            }
+            else
+            {
+                Console.WriteLine($"[kern-conv-say] Skipping unknown type: {value.GetType().Name}");
+            }
+        }
     }
     
     /// <summary>

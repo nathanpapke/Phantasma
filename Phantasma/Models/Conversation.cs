@@ -1,6 +1,7 @@
 using System;
-using Avalonia.Threading;
+using IronScheme;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -41,6 +42,23 @@ public class Conversation
             return;
         }
         
+        // If it's a symbol, resolve it to the actual closure.
+        if (conversationClosure is SymbolId symbolId)
+        {
+            var symbolName = SymbolTable.IdToString(symbolId);
+            Console.WriteLine($"[Conversation] Resolving symbol '{symbolName}'...");
+            conversationClosure = symbolName.Eval();
+            Console.WriteLine($"[Conversation] Resolved to: {conversationClosure?.GetType()}");
+        }
+        
+        // Check if we got a callable.
+        if (conversationClosure is not Callable)
+        {
+            Console.WriteLine($"[Conversation] ERROR: Conversation is not callable: {conversationClosure?.GetType()}");
+            session.LogMessage($"Error: {npc.GetName()} has no valid conversation.");
+            return;
+        }
+        
         var conv = new Conversation
         {
             session = session,
@@ -70,25 +88,20 @@ public class Conversation
     /// </summary>
     private void ExecuteKeyword(string keyword)
     {
-        // Truncate to 4 characters (Nazghul behavior).
-        if (keyword.Length > KeywordTruncateLength)
+        Console.WriteLine($"[Conversation] ExecuteKeyword: '{keyword}'");
+    
+        // Convert keyword to Scheme symbol (Nazghul uses 'y' format = symbol)
+        var keywordSymbol = SymbolTable.StringToObject(keyword);
+    
+        // Call the Scheme closure with (keyword npc pc).
+        if (conversationClosure is Callable callable)
         {
-            keyword = keyword.Substring(0, KeywordTruncateLength);
+            Console.WriteLine($"[Conversation] Calling closure with symbol: {keywordSymbol}");
+            callable.Call(keywordSymbol, npc, player);
         }
-        
-        try
+        else
         {
-            // Call the Scheme closure with (keyword npc pc).
-            if (conversationClosure is Callable callable)
-            {
-                callable.Call(keyword, npc, player);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Conversation] Error executing keyword '{keyword}': {ex.Message}");
-            session.LogMessage($"Error in conversation: {ex.Message}");
-            End();
+            Console.WriteLine($"[Conversation] Closure is not Callable: {conversationClosure?.GetType()}");
         }
     }
     
@@ -122,7 +135,15 @@ public class Conversation
     
         // Clear the command prompt.
         session.SetCommandPrompt("");
-    
+        
+        // Check for "bye" BEFORE executing keyword.
+        if (keyword == "bye")
+        {
+            Console.WriteLine("[Conversation] Player said 'bye' - ending conversation");
+            End();
+            return;  // Don't prompt again.
+        }
+        
         // Execute the keyword.
         ExecuteKeyword(keyword);
     
