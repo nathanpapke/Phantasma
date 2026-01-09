@@ -302,7 +302,7 @@ public abstract class Being : Object
         if (place.IsOffMap(newX, newY))
         {
             // If place has a parent, we can exit.
-            if (place.Location.Place != null)
+            if (place.Location?.Place != null)
                 return MoveResult.OffMap;
             
             // If map wraps, adjust coordinates.

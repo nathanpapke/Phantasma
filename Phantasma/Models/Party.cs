@@ -183,6 +183,7 @@ public class Party : Object
         foreach (var member in members)
         {
             member.SetPosition(place, x, y);
+            place?.RegisterObject(member);
         }
     
         Console.WriteLine($"[Party.SetPosition] Set {members.Count} members to {place?.Name} ({x}, {y})");

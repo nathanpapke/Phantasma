@@ -443,6 +443,24 @@ public class Place
     // OBJECT MANAGEMENT
     // ============================================================================
     
+    // Register object in place.
+    public void RegisterObject(Object obj)
+    {
+        if (obj == null) return;
+        
+        if (!Objects.Contains(obj))
+        {
+            Objects.Add(obj);
+        }
+        
+        // Add to layer lookup if object has valid position.
+        if (obj.Position?.Place == this)
+        {
+            var key = (obj.GetX(), obj.GetY(), obj.Layer);
+            objectsByLocation[key] = obj;
+        }
+    }
+    
     /// <summary>
     /// Get object at a specific location and layer.
     /// </summary>
