@@ -174,7 +174,7 @@ public class Character : Being
         }
         else
         {
-            readiedArms = null;
+            readiedArms = new ArmsType?[2]; // Default 2 slots
         }
         burden = 0;
     }

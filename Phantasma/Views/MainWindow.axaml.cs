@@ -152,7 +152,28 @@ public partial class MainWindow : Window
                 }
                 e.Handled = true;
                 return;
-            
+        }
+    
+        // *** CHECK FOR ACTIVE KEY HANDLER FIRST! ***
+        // If there's a handler (text input, targeting, etc.), route keys there
+        var handler = gameSession.CurrentKeyHandler;
+        if (handler != null)
+        {
+            // Route to the handler
+            bool done = handler.HandleKey(e.Key, e.KeySymbol);
+        
+            if (done)
+            {
+                gameSession.PopKeyHandler();
+            }
+        
+            e.Handled = true;
+            return;  // <-- IMPORTANT: Don't fall through to command processing!
+        }
+    
+        // No active handler - NOW process normal game commands
+        switch (e.Key)
+        {
             // ===== MAGIC COMMANDS =====
             case Key.C:
                 // Cast spell
@@ -179,23 +200,6 @@ public partial class MainWindow : Window
                 // Fire (vehicle weapons) - not yet implemented
                 command.Fire();
                 break;
-        }
-        
-        // Check if there's an active key handler on the stack.
-        var handler = gameSession.CurrentKeyHandler;
-        if (handler != null)
-        {
-            // Route to the handler.
-            bool done = handler.HandleKey(e.Key, e.KeySymbol);
-            
-            if (done)
-            {
-                // Handler is finished, pop it.
-                gameSession.PopKeyHandler();
-            }
-            
-            e.Handled = true;
-            return;
         }
         
         // No active handler - process normal game input.
