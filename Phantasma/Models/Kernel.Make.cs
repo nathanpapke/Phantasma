@@ -1104,6 +1104,13 @@ public partial class Kernel
         
         if (sprite is Sprite s)
             objType.Sprite = s;
+        else if (sprite != null)
+        {
+            // Try to resolve tag.
+            var resolved = Phantasma.GetRegisteredObject(sprite.ToString().TrimStart('\'').Trim('"'));
+            if (resolved is Sprite resolvedSprite)
+                objType.Sprite = resolvedSprite;
+        }
         
         // Store interaction handler closure for later use.
         if (interactionHandler != null && !(interactionHandler is bool b && b == false))

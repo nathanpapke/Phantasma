@@ -740,11 +740,16 @@ public class Place
         
         // Check terrain passability.
         var terrain = GetTerrain(x, y);
-        if (terrain != null && !terrain.IsPassable)
+        if (terrain != null)
         {
-            // Future: Check if subject has vehicle that makes this passable.
-            // For now, terrain passability is absolute.
-            return false;
+            var ptable = Phantasma.MainSession?.PassabilityTable ?? PassabilityTable.CreateDefault();
+            int movementMode = 0;  // Default to walking.
+            if (subject is Character ch) // && ch.Species != null)
+            {
+                movementMode = ch.Species.MovementMode.Index;
+            }
+            if (!ptable.IsPassable(movementMode, terrain.PassabilityClass))
+                return false;
         }
         
         // Check for beings occupying the space.
