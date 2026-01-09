@@ -293,6 +293,10 @@ public class Sky
             light += body.Light;
         }
         
+        // TEMPORARY: Default to daytime if no astral bodies.
+        if (_bodies.Count == 0)
+            light = 200;  // Bright daylight
+        
         return Math.Clamp(light, 0, Common.MAX_AMBIENT_LIGHT);
     }
     

@@ -98,14 +98,6 @@ public partial class Kernel
             Builtins.SetSymbolValueFast(SymbolTable.StringToObject(schemeName), callable);
             count++;
         }
-    
-        Console.WriteLine($"[Kernel] Registered {count} functions as Callables");
-        try {
-            Console.WriteLine("[TEST] Testing kern-mk-place invocation...");
-            "(kern-mk-place)".Eval();  // Will fail with wrong args, but should invoke CallTargetN
-        } catch (Exception ex) {
-            Console.WriteLine($"[TEST] kern-mk-place test: {ex.Message}");
-        }
     }
     
     /// <summary>
@@ -373,10 +365,8 @@ public partial class Kernel
     /// </summary>
     private void DefineFunction(string schemeName, Func<object[], object> method)
     {
-        Console.WriteLine($"[DefineFunction] Registering variadic: {schemeName}");
         CallTargetN target = args =>
         {
-            Console.WriteLine($"[CallTargetN] {schemeName} called with {args?.Length ?? 0} args");
             return method(args);
         };
         var closure = Closure.Create(target, -1);

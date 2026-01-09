@@ -70,7 +70,7 @@ public abstract class Object
         Position = loc;
     }
     
-    public void SetPosition(Place place, int x, int y)
+    public virtual void SetPosition(Place place, int x, int y)
     {
         Position = new Location(place, x, y);
     }

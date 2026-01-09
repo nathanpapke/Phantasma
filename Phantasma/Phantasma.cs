@@ -367,6 +367,10 @@ public class Phantasma
         Console.WriteLine("[CreateMainSession] Running start proc...");
         mainSession.RunStartProc();
         
+        // Verify player placement
+        var playerPlace = mainSession.Player?.GetPlace();
+        Console.WriteLine($"[CreateMainSession] After start proc, player at: {playerPlace?.Name ?? "null"}");
+        
         // Clear pending data.
         pendingPlayerParty = null;
         pendingPlayerCharacter = null;
@@ -616,7 +620,7 @@ public class Phantasma
             // Initialize game session.
             progress.Report((85, "Initializing game session..."));
             await Task.Run(() => CreateMainSession());
-            await Task.Run(() => MainSession?.RunStartProc());
+            //await Task.Run(() => MainSession?.RunStartProc());
             
             // Final initialization.
             progress.Report((95, "Starting Phantasma..."));

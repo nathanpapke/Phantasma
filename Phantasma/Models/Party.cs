@@ -168,6 +168,27 @@ public class Party : Object
     }
     
     // ====================================================================
+    // OVERRIDES
+    // ====================================================================
+    
+    /// <summary>
+    /// Override SetPosition to propagate to all party members.
+    /// </summary>
+    public override void SetPosition(Place place, int x, int y)
+    {
+        // Set the party's own position (base class behavior)
+        base.SetPosition(place, x, y);
+    
+        // Propagate to all members (matches Nazghul Party::setPlace/setX/setY)
+        foreach (var member in members)
+        {
+            member.SetPosition(place, x, y);
+        }
+    
+        Console.WriteLine($"[Party.SetPosition] Set {members.Count} members to {place?.Name} ({x}, {y})");
+    }
+    
+    // ====================================================================
     // MEMBER MANAGEMENT
     // ====================================================================
     

@@ -17,6 +17,9 @@ public partial class Kernel
     /// </summary>
     public static object ObjectPutAt(object obj, object location)
     {
+        Console.WriteLine($"[kern-obj-put-at] Received obj type: {obj?.GetType().FullName ?? "NULL"}");
+        Console.WriteLine($"[kern-obj-put-at] Received obj value: {obj}");
+        
         // Resolve the object (might be a Character, Object, etc.).
         var gameObj = obj as Object;
         
@@ -25,7 +28,9 @@ public partial class Kernel
             // Try to resolve from tag if it's a string.
             if (obj is string objTag)
             {
+            Console.WriteLine($"[kern-obj-put-at] Looking up tag: '{objTag}'");
                 gameObj = Phantasma.GetRegisteredObject(objTag) as Object;
+            Console.WriteLine($"[kern-obj-put-at] Lookup result: {gameObj?.GetType().Name ?? "NULL"}");
             }
         }
         
@@ -34,6 +39,10 @@ public partial class Kernel
             Console.WriteLine($"[kern-obj-put-at] Error: null or invalid object");
             return "nil".Eval();
         }
+        
+        Console.WriteLine($"[kern-obj-put-at] gameObj is Being: {gameObj is Being}");
+        if (gameObj is Being b)
+            Console.WriteLine($"[kern-obj-put-at] Being name: {b.GetName()}");
         
         if (location is Cons locList)
         {
@@ -82,7 +91,8 @@ public partial class Kernel
             int y = rest2 != null ? Convert.ToInt32(rest2.car ?? 0) : 0;
             
             // Place the object.
-            Console.WriteLine($"[kern-obj-put-at] Placing {gameObj.Name} at {place.Name} ({x}, {y})");
+            string objName = gameObj is Being being ? being.GetName() : (gameObj.Name ?? "(unnamed)");
+            Console.WriteLine($"[kern-obj-put-at] Placing {objName} at {place.Name} ({x}, {y})");
             
             place.AddObject(gameObj, x, y);
             

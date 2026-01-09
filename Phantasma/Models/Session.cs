@@ -217,6 +217,10 @@ public class Session
             CreatePlayer();
         }
         
+        Console.WriteLine($"[Session] Player: {playerCharacter?.GetName() ?? "null"}");
+        Console.WriteLine($"[Session] Player Position: {playerCharacter?.GetPosition()?.ToString() ?? "null"}");
+        Console.WriteLine($"[Session] Player Place: {playerCharacter?.GetPosition()?.Place?.Name ?? "null"}");
+        
         // === MAP RENDERING SYSTEM ===
         map = new Map(800, 600, 32);
         map.SetPlace(currentPlace);

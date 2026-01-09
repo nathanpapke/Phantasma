@@ -123,13 +123,13 @@ public partial class Kernel
         object effectProc = i < args.Length ? args[i] : null;
         
         // DEBUG: Trace sprite resolution.
-        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: spriteArg type={spriteArg?.GetType().Name}, value={spriteArg}");
+        //Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: spriteArg type={spriteArg?.GetType().Name}, value={spriteArg}");
         
         // Resolve sprite after extraction.
         var sprite = spriteArg as Sprite ?? ResolveObject<Sprite>(spriteArg);
         
         // DEBUG: Check resolution result.
-        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: sprite={sprite != null}, SourceImage={sprite?.SourceImage != null}");
+        //Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: sprite={sprite != null}, SourceImage={sprite?.SourceImage != null}");
         
         Terrain terrain = new Terrain(tagStr, name, sprite, pclass, alpha, light);
         Phantasma.RegisterObject(tagStr, terrain);
@@ -179,8 +179,6 @@ public partial class Kernel
     /// </summary>
     public static object MakePalette(object tag, object mappings)
     {
-        Console.WriteLine($"  Created palette: starting.)");
-        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         
         var palette = new TerrainPalette(tagStr);
@@ -232,7 +230,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created palette: {tagStr} ({count} entries.)");
+        //Console.WriteLine($"  Created palette: {tagStr} ({count} entries.)");
         
         return palette;
     }
@@ -301,7 +299,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created map: {tagStr} ({w}x{h})");
+        //Console.WriteLine($"  Created map: {tagStr} ({w}x{h})");
         
         return map;
     }
@@ -563,7 +561,7 @@ public partial class Kernel
         Phantasma.RegisterObject(tagStr, mmode);
         $"(define {tagStr} \"{tagStr}\")".Eval();
         
-        Console.WriteLine($"  Created mmode: {nameStr} (index={index})");
+        //Console.WriteLine($"  Created mmode: {nameStr} (index={index})");
         return mmode;
     }
     
@@ -672,7 +670,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created species: {nameStr} (str={str}, dex={dex}, hp={hpmod}+{hpmult}/lvl)");
+        //Console.WriteLine($"  Created species: {nameStr} (str={str}, dex={dex}, hp={hpmod}+{hpmult}/lvl)");
         
         return species;
     }
@@ -711,7 +709,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created occupation: {occ.Name} (magic={occ.Magic:F1}, hp+{occ.HpMod}+{occ.HpMult}/lvl)");
+        //Console.WriteLine($"  Created occupation: {occ.Name} (magic={occ.Magic:F1}, hp+{occ.HpMod}+{occ.HpMult}/lvl)");
         
         return occ;
     }
@@ -1007,7 +1005,7 @@ public partial class Kernel
                 Count = itemCount
             };
             item.Name = objType.Name;
-            Console.WriteLine($"  Created object: {objType.Name} x{itemCount}");
+            //Console.WriteLine($"  Created object: {objType.Name} x{itemCount}");
             return item;
         }
         
@@ -1020,7 +1018,7 @@ public partial class Kernel
                 Count = itemCount
             };
             item.Name = armsType.Name;
-            Console.WriteLine($"  Created arms object: {armsType.Name} x{itemCount}");
+            //Console.WriteLine($"  Created arms object: {armsType.Name} x{itemCount}");
             return item;
         }
         
@@ -1028,7 +1026,7 @@ public partial class Kernel
         if (type is FieldType fieldType)
         {
             var field = new Field(fieldType, fieldType.Duration);
-            Console.WriteLine($"  Created field object: {fieldType.Name}");
+            //Console.WriteLine($"  Created field object: {fieldType.Name}");
             return field;
         }
         
@@ -1057,7 +1055,7 @@ public partial class Kernel
                 Count = itemCount
             };
             item.Name = resolvedObjType.Name;
-            Console.WriteLine($"  Created object: {resolvedObjType.Name} x{itemCount}");
+            //Console.WriteLine($"  Created object: {resolvedObjType.Name} x{itemCount}");
             return item;
         }
         
@@ -1070,7 +1068,7 @@ public partial class Kernel
                 Count = itemCount
             };
             item.Name = resolvedArmsType.Name;
-            Console.WriteLine($"  Created arms object: {resolvedArmsType.Name} x{itemCount}");
+            //Console.WriteLine($"  Created arms object: {resolvedArmsType.Name} x{itemCount}");
             return item;
         }
         
@@ -1078,7 +1076,7 @@ public partial class Kernel
         if (resolved is FieldType resolvedFieldType)
         {
             var field = new Field(resolvedFieldType, resolvedFieldType.Duration);
-            Console.WriteLine($"  Created field object: {resolvedFieldType.Name}");
+            //Console.WriteLine($"  Created field object: {resolvedFieldType.Name}");
             return field;
         }
         
@@ -1117,7 +1115,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}'");
+        //Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}'");
         
         return objType;
     }
@@ -1216,7 +1214,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created arms type: {nameStr} (dmg={damageDice}, rng={range})");
+        //Console.WriteLine($"  Created arms type: {nameStr} (dmg={damageDice}, rng={range})");
         
         return armsType;
     }
@@ -1253,7 +1251,7 @@ public partial class Kernel
             }
         }
     
-        Console.WriteLine($"  Created container with {container.Capacity} item types");
+        //Console.WriteLine($"  Created container with {container.Capacity} item types");
     
         return container;
     }
@@ -1270,7 +1268,7 @@ public partial class Kernel
         // vehicle - Vehicle the party is in, ignored for now
         party.IsPlayerParty = false;
     
-        Console.WriteLine($"  Created party (faction={party.Faction})");
+        //Console.WriteLine($"  Created party (faction={party.Faction})");
     
         return party;
     }
@@ -1413,7 +1411,7 @@ public partial class Kernel
             Sprite = sprite as Sprite
         };
         
-        Console.WriteLine($"  Created reagent type: {tagStr} - {nameStr}");
+        //Console.WriteLine($"  Created reagent type: {tagStr} - {nameStr}");
         
         // Register for later lookup.
         if (!string.IsNullOrEmpty(tagStr))
@@ -1458,7 +1456,7 @@ public partial class Kernel
             Effect = effect
         };
         
-        Console.WriteLine($"  Created spell: {tagStr} - {nameStr} (Lv{lvl}, {cost}MP)");
+        //Console.WriteLine($"  Created spell: {tagStr} - {nameStr} (Lv{lvl}, {cost}MP)");
         
         // Process reagent list.
         var reagentVector = Builtins.ListToVector(reagents);
@@ -1487,7 +1485,7 @@ public partial class Kernel
             Magic.RegisterSpellForEnumeration(spell);     // For enumeration
         }
         
-        Console.WriteLine($"  Created spell: {tagStr} '{nameStr}' (lvl={level}, mana={manaCost})");
+        //Console.WriteLine($"  Created spell: {tagStr} '{nameStr}' (lvl={level}, mana={manaCost})");
         
         return spell;
     }
@@ -1571,7 +1569,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created effect: {tagStr} - {nameStr} (hook={hookName}, dur={duration})");
+        //Console.WriteLine($"  Created effect: {tagStr} - {nameStr} (hook={hookName}, dur={duration})");
         
         return effect;
     }
@@ -1756,7 +1754,7 @@ public partial class Kernel
         // Register with Phantasma.
         Phantasma.RegisterObject(tagStr, vehicleType);
         
-        Console.WriteLine($"  Created vehicle type: {tagStr} '{vehicleType.Name}'");
+        //Console.WriteLine($"  Created vehicle type: {tagStr} '{vehicleType.Name}'");
         
         return vehicleType;
     }
@@ -1785,7 +1783,7 @@ public partial class Kernel
             
         var vehicle = vehicleType.CreateInstance(facingInt, hpInt);
             
-        Console.WriteLine($"  Created vehicle: {vehicleType.Name} (facing={facingInt}, hp={hpInt})");
+        //Console.WriteLine($"  Created vehicle: {vehicleType.Name} (facing={facingInt}, hp={hpInt})");
             
         return vehicle;
     }
@@ -1830,7 +1828,7 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created sound: {tagStr} ('{filenameStr}')");
+        //Console.WriteLine($"  Created sound: {tagStr} ('{filenameStr}')");
         
         return sound;
     }
@@ -1871,7 +1869,7 @@ public partial class Kernel
         Phantasma.RegisterObject("ptable", ptable);
         $"(define ptable \"ptable\")".Eval();
     
-        Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} table");
+        //Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} table");
         return "nil".Eval();
     }
     
@@ -1939,7 +1937,7 @@ public partial class Kernel
         Phantasma.RegisterObject("dtable", dtable);
         $"(define dtable \"dtable\")".Eval();
     
-        Console.WriteLine($"[kern-mk-dtable] Created {numFactions}x{numFactions} diplomacy table");
+        //Console.WriteLine($"[kern-mk-dtable] Created {numFactions}x{numFactions} diplomacy table");
     
         return dtable;
     }
@@ -1999,7 +1997,7 @@ public partial class Kernel
             Console.WriteLine($"[DEBUG] Could not define {tagStr} in Scheme: {ex.Message}");
         }
         
-        Console.WriteLine($"  Created field type: {tagStr} '{nameStr}' (light={lightVal}, duration={durationVal}, pclass={pclassVal})");
+        //Console.WriteLine($"  Created field type: {tagStr} '{nameStr}' (light={lightVal}, duration={durationVal}, pclass={pclassVal})");
         
         return fieldType;
     }
@@ -2117,7 +2115,7 @@ public partial class Kernel
             Console.WriteLine($"[DEBUG] Could not define {tagStr} in Scheme: {ex.Message}");
         }
         
-        Console.WriteLine($"  Created party type: {tagStr} '{nameStr}' ({groupCount} groups)");
+        //Console.WriteLine($"  Created party type: {tagStr} '{nameStr}' ({groupCount} groups)");
         
         return partyType;
     }
@@ -2237,7 +2235,7 @@ public partial class Kernel
         }
         catch { }
         
-        Console.WriteLine($"  Created schedule: {tagStr} ({schedule.Appointments.Count} appointments)");
+        //Console.WriteLine($"  Created schedule: {tagStr} ({schedule.Appointments.Count} appointments)");
         
         return schedule;
     }

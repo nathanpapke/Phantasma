@@ -167,6 +167,7 @@ public abstract class Being : Object
     public void SetName(string newName)
     {
         name = newName;
+        Name = newName;  // Also set Object.Name property for consistency.
     }
     
     public string GetName()
