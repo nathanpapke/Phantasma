@@ -904,7 +904,7 @@ public class Place
     /// <param name="y">Y coordinate</param>
     /// <param name="subject">Object moving (for future vehicle/mode considerations).</param>
     /// <returns>Movement cost (1.0 = normal, higher = slower). MaxValue if impassable.</returns>
-    public float GetMovementCost(int x, int y, Object? subject = null)
+    public int GetMovementCost(int x, int y, Object? subject = null)
     {
         if (!IsInBounds(x, y))
             return 255; // Impassable

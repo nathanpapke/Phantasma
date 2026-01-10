@@ -677,38 +677,61 @@ public class Session
     {
         if (playerCharacter == null || playerCharacter.IsTurnEnded())
             return;
-    
-        // Execute the movement.
+        
+        // Wait action.
         if (dx == 0 && dy == 0)
         {
-            // Wait action.
             playerCharacter.DecreaseActionPoints(1);
             ShowMessage("Player waits.");
         }
-        else if (playerCharacter.Move(dx, dy))
-        {
-            playerCharacter.DecreaseActionPoints(1);
-            ShowMessage($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
-        }
         else
         {
-            ShowMessage("Can't move there!");
+            // Calculate target position.
+            int targetX = playerCharacter.GetX() + dx;
+            int targetY = playerCharacter.GetY() + dy;
+            
+            // Get movement cost for the target tile.
+            int movementCost = 1;
+            if (currentPlace != null)
+            {
+                movementCost = currentPlace.GetMovementCost(targetX, targetY, playerCharacter);
+                
+                // Check for impassable (255 = PTABLE_IMPASSABLE).
+                if (movementCost >= 255)
+                {
+                    ShowMessage("Can't move there!");
+                    return;
+                }
+            }
+            
+            // Check if player has enough AP for this move.
+            if (playerCharacter.ActionPoints < movementCost)
+            {
+                // Not enough AP - end turn and start fresh.
+                playerCharacter.EndTurn();
+                playerCharacter.StartTurn();
+                ShowMessage($"Need {movementCost} AP to move there. Turn reset.");
+                return;
+            }
+            
+            // Execute the movement.
+            if (playerCharacter.Move(dx, dy))
+            {
+                playerCharacter.DecreaseActionPoints(movementCost);
+                ShowMessage($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
+            }
+            else
+            {
+                ShowMessage("Can't move there!");
+                return;
+            }
         }
-    
+        
         // Check if turn ended.
         if (playerCharacter.ActionPoints <= 0)
         {
-            // End current turn.
             playerCharacter.EndTurn();
-    
-            // Run any other beings' turns (NPCs, monsters).
-            HandleOtherBeings();
-    
-            // Immediately start new turn (no waiting).
-            playerCharacter.StartTurn();
-    
-            // Advance game time.
-            AdvanceTurn();
+            playerCharacter.StartTurn();  // Immediately start new turn.
         }
     }
     
