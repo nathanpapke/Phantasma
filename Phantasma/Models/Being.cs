@@ -73,20 +73,19 @@ public abstract class Being : Object
     {
         if (Position.Place == null)
             return false;
-            
+        
         int newX = Position.X + dx;
         int newY = Position.Y + dy;
         
         // Check if new position is valid.
         if (Position.Place.IsOffMap(newX, newY))
             return false;
-            
-        // Check if terrain is passable.
-        var terrain = Position.Place.GetTerrain(newX, newY);
-        if (terrain != null && !terrain.IsPassable)
+        
+        // Check if terrain is passable using PassabilityTable.
+        if (!Position.Place.IsPassable(newX, newY, this))
             return false;
-            
-        // Check if there's another being there
+        
+        // Check if there's another being there.
         if (Position.Place.GetBeingAt(newX, newY) != null)
             return false;
         

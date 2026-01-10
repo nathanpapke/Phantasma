@@ -611,8 +611,8 @@ public class Party : Object
         if (leader.Position.Place.IsOffMap(newX, newY))
             return false;
         
-        var terrain = leader.Position.Place.GetTerrain(newX, newY);
-        if (terrain != null && !terrain.IsPassable)
+        // Use Place.IsPassable which properly consults the PassabilityTable.
+        if (!leader.Position.Place.IsPassable(newX, newY, leader))
             return false;
         
         // Check for hazards when wandering.

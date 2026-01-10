@@ -17,7 +17,9 @@ public abstract class Object
     public int Id { get; protected set; }
     public ObjectType Type { get; set; }
     public string Name { get; set; }
+    public virtual Sprite Sprite { get; set;  }
     public Location Position { get; set; }
+    public int PassabilityClass { get; set; } = 0;
     public int Count { get; set; } = 1;
     public int Light { get; set; } = 0;
     public Gob? Gob { get; set; }  // Scheme object reference

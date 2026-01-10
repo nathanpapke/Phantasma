@@ -643,4 +643,27 @@ public partial class Kernel
         
         return "nil".Eval();
     }
+    
+    /// <summary>
+    /// (kern-obj-set-pclass obj pclass)
+    /// Sets the passability class of an object.
+    /// </summary>
+    public static object ObjectSetPassability(object obj, object pclass)
+    {
+        var gameObj = obj as Object;
+        if (gameObj == null)
+        {
+            Console.WriteLine("[kern-obj-set-pclass] Error: null object");
+            return "nil".Eval();
+        }
+    
+        int pclassValue = ToInt(pclass, 0);
+        gameObj.PassabilityClass = pclassValue;
+    
+        // Debug output
+        string name = gameObj is Being b ? b.GetName() : (gameObj.Name ?? "(unnamed)");
+        Console.WriteLine($"[kern-obj-set-pclass] Set {name} pclass to {pclassValue}");
+    
+        return "nil".Eval();
+    }
 }

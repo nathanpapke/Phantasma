@@ -112,7 +112,14 @@ public partial class Kernel
         // Required Parameters (0-5)
         string tagStr = ToTag(args[i++]);
         string name = args[i++]?.ToString()?.Trim('"') ?? tagStr;
+        
+        // DEBUG: Check what pclass actually is
+        var pclassArg = args[i];
+        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: pclass arg type={pclassArg?.GetType().Name}, value={pclassArg}");
+        
         int pclass = ToInt(args[i++], 0);
+        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: pclass result={pclass}");
+        
         object spriteArg = args[i++];
         int alpha = ToInt(args[i++], 255);
         
@@ -991,97 +998,87 @@ public partial class Kernel
         
         // Handle null or nil type.
         if (type == null || IsNil(type))
-        {
-            Console.WriteLine($"  [WARNING] kern-mk-obj: null or nil type");
             return "nil".Eval();
-        }
         
-        // Direct ObjectType.
-        if (type is ObjectType objType)
+        // Resolve the ObjectType.
+        ObjectType objType = null;
+    
+        if (type is ObjectType ot)
+            objType = ot;
+        else if (type is ArmsType at)
+            return CreateArmsItem(at, itemCount);  // Arms are always items.
+        else if (type is FieldType ft)
+            return new Field(ft, ft.Duration);
+        else
         {
-            var item = new Item
+            string tagStr = ToTag(type);
+            var resolved = Phantasma.GetRegisteredObject(tagStr);
+            
+            if (resolved is ObjectType rot)
+                objType = rot;
+            else if (resolved is ArmsType rat)
+                return CreateArmsItem(rat, itemCount);
+            else if (resolved is FieldType rft)
+                return new Field(rft, rft.Duration);
+            else
             {
-                Type = objType,
-                Count = itemCount
-            };
-            item.Name = objType.Name;
-            //Console.WriteLine($"  Created object: {objType.Name} x{itemCount}");
-            return item;
+                Console.WriteLine($"[kern-mk-obj] Unknown type: {tagStr}");
+                return "nil".Eval();
+            }
         }
-        
-        // Direct ArmsType - weapons and armor can also be created this way.
-        if (type is ArmsType armsType)
+    
+        // Check the ObjectType's layer and create appropriate object.
+        switch (objType.Layer)
         {
-            var item = new Item
-            {
-                Type = armsType,
-                Count = itemCount
-            };
-            item.Name = armsType.Name;
-            //Console.WriteLine($"  Created arms object: {armsType.Name} x{itemCount}");
-            return item;
+            case ObjectLayer.TerrainFeature:
+                // Create a TerrainFeature object, not an Item!
+                var tfeat = new TerrainFeature
+                {
+                    Name = objType.Name,
+                    Type = objType,
+                    // Inherit passability class from type (default to 1 for walkable).
+                    PassabilityClass = 1
+                };
+                Console.WriteLine($"[kern-mk-obj] Created TerrainFeature: {objType.Name}");
+                return tfeat;
+            
+            case ObjectLayer.Mechanism:
+                // Create a mechanism object
+                var mech = new Mechanism
+                {
+                    Name = objType.Name,
+                    Type = objType
+                };
+                return mech;
+            
+            case ObjectLayer.Portal:
+                var portal = new Portal
+                {
+                    Name = objType.Name,
+                    Type = objType
+                };
+                return portal;
+            
+            default:
+                // Default: create an Item
+                var item = new Item
+                {
+                    Type = objType,
+                    Count = itemCount
+                };
+                item.Name = objType.Name;
+                return item;
         }
-        
-        // Direct FieldType - creates a Field object.
-        if (type is FieldType fieldType)
+    }
+    
+    private static Item CreateArmsItem(ArmsType armsType, int count)
+    {
+        return new Item
         {
-            var field = new Field(fieldType, fieldType.Duration);
-            //Console.WriteLine($"  Created field object: {fieldType.Name}");
-            return field;
-        }
-        
-        // Try to resolve by string tag.
-        string tagStr = ToTag(type);
-        if (string.IsNullOrEmpty(tagStr))
-        {
-            Console.WriteLine($"  [WARNING] kern-mk-obj: cannot convert type to tag ({type?.GetType().Name ?? "null"})");
-            return "nil".Eval();
-        }
-        
-        var resolved = Phantasma.GetRegisteredObject(tagStr);
-        
-        if (resolved == null)
-        {
-            Console.WriteLine($"  [WARNING] kern-mk-obj: type '{tagStr}' not found in registry");
-            return "nil".Eval();
-        }
-        
-        // Resolved to ObjectType.
-        if (resolved is ObjectType resolvedObjType)
-        {
-            var item = new Item
-            {
-                Type = resolvedObjType,
-                Count = itemCount
-            };
-            item.Name = resolvedObjType.Name;
-            //Console.WriteLine($"  Created object: {resolvedObjType.Name} x{itemCount}");
-            return item;
-        }
-        
-        // Resolved to ArmsType.
-        if (resolved is ArmsType resolvedArmsType)
-        {
-            var item = new Item
-            {
-                Type = resolvedArmsType,
-                Count = itemCount
-            };
-            item.Name = resolvedArmsType.Name;
-            //Console.WriteLine($"  Created arms object: {resolvedArmsType.Name} x{itemCount}");
-            return item;
-        }
-        
-        // Resolved to FieldType.
-        if (resolved is FieldType resolvedFieldType)
-        {
-            var field = new Field(resolvedFieldType, resolvedFieldType.Duration);
-            //Console.WriteLine($"  Created field object: {resolvedFieldType.Name}");
-            return field;
-        }
-        
-        Console.WriteLine($"  [WARNING] kern-mk-obj: type '{tagStr}' resolved to unsupported type ({resolved.GetType().Name})");
-        return "nil".Eval();
+            Type = armsType,
+            Count = count,
+            Name = armsType.Name
+        };
     }
     
     /// <summary>
@@ -1865,18 +1862,29 @@ public partial class Kernel
     
         int numPClass = rows.Count;
         int numMMode = rows.Count > 0 ? rows[0].Count : 0;
+        
+        Console.WriteLine($"[kern-mk-ptable] Creating table: {numMMode} modes x {numPClass} pclasses");
     
         var ptable = new PassabilityTable(numMMode, numPClass);
     
         for (int pclass = 0; pclass < numPClass; pclass++)
-        for (int mmode = 0; mmode < numMMode; mmode++)
-            if (mmode < rows[pclass].Count)
-                ptable.SetCost(mmode, pclass, rows[pclass][mmode]);
+        {
+            var rowStr = string.Join(",", rows[pclass]);
+            Console.WriteLine($"  pclass {pclass}: [{rowStr}]");
+        
+            for (int mmode = 0; mmode < numMMode; mmode++)
+                if (mmode < rows[pclass].Count)
+                    ptable.SetCost(mmode, pclass, rows[pclass][mmode]);
+        }
     
         Phantasma.RegisterObject("ptable", ptable);
         $"(define ptable \"ptable\")".Eval();
-    
-        //Console.WriteLine($"[kern-mk-ptable] Created {numMMode}x{numPClass} table");
+        Console.WriteLine($"[kern-mk-ptable] Registered ptable in object registry");
+        
+        // Verify it was stored.
+        var verify = Phantasma.GetRegisteredObject("ptable");
+        Console.WriteLine($"[kern-mk-ptable] Verify lookup: {verify?.GetType().Name ?? "NULL"}");
+        
         return "nil".Eval();
     }
     

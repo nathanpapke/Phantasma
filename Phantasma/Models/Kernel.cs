@@ -235,6 +235,7 @@ public partial class Kernel
         DefineFunction("kern-obj-is-being?", ObjectIsBeing);
         DefineFunction("kern-obj-get-gob", ObjectGetGob);
         DefineFunction("kern-obj-set-gob", ObjectSetGob);
+        DefineFunction("kern-obj-set-pclass", ObjectSetPassability);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions

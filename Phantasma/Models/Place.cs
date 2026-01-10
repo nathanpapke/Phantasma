@@ -694,8 +694,14 @@ public class Place
             return false;
             
         var terrain = GetTerrain(x, y);
-        if (terrain != null && !terrain.IsPassable)
-            return false;
+        if (terrain != null)
+        {
+            var ptable = Phantasma.GetRegisteredObject("ptable") as PassabilityTable 
+                         ?? PassabilityTable.CreateDefault();
+            int movementMode = (forObject is Character ch) ? ch.Species.MovementMode.Index : 0;
+            if (!ptable.IsPassable(movementMode, terrain.PassabilityClass))
+                return false;
+        }
             
         // Check for blocking objects.
         var objectsHere = GetObjectsAt(x, y);
@@ -734,39 +740,99 @@ public class Place
                            bool checkBeings = true, bool checkMechanisms = true)
     {
         // Check map boundaries.
-        // Nazghul: "For a non-wrapping place, return impassable."
         if (!IsInBounds(x, y))
             return false;
         
-        // Check terrain passability.
-        var terrain = GetTerrain(x, y);
-        if (terrain != null)
+        const int PCLASS_NONE = 0;
+        const int IGNORES_PASSABILITY = 0;
+        const int ALLOWS_PASSABILITY = 1;
+        const int BLOCKS_PASSABILITY = -1;
+        
+        int tfeatPass = IGNORES_PASSABILITY;
+        
+        // =====================================================
+        // STEP 1: Check terrain features (bridges, etc.)
+        // Terrain features can OVERRIDE base terrain passability.
+        // =====================================================
+        var tfeat = GetObjectAt(x, y, ObjectLayer.TerrainFeature);
+        if (tfeat != null)
         {
-            var ptable = Phantasma.MainSession?.PassabilityTable ?? PassabilityTable.CreateDefault();
-            int movementMode = 0;  // Default to walking.
-            if (subject is Character ch) // && ch.Species != null)
+            int pclass = tfeat.PassabilityClass;
+            
+            // Does the object care about passability?
+            if (pclass == PCLASS_NONE)
             {
-                movementMode = ch.Species.MovementMode.Index;
+                tfeatPass = IGNORES_PASSABILITY;
             }
-            if (!ptable.IsPassable(movementMode, terrain.PassabilityClass))
+            else
+            {
+                // Check if subject can pass this pclass.
+                var ptable = Phantasma.GetRegisteredObject("ptable") as PassabilityTable 
+                             ?? PassabilityTable.CreateDefault();
+                int movementMode = 0;
+                if (subject is Character ch)
+                    movementMode = ch.Species.MovementMode.Index;
+                
+                if (ptable.IsPassable(movementMode, pclass))
+                {
+                    tfeatPass = ALLOWS_PASSABILITY;
+                }
+                else
+                {
+                    tfeatPass = BLOCKS_PASSABILITY;
+                }
+            }
+            
+            // If terrain feature specifically BLOCKS, return false.
+            if (tfeatPass == BLOCKS_PASSABILITY)
+            {
+                Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): terrain feature blocks");
                 return false;
+            }
         }
         
-        // Check for beings occupying the space.
+        // =====================================================
+        // STEP 2: Check base terrain ONLY if tfeat ignores passability
+        // =====================================================
+        if (tfeatPass == IGNORES_PASSABILITY)
+        {
+            var terrain = GetTerrain(x, y);
+            if (terrain != null)
+            {
+                var ptable = Phantasma.GetRegisteredObject("ptable") as PassabilityTable 
+                             ?? PassabilityTable.CreateDefault();
+                int movementMode = 0;
+                if (subject is Character ch)
+                    movementMode = ch.Species.MovementMode.Index;
+                
+                if (!ptable.IsPassable(movementMode, terrain.PassabilityClass))
+                {
+                    Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): terrain={terrain.Name}, pclass={terrain.PassabilityClass}, mmode={movementMode}");
+                    return false;
+                }
+            }
+        }
+        // If tfeatPass == ALLOWS_PASSABILITY, we SKIP terrain check (bridge over water).
+        
+        // =====================================================
+        // STEP 3: Check for beings occupying the space
+        // =====================================================
         if (checkBeings)
         {
             if (IsOccupied(x, y))
-                return false; // Can't walk through other beings.
+                return false;
         }
         
-        // Check for blocking mechanisms (doors, containers, etc.).
+        // =====================================================
+        // STEP 4: Check for blocking mechanisms (doors, etc.).
+        // =====================================================
         if (checkMechanisms)
         {
             var mechanism = GetObjectAt(x, y, ObjectLayer.Mechanism);
             if (mechanism != null && mechanism is IBlockingObject blocker)
             {
                 if (!blocker.IsPassable)
-                    return false; // Blocked by closed door, etc.
+                    return false;
             }
         }
         
@@ -826,18 +892,29 @@ public class Place
     public float GetMovementCost(int x, int y, Object? subject = null)
     {
         if (!IsInBounds(x, y))
-            return float.MaxValue; // Out of bounds = infinite cost
+            return 255; // Impassable
         
+        var ptable = Phantasma.GetRegisteredObject("ptable") as PassabilityTable 
+                     ?? PassabilityTable.CreateDefault();
+        int movementMode = 0;
+        if (subject is Character ch)
+            movementMode = ch.Species.MovementMode.Index;
+        
+        // Check terrain feature first (bridges override water cost).
+        var tfeat = GetObjectAt(x, y, ObjectLayer.TerrainFeature);
+        if (tfeat != null && tfeat.PassabilityClass != 0)
+        {
+            return ptable.GetCost(movementMode, tfeat.PassabilityClass);
+        }
+        
+        // Fall back to terrain.
         var terrain = GetTerrain(x, y);
-        if (terrain == null)
-            return 1.0f; // Default cost if no terrain
+        if (terrain != null)
+        {
+            return ptable.GetCost(movementMode, terrain.PassabilityClass);
+        }
         
-        if (!terrain.IsPassable)
-            return float.MaxValue; // Impassable = infinite cost
-        
-        // Future: Factor in subject's movement mode and vehicle.
-        // For now, just return terrain's base cost.
-        return terrain.MovementCost;
+        return 1; // Default cost
     }
     
     /// <summary>
@@ -901,8 +978,13 @@ public class Place
             return "Out of bounds";
         
         var terrain = GetTerrain(x, y);
-        if (terrain != null && !terrain.IsPassable)
-            return $"Blocked by {terrain.Name}";
+        if (terrain != null)
+        {
+            var ptable = Phantasma.GetRegisteredObject("ptable") as PassabilityTable 
+                         ?? PassabilityTable.CreateDefault();
+            if (!ptable.IsPassable(0, terrain.PassabilityClass))  // 0 = walking
+                return $"Blocked by {terrain.Name}";
+        }
         
         if (IsOccupied(x, y))
         {
