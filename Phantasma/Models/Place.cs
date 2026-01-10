@@ -681,6 +681,21 @@ public class Place
         return Objects.OfType<Missile>().ToList();
     }
     
+    public List<TerrainFeature> GetAllTerrainFeatures()
+    {
+        return Objects.OfType<TerrainFeature>().ToList();
+    }
+    
+    public List<Mechanism> GetAllMechanisms()
+    {
+        return Objects.OfType<Mechanism>().ToList();
+    }
+    
+    public List<Field> GetAllFields()
+    {
+        return Objects.OfType<Field>().ToList();
+    }
+    
     public Object? GetMechanismAt(int x, int y)
     {
         return Objects

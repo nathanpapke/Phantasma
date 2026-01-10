@@ -10,12 +10,12 @@ public class TerrainFeature : Object
     /// <summary>
     /// The ObjectType this feature was created from.
     /// </summary>
-    public ObjectType ObjectType { get; set; }
+    //public ObjectType ObjectType => Type as ObjectType;
     
     /// <summary>
     /// Override sprite to use ObjectType's sprite if available.
     /// </summary>
-    public override Sprite Sprite => ObjectType?.Sprite ?? base.Sprite;
+    public override Sprite? Sprite => Type?.Sprite ?? base.Sprite;
     
     // Feature-specific Properties
     public bool IsPassable { get; set; } = true;

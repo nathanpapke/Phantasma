@@ -309,7 +309,86 @@ public class Screen
     
         // Corner brackets for better visibility...
     }
-
+    
+    /// <summary>
+    /// Draw a terrain feature (bridge, built-in door, etc.).
+    /// </summary>
+    public void DrawTerrainFeature(DrawingContext context, int x, int y, Models.Object tfeat)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        
+        // Get sprite from ObjectType if available.
+        Sprite? sprite = null;
+        
+        if (tfeat is TerrainFeature tf && tf.Type?.Sprite != null)
+        {
+            sprite = tf.Type.Sprite;
+        }
+        else if (tfeat.Sprite != null)
+        {
+            sprite = tfeat.Sprite;
+        }
+        
+        if (sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw a brown rectangle for bridges.
+            context.FillRectangle(new SolidColorBrush(Color.FromRgb(139, 90, 43)), destRect);
+        }
+    }
+    
+    /// <summary>
+    /// Draw a mechanism (door, lever, switch, etc.).
+    /// </summary>
+    public void DrawMechanism(DrawingContext context, int x, int y, Models.Object mech)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        
+        // Get sprite from the mechanism's type.
+        Sprite? sprite = mech.Sprite;
+        
+        if (mech.Type is ObjectType objType && objType.Sprite != null)
+        {
+            sprite = objType.Sprite;
+        }
+        
+        if (sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw a gray rectangle for doors/mechanisms.
+            context.FillRectangle(new SolidColorBrush(Color.FromRgb(128, 128, 128)), destRect);
+        }
+    }
+    
+    /// <summary>
+    /// Draw a field (fire, poison, energy field, etc.).
+    /// </summary>
+    public void DrawField(DrawingContext context, int x, int y, Field field)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        
+        // Get sprite from the field's type.
+        var fieldType = field.GetFieldType();
+        var sprite = fieldType?.Sprite;
+        
+        if (sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw colored rectangle based on field type.
+            var color = Color.FromArgb(128, 255, 128, 0); // Semi-transparent orange for fire
+            context.FillRectangle(new SolidColorBrush(color), destRect);
+        }
+    }
+    
     /// <summary>
     /// Draw a sprite at the specified position.
     /// </summary>
@@ -804,10 +883,38 @@ public class Screen
         }
     
         // Layer 2: Draw landmarks (bridges, built-in doors).
-        // TODO: Implement terrain features
+        var terrainFeatures = place.GetAllTerrainFeatures();
+        foreach (var tfeat in terrainFeatures)
+        {
+            viewX = tfeat.GetX() - viewStartX;
+            viewY = tfeat.GetY() - viewStartY;
+
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawTerrainFeature(context, viewX, viewY, tfeat);
+                }
+            }
+        }
     
         // Layer 3: Draw mechanisms (levers, buttons, switches, doors).
-        // TODO: Implement mechanisms
+        var mechanisms = place.GetAllMechanisms();
+        foreach (var mech in mechanisms)
+        {
+            viewX = mech.GetX() - viewStartX;
+            viewY = mech.GetY() - viewStartY;
+
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawMechanism(context, viewX, viewY, mech);
+                }
+            }
+        }
     
         // Layer 4: Draw portals (stairs, ladders, exits).
         // TODO: Implement portals
@@ -853,7 +960,21 @@ public class Screen
         }
     
         // Layer 9: Draw fields (fire, poison gas, energy fields).
-        // TODO: Implement fields.
+        var fields = place.GetAllFields();
+        foreach (var field in fields)
+        {
+            viewX = field.GetX() - viewStartX;
+            viewY = field.GetY() - viewStartY;
+
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawField(context, viewX, viewY, field);
+                }
+            }
+        }
     
         // Layer 10: Draw beings (characters, NPCs, monsters).
         var beings = place.GetAllBeings();

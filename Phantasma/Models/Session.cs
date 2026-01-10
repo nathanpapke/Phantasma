@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Input;
@@ -561,24 +562,29 @@ public class Session
         
         // Update camera to follow player.
         map?.UpdateCamera();
+        
+        // Time acceleration is handled in AdvanceTurn() now
+        // Just update visual systems here.
+        sky.Advance(!CurrentPlace.Underground);
+    }
     
-        // Advance time systems (scaled by time acceleration)
-        for (int i = 0; i < timeAcceleration; i++)
-        {
-            clock.Advance(1);
-            wind.AdvanceTurns();
-        }
-    
-        // Update sky (only needs visual update once per tick, not per accel)
+    /// <summary>
+    /// Advance game time and other turn-based systems.
+    /// </summary>
+    private void AdvanceTurn()
+    {
+        int placeScale = currentPlace?.Scale ?? Common.NON_WILDERNESS_SCALE;
+        int ticksPerTurn = placeScale * timeAcceleration;
+        
+        // Advance the clock.
+        clock.Advance(ticksPerTurn);
+        
+        // Advance the wind.
+        wind.AdvanceTurns();
+        
+        // Update the sky.
         bool skyVisible = currentPlace != null && !currentPlace.Underground;
         sky.Advance(skyVisible);
-        
-        // Game update logic will go here.
-        // For now just ensure player has action points.
-        if (playerCharacter != null && playerCharacter.IsTurnEnded())
-        {
-            playerCharacter.StartTurn();
-        }
     }
         
     public void Quit()
@@ -692,8 +698,66 @@ public class Session
         // Check if turn ended.
         if (playerCharacter.ActionPoints <= 0)
         {
+            // End current turn.
             playerCharacter.EndTurn();
-            ShowMessage("Player turn ended.");
+    
+            // Run any other beings' turns (NPCs, monsters).
+            HandleOtherBeings();
+    
+            // Immediately start new turn (no waiting).
+            playerCharacter.StartTurn();
+    
+            // Advance game time.
+            AdvanceTurn();
+        }
+    }
+    
+    /// <summary>
+    /// Execute all non-player beings in the current place.
+    /// This runs their AI/turns after the player's turn ends.
+    /// </summary>
+    private void HandleOtherBeings()
+    {
+        if (currentPlace == null)
+            return;
+        
+        // Get all Characters (not just Beings) since only Characters have turns.
+        var characters = currentPlace.GetAllBeings()
+            .OfType<Character>()
+            .Where(c => c != playerCharacter && !c.IsDead)
+            .ToList();
+        
+        foreach (var npc in characters)
+        {
+            if (npc.IsDead)
+                continue;
+            
+            npc.StartTurn();
+            
+            // Run AI if this character has one.
+            if (npc.HasAI)  // Or: npc.AIBehavior != null
+            {
+                int lastPoints = 0;
+                while (!npc.IsTurnEnded() && npc.ActionPoints != lastPoints)
+                {
+                    lastPoints = npc.ActionPoints;
+                    try
+                    {
+                        // Execute AI behavior closure.
+                        if (npc.AIBehavior is IronScheme.Runtime.Callable callable)
+                        {
+                            callable.Call(npc);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Session] NPC AI error for {npc.GetName()}: {ex.Message}");
+                        break;
+                    }
+                }
+            }
+            
+            npc.EndTurn();
         }
     }
     
