@@ -682,6 +682,7 @@ public class Session
         if (dx == 0 && dy == 0)
         {
             playerCharacter.DecreaseActionPoints(1);
+            AdvanceTurn();
             ShowMessage("Player waits.");
         }
         else
@@ -689,6 +690,68 @@ public class Session
             // Calculate target position.
             int targetX = playerCharacter.GetX() + dx;
             int targetY = playerCharacter.GetY() + dy;
+            
+            // Check if we're moving off the map.
+            if (currentPlace.IsOffMap(targetX, targetY))
+            {
+                // Handle wrapping maps.
+                if (currentPlace.Wraps)
+                {
+                    targetX = ((targetX % currentPlace.Width) + currentPlace.Width) % currentPlace.Width;
+                    targetY = ((targetY % currentPlace.Height) + currentPlace.Height) % currentPlace.Height;
+                }
+                else if (currentPlace.Location?.Place != null)
+                {
+                    // Exit to parent place (world map).
+                    var parentPlace = currentPlace?.Location?.Place;
+                    
+                    if (parentPlace == null)
+                    {
+                        ShowMessage("Can't leave - no parent place!");
+                        return;
+                    }
+                    
+                    int parentX = currentPlace.Location.X;
+                    int parentY = currentPlace.Location.Y;
+                    
+                    ShowMessage($"Exiting {currentPlace.Name} to {parentPlace.Name}...");
+                    
+                    // Move all party members to parent place.
+                    playerCharacter.Relocate(parentPlace, parentX, parentY);
+                    
+                    // Update party member positions too.
+                    if (Party != null)
+                    {
+                        foreach (var member in Party.Members)
+                        {
+                            if (member != playerCharacter)
+                            {
+                                member.Relocate(parentPlace, parentX, parentY);
+                            }
+                        }
+                    }
+                    
+                    // Update session's current place.
+                    currentPlace = parentPlace;
+                    
+                    // Deduct movement cost (usually 1 for transitions).
+                    playerCharacter.DecreaseActionPoints(1);
+                    
+                    // Check if turn ended.
+                    if (playerCharacter.ActionPoints <= 0)
+                    {
+                        playerCharacter.EndTurn();
+                        playerCharacter.StartTurn();
+                    }
+                    
+                    return;
+                }
+                else
+                {
+                    ShowMessage("Can't go that way!");
+                    return;
+                }
+            }
             
             // Get movement cost for the target tile.
             int movementCost = 1;
@@ -718,6 +781,7 @@ public class Session
             if (playerCharacter.Move(dx, dy))
             {
                 playerCharacter.DecreaseActionPoints(movementCost);
+                AdvanceTurn();
                 ShowMessage($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()}) - AP: {playerCharacter.ActionPoints}");
             }
             else
@@ -731,6 +795,8 @@ public class Session
         if (playerCharacter.ActionPoints <= 0)
         {
             playerCharacter.EndTurn();
+            HandleOtherBeings();  // Run NPC turns (if you have this).
+            AdvanceTurn();
             playerCharacter.StartTurn();  // Immediately start new turn.
         }
     }

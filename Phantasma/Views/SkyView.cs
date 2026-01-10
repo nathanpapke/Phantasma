@@ -19,8 +19,27 @@ public class SkyView : Control
     
     public SkyView()
     {
-        // Height matches Nazghul's sky bar (border height).
-        // Will be set by Grid row definition.
+        _binder = new SkyBinder();
+        DataContext = _binder;
+    }
+    
+    /// <summary>
+    /// Get the binder so it can be initialized externally.
+    /// </summary>
+    public SkyBinder GetBinder()
+    {
+        return _binder;
+    }
+    
+    /// <summary>
+    /// Subscribe to binder changes for re-rendering.
+    /// </summary>
+    public void SubscribeToChanges()
+    {
+        if (_binder != null)
+        {
+            _binder.PropertyChanged += OnBinderPropertyChanged;
+        }
     }
     
     /// <summary>

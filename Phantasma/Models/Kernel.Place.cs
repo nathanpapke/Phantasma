@@ -308,4 +308,37 @@ public partial class Kernel
     
         return Cons.FromList(new List<object>(place.Objects));
     }
+    
+    /// <summary>
+    /// (kern-place-add-subplace parent-place subplace x y)
+    /// Adds a subplace (town, dungeon, etc.) to a parent place at the given coordinates.
+    /// This sets up the parent-child relationship so characters can enter/exit.
+    /// </summary>
+    public static object PlaceAddSubplace(object parentObj, object subplaceObj, object xObj, object yObj)
+    {
+        if (parentObj is not Place parent)
+        {
+            Console.WriteLine("[WARNING] kern-place-add-subplace: invalid parent place");
+            return "nil".Eval();
+        }
+        
+        if (subplaceObj is not Place subplace)
+        {
+            Console.WriteLine("[WARNING] kern-place-add-subplace: invalid subplace");
+            return "nil".Eval();
+        }
+        
+        int x = ToInt(xObj, 0);
+        int y = ToInt(yObj, 0);
+        
+        // Set up the subplace's location (its position on the parent map).
+        subplace.Location = new Location(parent, x, y);
+        
+        // Register the subplace with the parent.
+        parent.AddSubplace(subplace, x, y);
+        
+        Console.WriteLine($"[kern-place-add-subplace] Added '{subplace.Name}' to '{parent.Name}' at ({x}, {y})");
+        
+        return subplace;
+    }
 }

@@ -208,6 +208,7 @@ public partial class Kernel
         DefineFunction("kern-place-map", PlaceMap);
         DefineFunction("kern-place-synch", PlaceSynch);
         DefineFunction("kern-place-get-objects", PlaceGetObjects);
+        DefineFunction("kern-place-add-subplace", PlaceAddSubplace);
         
         // ===================================================================
         // KERN-OBJ API - Object Manipulation Functions

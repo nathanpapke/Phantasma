@@ -48,6 +48,7 @@ public partial class MainWindow : Window
         {
             gameView.GetScreen().BindToSession(gameSession);
         }
+        
         // Status View
         var statusView = this.FindControl<StatusView>("StatusViewControl");
         if (statusView != null)
@@ -119,6 +120,19 @@ public partial class MainWindow : Window
                 cmdBinder.EraseBackToMark();
                 cmdBinder.Print(text);
             };
+        }
+        
+        // Sky View
+        var skyView = this.FindControl<SkyView>("SkyViewControl");
+        if (skyView != null)
+        {
+            var skyBinder = skyView.GetBinder();
+            skyBinder.BindToSession(gameSession);
+            skyView.SubscribeToChanges();
+        }
+        else
+        {
+            Console.WriteLine("ERROR: SkyView not found!");
         }
         
         // Start the game.
