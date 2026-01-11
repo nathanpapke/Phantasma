@@ -127,6 +127,7 @@ public class SkyBinder : INotifyPropertyChanged
         UpdateSkyColors();
         UpdateAstralBodies();
         OnPropertyChanged(nameof(AstralBodies));
+        OnPropertyChanged(nameof(TimeString));
     }
     
     private void OnTimeChanged()
