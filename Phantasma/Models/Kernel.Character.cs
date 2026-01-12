@@ -111,8 +111,16 @@ public partial class Kernel
     /// (kern-char-arm-self character)
     /// Makes an NPC automatically equip best items from inventory.
     /// </summary>
-    public static object CharacterArmSelf(object character)
+    public static object CharacterArmSelf(object[] args)
     {
+        if (args == null || args.Length == 0)
+        {
+            Console.WriteLine("[ERROR] kern-char-arm-self: no arguments");
+            return "nil".Eval();
+        }
+        
+        var character = args[0];
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-arm-self: not a character");
