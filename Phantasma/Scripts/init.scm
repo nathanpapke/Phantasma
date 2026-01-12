@@ -9,7 +9,7 @@
 ;; =============================================================================
 
 ;; Enable case-insensitive symbols (TinyScheme default)
-(#!fold-case)
+;#!fold-case
 
 ;; -----------------------------------------------------------------------------
 ;; CRITICAL: Custom apply to handle CallTargetN closures from C#
