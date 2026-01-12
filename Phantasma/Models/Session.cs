@@ -694,6 +694,14 @@ public class Session
             // Check if we're moving off the map.
             if (currentPlace.IsOffMap(targetX, targetY))
             {
+                // DEBUG: Add this to trace the issue
+                Console.WriteLine($"[DEBUG] IsOffMap=true for ({targetX}, {targetY})");
+                Console.WriteLine($"[DEBUG] currentPlace.Name = {currentPlace?.Name ?? "null"}");
+                Console.WriteLine($"[DEBUG] currentPlace.Wraps = {currentPlace?.Wraps}");
+                Console.WriteLine($"[DEBUG] currentPlace.Location = {currentPlace?.Location}");
+                Console.WriteLine($"[DEBUG] currentPlace.Location?.Place = {currentPlace?.Location?.Place}");
+                Console.WriteLine($"[DEBUG] currentPlace.Location?.Place?.Name = {currentPlace?.Location?.Place?.Name ?? "null"}");
+
                 // Handle wrapping maps.
                 if (currentPlace.Wraps)
                 {
@@ -733,6 +741,9 @@ public class Session
                     
                     // Update session's current place.
                     currentPlace = parentPlace;
+                    
+                    // Update the map to render the new place.
+                    map?.SetPlace(currentPlace);
                     
                     // Deduct movement cost (usually 1 for transitions).
                     playerCharacter.DecreaseActionPoints(1);

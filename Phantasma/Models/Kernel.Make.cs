@@ -340,7 +340,7 @@ public partial class Kernel
         // Last required - only increment if there are optional params following.
         bool combat = i < args.Length - 1 ? ConvertToBool(args[i++]) : ConvertToBool(args[i]);
         
-        // Optional parameters (8-12) - use MakeCharacter pattern
+        // Optional Parameters (8-12)
         object subplacesArg = i < args.Length - 1 ? args[i++] : null;
         object neighborsArg = i < args.Length - 1 ? args[i++] : null;
         object contentsArg = i < args.Length - 1 ? args[i++] : null;
@@ -400,13 +400,28 @@ public partial class Kernel
                     Place subplace = null;
                     var subplaceRef = entry.car;
                     
+                    // Skip nil/undefined subplace references
+                    if (subplaceRef == null || IsNil(subplaceRef) || subplaceRef is bool b && !b)
+                    {
+                        Console.WriteLine($"[WARNING MakePlace] Skipping nil subplace in {tagStr}");
+                        list = list.cdr as Cons;
+                        continue;
+                    }
+                    
                     if (subplaceRef is Place sp)
                         subplace = sp;
-                    else if (subplaceRef != null && !IsNil(subplaceRef))
+                    else if (subplaceRef != null)
                     {
-                        var resolved = Phantasma.GetRegisteredObject(ToTag(subplaceRef));
+                        var refTag = ToTag(subplaceRef);
+                        var resolved = Phantasma.GetRegisteredObject(refTag);
                         if (resolved is Place resolvedPlace)
                             subplace = resolvedPlace;
+                        else
+                        {
+                            Console.WriteLine($"[WARNING MakePlace] Could not resolve subplace '{refTag}' for {tagStr} - skipping");
+                            list = list.cdr as Cons;
+                            continue;
+                        }
                     }
                     
                     if (subplace != null)
@@ -419,6 +434,8 @@ public partial class Kernel
                             
                             if (place.AddSubplace(subplace, x, y))
                                 Console.WriteLine($"    Added subplace {subplace.Tag} at ({x}, {y})");
+                            else
+                                Console.WriteLine($"[WARNING MakePlace] Failed to add subplace {subplace.Tag} at ({x}, {y})");
                         }
                     }
                 }
@@ -541,6 +558,10 @@ public partial class Kernel
             }
         }
         
+        // Debug: Show parent relationship
+        Console.WriteLine($"[DEBUG MakePlace] {tagStr} Location.Place = {place.Location?.Place?.Tag ?? "null"}");
+        Console.WriteLine($"[DEBUG MakePlace] {tagStr} has {place.Subplaces?.Count ?? 0} subplaces");
+
         // Register the place.
         if (!string.IsNullOrEmpty(tagStr))
         {

@@ -41,11 +41,21 @@ public partial class Kernel
             }
             catch (SchemeException ex)
             {
-                var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
-                if (match.Success)
-                {
-                    Console.Error.WriteLine($"[Scheme] Undefined: {match.Groups[1].Value}");
-                }
+                // Extract actual error message and irritants.
+                var exStr = ex.ToString();
+                var msgMatch = Regex.Match(exStr, @"&message: ""([^""]+)""");
+                var irritantsMatch = Regex.Match(exStr, @"&irritants: \((.+)\)", RegexOptions.Singleline);
+                
+                string errorType = msgMatch.Success ? msgMatch.Groups[1].Value : "Unknown error";
+                string irritants = irritantsMatch.Success ? irritantsMatch.Groups[1].Value : "";
+                
+                // Truncate irritants if too long.
+                if (irritants.Length > 100)
+                    irritants = irritants.Substring(0, 100) + "...";
+                
+                Console.Error.WriteLine($"[Scheme] {errorType}");
+                if (!string.IsNullOrEmpty(irritants))
+                    Console.Error.WriteLine($"         Args: {irritants}");
             }
             catch (Exception ex)
             {
@@ -190,20 +200,17 @@ public partial class Kernel
                 {
                     errorCount++;
                     if (funcName != null) failedFunctions.Add(funcName);
-    
-                    // Extract just the irritant (undefined symbol name).
-                    var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
+                    
+                    // Extract the ACTUAL error message, not just irritants.
                     var msgMatch = Regex.Match(ex.ToString(), @"&message: ""([^""]+)""");
-    
-                    if (match.Success)
-                    {
-                        string msg = msgMatch.Success ? msgMatch.Groups[1].Value : "error";
-                        Console.Error.WriteLine($"[Scheme] {msg}: {match.Groups[1].Value}");
-                    }
-                    else
-                    {
-                        Console.Error.WriteLine($"[Scheme] {ex.Message}");
-                    }
+                    var irritantsMatch = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
+                    
+                    string errorType = msgMatch.Success ? msgMatch.Groups[1].Value : "Unknown error";
+                    string irritants = irritantsMatch.Success ? irritantsMatch.Groups[1].Value : "";
+                    
+                    Console.Error.WriteLine($"[Scheme] {errorType}");
+                    if (!string.IsNullOrEmpty(irritants))
+                        Console.Error.WriteLine($"         Irritants: {irritants}");
                 }
                 catch (Exception ex)
                 {
@@ -225,12 +232,22 @@ public partial class Kernel
                 exprStr.Eval();
             }
             catch (SchemeException ex)
-            {
-                var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
-                if (match.Success)
-                {
-                    Console.Error.WriteLine($"[Scheme] Undefined: {match.Groups[1].Value}");
-                }
+            {   
+                // Extract actual error message and irritants.
+                var exStr = ex.ToString();
+                var msgMatch = Regex.Match(exStr, @"&message: ""([^""]+)""");
+                var irritantsMatch = Regex.Match(exStr, @"&irritants: \((.+)\)", RegexOptions.Singleline);
+                
+                string errorType = msgMatch.Success ? msgMatch.Groups[1].Value : "Unknown error";
+                string irritants = irritantsMatch.Success ? irritantsMatch.Groups[1].Value : "";
+                
+                // Truncate irritants if too long.
+                if (irritants.Length > 100)
+                    irritants = irritants.Substring(0, 100) + "...";
+                
+                Console.Error.WriteLine($"[Scheme] {errorType}");
+                if (!string.IsNullOrEmpty(irritants))
+                    Console.Error.WriteLine($"         Args: {irritants}");
             }
             catch (Exception ex)
             {
@@ -297,11 +314,21 @@ public partial class Kernel
             {
                 errorCount++;
                 
-                var match = Regex.Match(ex.ToString(), @"&irritants: \(([^)]+)\)");
-                if (match.Success)
-                {
-                    Console.Error.WriteLine($"[Scheme] Undefined: {match.Groups[1].Value}");
-                }
+                // Extract actual error message and irritants.
+                var exStr = ex.ToString();
+                var msgMatch = Regex.Match(exStr, @"&message: ""([^""]+)""");
+                var irritantsMatch = Regex.Match(exStr, @"&irritants: \((.+)\)", RegexOptions.Singleline);
+                
+                string errorType = msgMatch.Success ? msgMatch.Groups[1].Value : "Unknown error";
+                string irritants = irritantsMatch.Success ? irritantsMatch.Groups[1].Value : "";
+                
+                // Truncate irritants if too long.
+                if (irritants.Length > 100)
+                    irritants = irritants.Substring(0, 100) + "...";
+                
+                Console.Error.WriteLine($"[Scheme] {errorType}");
+                if (!string.IsNullOrEmpty(irritants))
+                    Console.Error.WriteLine($"         Args: {irritants}");
             }
             catch (Exception ex)
             {
