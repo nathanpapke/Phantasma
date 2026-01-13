@@ -1622,109 +1622,87 @@ public partial class Kernel
         object initialArcObj, object initialPhaseObj,
         object callbackObj, object phaseListObj)
     {
-        try
+        string tag = tagObj?.ToString()?.TrimStart('\'') ?? "unknown";
+        string name = nameObj?.ToString() ?? "Unknown";
+        int distance = Convert.ToInt32(distanceObj ?? 0);
+        int minPerPhase = Convert.ToInt32(minPerPhaseObj ?? 0);
+        int minPerDegree = Convert.ToInt32(minPerDegreeObj ?? 1);
+        int initialArc = Convert.ToInt32(initialArcObj ?? 0);
+        int initialPhase = Convert.ToInt32(initialPhaseObj ?? 0);
+        
+        // Convert phase list to array.
+        var phaseVector = Builtins.ListToVector(phaseListObj);
+        if (phaseVector is not object[] phases || phases.Length == 0)
         {
-            Console.WriteLine($"[MakeAstralBody] ENTRY");
-            Console.WriteLine($"[MakeAstralBody] tagObj: {tagObj?.GetType().Name ?? "null"} = {tagObj}");
-            Console.WriteLine($"[MakeAstralBody] phaseListObj: {phaseListObj?.GetType().Name ?? "null"}");
-
-            string tag = tagObj?.ToString()?.TrimStart('\'') ?? "unknown";
-            Console.WriteLine($"[MakeAstralBody] tag={tag}");
+            Console.WriteLine($"[MakeAstralBody] Error: {tag} has no phases");
+            return "nil".Eval();
+        }
         
-            string name = nameObj?.ToString() ?? "Unknown";
-            Console.WriteLine($"[MakeAstralBody] name={name}");
+        var body = new AstralBody(tag, name, phases.Length)
+        {
+            Distance = distance,
+            MinutesPerPhase = minPerPhase,
+            MinutesPerDegree = minPerDegree,
+            InitialArc = initialArc,
+            InitialPhase = initialPhase,
+            Arc = initialArc,
+            PhaseIndex = initialPhase
+        };
         
-            int distance = Convert.ToInt32(distanceObj ?? 0);
-            Console.WriteLine($"[MakeAstralBody] distance={distance}");
+        // Store callback if provided.
+        if (callbackObj != null && callbackObj is not bool b)
+        {
+            body.PhaseChangeCallback = callbackObj;
+        }
+        else if (callbackObj is bool bVal && bVal == false)
+        {
+            // nil in Scheme becomes false - no callback
+            body.PhaseChangeCallback = null;
+        }
         
-            int minPerPhase = Convert.ToInt32(minPerPhaseObj ?? 0);
-            int minPerDegree = Convert.ToInt32(minPerDegreeObj ?? 1);
-            int initialArc = Convert.ToInt32(initialArcObj ?? 0);
-            int initialPhase = Convert.ToInt32(initialPhaseObj ?? 0);
-            Console.WriteLine($"[MakeAstralBody] minPerPhase={minPerPhase}, minPerDegree={minPerDegree}");
-            
-            // Convert phase list to array.
-            Console.WriteLine($"[MakeAstralBody] About to call ListToVector");
-            var phaseVector = Builtins.ListToVector(phaseListObj);
-            Console.WriteLine($"[MakeAstralBody] phaseVector type: {phaseVector?.GetType().Name ?? "null"}");
-            if (phaseVector is not object[] phases || phases.Length == 0)
+        // Parse each phase: (list sprite maxlight "phase_name") statement.
+        for (int i = 0; i < phases.Length; i++)
+        {
+            var phaseData = Builtins.ListToVector(phases[i]);
+            if (phaseData is object[] pd && pd.Length >= 3)
             {
-                Console.WriteLine($"[MakeAstralBody] Error: {tag} has no phases");
-                return "nil".Eval();
-            }
-            
-            var body = new AstralBody(tag, name, phases.Length)
-            {
-                Distance = distance,
-                MinutesPerPhase = minPerPhase,
-                MinutesPerDegree = minPerDegree,
-                InitialArc = initialArc,
-                InitialPhase = initialPhase,
-                Arc = initialArc,
-                PhaseIndex = initialPhase
-            };
-            
-            // Store callback if provided.
-            if (callbackObj != null && callbackObj is not bool b)
-            {
-                body.PhaseChangeCallback = callbackObj;
-            }
-            else if (callbackObj is bool bVal && bVal == false)
-            {
-                // nil in Scheme becomes false - no callback
-                body.PhaseChangeCallback = null;
-            }
-            
-            // Parse each phase: (list sprite maxlight "phase_name") statement.
-            for (int i = 0; i < phases.Length; i++)
-            {
-                var phaseData = Builtins.ListToVector(phases[i]);
-                if (phaseData is object[] pd && pd.Length >= 3)
+                // Look up sprite - could be Sprite object or string tag.
+                Sprite sprite = pd[0] as Sprite;
+                if (sprite == null && pd[0] != null)
                 {
-                    // Look up sprite - could be Sprite object or string tag.
-                    Sprite sprite = pd[0] as Sprite;
-                    if (sprite == null && pd[0] != null)
+                    string spriteTag = pd[0].ToString();
+                    sprite = Phantasma.GetRegisteredObject(spriteTag) as Sprite;
+                    if (sprite == null)
                     {
-                        string spriteTag = pd[0].ToString();
-                        sprite = Phantasma.GetRegisteredObject(spriteTag) as Sprite;
-                        if (sprite == null)
-                        {
-                            Console.WriteLine($"[MakeAstralBody] Warning: Could not find sprite '{spriteTag}'");
-                        }
+                        Console.WriteLine($"[MakeAstralBody] Warning: Could not find sprite '{spriteTag}'");
                     }
-                    
-                    body.Phases[i] = new Phase
-                    {
-                        Sprite = sprite,
-                        MaxLight = Convert.ToInt32(pd[1] ?? 0),
-                        Name = pd[2]?.ToString() ?? $"Phase {i}"
-                    };
                 }
+                
+                body.Phases[i] = new Phase
+                {
+                    Sprite = sprite,
+                    MaxLight = Convert.ToInt32(pd[1] ?? 0),
+                    Name = pd[2]?.ToString() ?? $"Phase {i}"
+                };
             }
-            
-            // Add to sky - either now or pending.
-            if (Phantasma.MainSession != null)
-            {
-                Phantasma.MainSession.Sky.AddAstralBody(body);
-            }
-            else
-            {
-                Phantasma.SetPendingAstralBody(body);
-            }
-            
-            // Register in global namespace so Scheme can reference by tag.
-            Phantasma.RegisterObject(tag, body);
-            
-            Console.WriteLine($"  Created astral body: {tag} '{name}' (distance={distance}, phases={phases.Length})");
-            
-            return body;
         }
-        catch (Exception ex)
+        
+        // Add to sky - either now or pending.
+        if (Phantasma.MainSession != null)
         {
-            Console.WriteLine($"[MakeAstralBody] EXCEPTION: {ex.Message}");
-            Console.WriteLine($"[MakeAstralBody] Stack: {ex.StackTrace}");
-            throw;
+            Phantasma.MainSession.Sky.AddAstralBody(body);
         }
+        else
+        {
+            Phantasma.SetPendingAstralBody(body);
+        }
+        
+        // Register in global namespace so Scheme can reference by tag.
+        Phantasma.RegisterObject(tag, body);
+        
+        Console.WriteLine($"  Created astral body: {tag} '{name}' (distance={distance}, phases={phases.Length})");
+        
+        return body;
     }
     
     /// <summary>

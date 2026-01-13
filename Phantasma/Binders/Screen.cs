@@ -898,6 +898,30 @@ public class Screen
                 }
             }
         }
+        
+        // Layer 2.5: Draw subplaces (towns, dungeons, caves on world map).
+        foreach (var subplace in place.Subplaces)
+        {
+            if (subplace?.Sprite == null) continue;
+            
+            // Get the subplace's position within the parent place.
+            int subX = subplace.Location?.X ?? -1;
+            int subY = subplace.Location?.Y ?? -1;
+            
+            viewX = subX - viewStartX;
+            viewY = subY - viewStartY;
+            
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    int screenX = viewX * tileWidth;
+                    int screenY = viewY * tileHeight;
+                    DrawSprite(context, subplace.Sprite,  new Rect(screenX, screenY, tileWidth, tileHeight));
+                }
+            }
+        }
     
         // Layer 3: Draw mechanisms (levers, buttons, switches, doors).
         var mechanisms = place.GetAllMechanisms();
