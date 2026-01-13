@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Avalonia.Media.Imaging;
 using System.IO;
+using Avalonia.Media.Imaging;
+using SkiaSharp;
 
 namespace Phantasma.Models;
 
@@ -20,29 +21,37 @@ public class SpriteManager
     {
         if (imageCache.ContainsKey(filename))
             return imageCache[filename];
-            
-        try
+        
+        string path = Phantasma.ResolvePath(filename);
+        
+        if (!File.Exists(path))
         {
-            // Try multiple paths.
-            string path = Phantasma.ResolvePath(filename);
-
-            if (File.Exists(path))
-            {
-                var bitmap = new Bitmap(path);
-                imageCache[filename] = bitmap;
-                Console.WriteLine($"[SpriteManager] Loaded: {filename}");
-                return bitmap;
-            }
-
             Console.WriteLine($"[SpriteManager] Not found: {filename}");
             Console.WriteLine($"[SpriteManager]   Expected: {path}");
             return null;
         }
-        catch (Exception ex)
+        
+        using var skBitmap = SKBitmap.Decode(path);
+        
+        for (int y = 0; y < skBitmap.Height; y++)
         {
-            Console.WriteLine($"Error loading sprite sheet {filename}: {ex.Message}");
-            return null;
+            for (int x = 0; x < skBitmap.Width; x++)
+            {
+                var pixel = skBitmap.GetPixel(x, y);
+                if (pixel.Red == 255 && pixel.Green == 0 && pixel.Blue == 255)
+                {
+                    skBitmap.SetPixel(x, y, SKColors.Transparent);
+                }
+            }
         }
+        
+        using var data = skBitmap.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = new MemoryStream(data.ToArray());
+        
+        var bitmap = new Bitmap(stream);
+        imageCache[filename] = bitmap;
+        Console.WriteLine($"[SpriteManager] Loaded: {filename}");
+        return bitmap;
     }
 
     /// <summary>
