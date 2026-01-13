@@ -54,6 +54,7 @@ public class Phantasma
     
     // Pending Session Configuration (stored during loading before session exists)
     private static (int year, int month, int week, int day, int hour, int min)? pendingClockData;
+    private static List<AstralBody> pendingAstralBodies = new List<AstralBody>();
     private static Party pendingPlayerParty;
     private static Character pendingPlayerCharacter;
     private static object pendingStartProc;
@@ -109,6 +110,16 @@ public class Phantasma
     {
         pendingClockData = (year, month, week, day, hour, min);
         Console.WriteLine($"[Phantasma] Stored pending clock data: Year {year}, {hour}:{min:D2}");
+    }
+    
+    /// <summary>
+    /// Store astral body to apply after session is created.
+    /// Called by kern-mk-astral-body during game loading.
+    /// </summary>
+    public static void SetPendingAstralBody(AstralBody body)
+    {
+        pendingAstralBodies.Add(body);
+        Console.WriteLine($"[Phantasma] Stored pending astral body: {body.Tag}");
     }
     
     /// <summary>
@@ -345,6 +356,17 @@ public class Phantasma
         else
         {
             Console.WriteLine("[CreateMainSession] No pending clock data.");
+        }
+        
+        // Apply pending astral bodies if we have them.
+        if (pendingAstralBodies != null && pendingAstralBodies.Count > 0)
+        {
+            foreach (var body in pendingAstralBodies)
+            {
+                MainSession.Sky.AddAstralBody(body);
+                Console.WriteLine($"[CreateMainSession] Applied pending astral body: {body.Tag}");
+            }
+            pendingAstralBodies.Clear();
         }
         
         // Apply pending start proc if we have it.
