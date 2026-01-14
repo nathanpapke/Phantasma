@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using IronScheme;
 using IronScheme.Runtime;
 using IronScheme.Scripting;
@@ -664,6 +665,164 @@ public partial class Kernel
         string name = gameObj is Being b ? b.GetName() : (gameObj.Name ?? "(unnamed)");
         Console.WriteLine($"[kern-obj-set-pclass] Set {name} pclass to {pclassValue}");
     
+        return "nil".Eval();
+    }
+    
+    /// <summary>
+    /// (kern-obj-get-sprite obj)
+    /// Gets the sprite of an object.
+    /// </summary>
+    public static object ObjectGetSprite(object objArg)
+    {
+        // Handle null object argument.
+        if (objArg == null)
+        {
+            Console.WriteLine("[RUNTIME ERROR] kern-obj-get-sprite: null object");
+            return "nil".Eval();
+        }
+        
+        // Check for Unspecified.
+        if (objArg == "nil".Eval())
+        {
+            Console.WriteLine("[RUNTIME ERROR] kern-obj-get-sprite: object is #<unspecified>");
+            return "nil".Eval();
+        }
+        
+        // Try to get the object directly or by tag.
+        Object obj = null;
+        
+        if (objArg is Object directObj)
+        {
+            obj = directObj;
+        }
+        else if (objArg is string tagStr)
+        {
+            string cleanTag = tagStr.TrimStart('\'').Trim('"');
+            var resolved = Phantasma.GetRegisteredObject(cleanTag);
+            if (resolved is Object resolvedObj)
+                obj = resolvedObj;
+        }
+        else
+        {
+            // Try ToTag for symbols.
+            string tag = ToTag(objArg);
+            if (!string.IsNullOrEmpty(tag))
+            {
+                var resolved = Phantasma.GetRegisteredObject(tag);
+                if (resolved is Object resolvedObj)
+                    obj = resolvedObj;
+            }
+        }
+        
+        if (obj == null)
+        {
+            Console.WriteLine($"[RUNTIME ERROR] kern-obj-get-sprite: bad object (got " +
+                              $"{objArg?.GetType().Name ?? "null"})");
+            return "nil".Eval();
+        }
+        
+        if (obj.Sprite == null)
+        {
+            return "nil".Eval();
+        }
+        
+        // Return the sprite object itself (or its tag if needed for Scheme).
+        // The original Nazghul returns the sprite pointer, so we return the Sprite object.
+        return obj.Sprite;
+    }
+    
+    /// <summary>
+    /// (kern-obj-set-sprite obj sprite)
+    /// Sets the sprite of an object.
+    /// </summary>
+    public static object ObjectSetSprite(object objArg, object spriteArg)
+    {
+        // Handle null object argument.
+        if (objArg == null)
+        {
+            Console.WriteLine("[RUNTIME ERROR] kern-obj-set-sprite: null object");
+            return "nil".Eval();
+        }
+        
+        // Check for Unspecified.
+        if (objArg == "nil".Eval())
+        {
+            Console.WriteLine("[RUNTIME ERROR] kern-obj-set-sprite: object is #<unspecified>");
+            return "nil".Eval();
+        }
+        
+        // Try to get the object directly or by tag.
+        Object obj = null;
+        
+        if (objArg is Object directObj)
+        {
+            obj = directObj;
+        }
+        else if (objArg is string tagStr)
+        {
+            string cleanTag = tagStr.TrimStart('\'').Trim('"');
+            var resolved = Phantasma.GetRegisteredObject(cleanTag);
+            if (resolved is Object resolvedObj)
+                obj = resolvedObj;
+        }
+        else
+        {
+            // Try ToTag for symbols.
+            string tag = ToTag(objArg);
+            if (!string.IsNullOrEmpty(tag))
+            {
+                var resolved = Phantasma.GetRegisteredObject(tag);
+                if (resolved is Object resolvedObj)
+                    obj = resolvedObj;
+            }
+        }
+        
+        if (obj == null)
+        {
+            Console.WriteLine($"[RUNTIME ERROR] kern-obj-set-sprite: bad object (got {objArg?.GetType().Name ?? "null"})");
+            return "nil".Eval();
+        }
+        
+        // Handle null/empty sprite (e.g., '() for closed moongate).
+        if (spriteArg == null || IsNil(spriteArg) || (spriteArg is List<object> list && list.Count == 0))
+        {
+            obj.Sprite = null;
+            return "nil".Eval();
+        }
+        
+        // Try to get the sprite directly or by tag.
+        Sprite sprite = null;
+        
+        if (spriteArg is Sprite directSprite)
+        {
+            sprite = directSprite;
+        }
+        else if (spriteArg is string spriteTagStr)
+        {
+            string cleanTag = spriteTagStr.TrimStart('\'').Trim('"');
+            var resolved = Phantasma.GetRegisteredObject(cleanTag);
+            if (resolved is Sprite resolvedSprite)
+                sprite = resolvedSprite;
+        }
+        else
+        {
+            // Try ToTag for symbols.
+            string spriteTag = ToTag(spriteArg);
+            if (!string.IsNullOrEmpty(spriteTag))
+            {
+                var resolved = Phantasma.GetRegisteredObject(spriteTag);
+                if (resolved is Sprite resolvedSprite)
+                    sprite = resolvedSprite;
+            }
+        }
+        
+        if (sprite == null)
+        {
+            Console.WriteLine($"[RUNTIME ERROR] kern-obj-set-sprite: sprite not found for {spriteArg}");
+            return "nil".Eval();
+        }
+        
+        obj.Sprite = sprite;
         return "nil".Eval();
     }
 }

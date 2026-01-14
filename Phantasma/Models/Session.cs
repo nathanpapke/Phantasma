@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Input;
 using Avalonia.Threading;
 using IronScheme;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
@@ -58,6 +59,9 @@ public class Session
     
     private object startProc;      // Scheme closure for game start
     private object campingProc;    // Scheme closure for camping callback
+    
+    private readonly PriorityQueue<Job, int> tickJobQueue = new();
+    private int currentTick = 0;
     
     // ===================================================================
     // UI EVENTS - For displaying messages to user
@@ -547,6 +551,8 @@ public class Session
     private void GameTick(object sender, EventArgs e)
     {
         // Update game state.
+        currentTick++;
+        ProcessTickJobs();
         Update();
     }
         
@@ -785,6 +791,46 @@ public class Session
                 playerCharacter.EndTurn();
                 playerCharacter.StartTurn();
                 ShowMessage($"Need {movementCost} AP to move there. Turn reset.");
+                return;
+            }
+            
+            // Check if we're entering a subplace.
+            var subplace = currentPlace.GetSubplace(targetX, targetY);
+            if (subplace != null)
+            {
+                ShowMessage($"Entering {subplace.Name}...");
+                
+                // Enter the subplace.
+                playerCharacter.EnterSubplace(subplace, dx, dy);
+                
+                // Update party member positions too.
+                if (Party != null)
+                {
+                    foreach (var member in Party.Members)
+                    {
+                        if (member != playerCharacter)
+                        {
+                            member.EnterSubplace(subplace, dx, dy);
+                        }
+                    }
+                }
+                
+                // Update session's current place IMMEDIATELY.
+                currentPlace = subplace;
+                
+                // Update the map to render the new place.
+                map?.SetPlace(currentPlace);
+                
+                // Deduct movement cost.
+                playerCharacter.DecreaseActionPoints(1);
+                
+                // Check if turn ended.
+                if (playerCharacter.ActionPoints <= 0)
+                {
+                    playerCharacter.EndTurn();
+                    playerCharacter.StartTurn();
+                }
+                
                 return;
             }
             
@@ -1219,6 +1265,54 @@ public class Session
         catch (Exception ex)
         {
             Console.Error.WriteLine($"[Session] Error running camping proc: {ex.Message}");
+        }
+    }
+    
+    // ===================================================================
+    // JOB HANDLING
+    // ===================================================================
+
+    /// <summary>
+    /// Add a tick job to be executed after a delay.
+    /// Called by kern-add-tick-job.
+    /// </summary>
+    public void AddTickJob(int delayTicks, object procedure, object data, int period = 0)
+    {
+        int targetTick = currentTick + delayTicks;
+        var job = new Job(targetTick, procedure, data, period);
+        tickJobQueue.Enqueue(job, targetTick);
+    }
+    
+    /// <summary>
+    /// Process all tick jobs that are ready to run.
+    /// </summary>
+    private void ProcessTickJobs()
+    {
+        // Process all jobs whose target tick has been reached.
+        while (tickJobQueue.Count > 0 && tickJobQueue.Peek().TargetTick <= currentTick)
+        {
+            var job = tickJobQueue.Dequeue();
+            
+            try
+            {
+                // Call the Scheme procedure with the data argument.
+                if (job.Procedure is Callable callable)
+                {
+                    callable.Call(job.Data);
+                }
+                
+                // If this is a recurring job, reschedule it.
+                if (job.Period > 0)
+                {
+                    int nextTick = currentTick + job.Period;
+                    job.TargetTick = nextTick;
+                    tickJobQueue.Enqueue(job, nextTick);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Job Error] {ex.Message}");
+            }
         }
     }
 }

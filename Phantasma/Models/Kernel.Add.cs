@@ -213,4 +213,30 @@ public partial class Kernel
         Console.WriteLine($"  Added spell: {code} -> {typeTag} (level={level}, cost={cost})");
         return "nil".Eval();
     }
+    
+    /// <summary>
+    /// (kern-add-tick-job ticks proc data)
+    /// Schedules a Scheme procedure to be called after a number of ticks.
+    /// </summary>
+    public static object AddTickJob(object ticksArg, object proc, object data)
+    {
+        int ticks = ToInt(ticksArg, 1);
+        
+        if (proc == null || IsNil(proc))
+        {
+            Console.WriteLine("[RUNTIME ERROR] kern-add-tick-job: null procedure");
+            return "nil".Eval();
+        }
+        
+        var session = Phantasma.MainSession;
+        if (session == null)
+        {
+            Console.WriteLine("[RUNTIME ERROR] kern-add-tick-job: no active session");
+            return "nil".Eval();
+        }
+        
+        session.AddTickJob(ticks, proc, data);
+        
+        return "nil".Eval();
+    }
 }

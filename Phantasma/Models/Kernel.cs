@@ -173,6 +173,7 @@ public partial class Kernel
         DefineFunction("kern-add-magic-negated", AddMagicNegated);
         DefineFunction("kern-add-xray-vision", AddXrayVision);
         DefineFunction("kern-add-spell", AddSpell);
+        DefineFunction("kern-add-tick-job", AddTickJob);
         
         // ===================================================================
         // KERN-GET API - Accessor Functions
@@ -237,6 +238,8 @@ public partial class Kernel
         DefineFunction("kern-obj-get-gob", ObjectGetGob);
         DefineFunction("kern-obj-set-gob", ObjectSetGob);
         DefineFunction("kern-obj-set-pclass", ObjectSetPassability);
+        DefineFunction("kern-obj-get-sprite", ObjectGetSprite);
+        DefineFunction("kern-obj-set-sprite", ObjectSetSprite);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions
