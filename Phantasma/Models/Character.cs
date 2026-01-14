@@ -1018,12 +1018,34 @@ public class Character : Being
                 var subplace = place.GetSubplace(newX, newY);
                 if (subplace != null)
                 {
-                    return EnterSubplace(subplace, dx, dy);
+                    EnterSubplace(subplace, dx, dy);
+
+                    return true;
                 }
                 return false;
                 
             case MoveResult.OffMap:
-                return ExitToParentPlace(dx, dy);
+                // Determine exit direction based on which edge we're walking off.
+                int exitDx = 0;
+                int exitDy = 0;
+                
+                // Check which edge(s) we're crossing.
+                if (newX < 0)
+                    exitDx = -1;  // Exiting west
+                else if (newX >= place.Width)
+                    exitDx = 1;   // Exiting east
+                
+                if (newY < 0)
+                    exitDy = -1;  // Exiting north
+                else if (newY >= place.Height)
+                    exitDy = 1;   // Exiting south
+                
+                Console.WriteLine($"[OffMap] newX={newX}, newY={newY}, place.Width={place.Width}, place.Height={place.Height}");
+                Console.WriteLine($"[OffMap] exitDx={exitDx}, exitDy={exitDy}");
+                
+                ExitToParentPlace(exitDx, exitDy);
+                
+                return true;
                 
             case MoveResult.Ok:
                 // Continue with normal movement below

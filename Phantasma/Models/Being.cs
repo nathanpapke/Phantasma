@@ -326,42 +326,85 @@ public abstract class Being : Object
     }
 
     /// <summary>
-    /// Enter a subplace from the parent map.
+    /// Enter a subplace from the wilderness. Supports all 8 directions + HERE.
     /// </summary>
-    protected bool EnterSubplace(Place subplace, int dx, int dy)
+    public MoveResult EnterSubplace(Place subplace, int dx, int dy)
     {
-        int entryDir = Common.DeltaToDirection(-dx, -dy);
-    
-        if (!subplace.GetEdgeEntrance((Direction)entryDir, out int entryX, out int entryY))
+        // Convert movement vector to direction.
+        int dir;
+        if (dx == 0 && dy == 0)
         {
-            entryX = subplace.Width / 2;
-            entryY = subplace.Height / 2;
+            // No direction - could prompt user or default to HERE.
+            dir = Common.HERE;
         }
-    
-        Console.WriteLine($"{GetName()} enters {subplace.Name}");
-        Relocate(subplace, entryX, entryY);
-        return true;
+        else
+        {
+            dir = Common.DeltaToDirection(dx, dy);
+        }
+        
+        // Use OPPOSITE direction for edge entrance lookup.
+        // This way, entering from NORTH (walking south) looks up SOUTH entrance,
+        // which in Nazghul's data is at the north edge of the map.
+        int lookupDir = Common.OppositeDirection(dir);
+        
+        // Get entry coordinates for the opposite direction.
+        if (!subplace.GetEdgeEntrance((Direction)lookupDir, out int newX, out int newY))
+        {
+            return MoveResult.NoDestination;
+        }
+        
+        // Relocate to the subplace.
+        Relocate(subplace, newX, newY);
+        
+        return MoveResult.Ok;
     }
 
     /// <summary>
-    /// Exit to parent place when walking off map edge.
+    /// Exit current place and return to parent place.
+    /// Player appears adjacent to the subplace in the direction they exited.
     /// </summary>
-    protected bool ExitToParentPlace(int dx, int dy)
+    /// <param name="dx">Exit direction X component (-1, 0, or 1)</param>
+    /// <param name="dy">Exit direction Y component (-1, 0, or 1)</param>
+    /// <returns>MoveResult indicating success or failure</returns>
+    public MoveResult ExitToParentPlace(int dx, int dy)
     {
-        var currentPlace = Position?.Place;
-        var parentPlace = currentPlace?.Location.Place;
-    
+        Console.WriteLine($"[ExitToParentPlace] dx={dx}, dy={dy}");
+        
+        var currentPlace = GetPlace();
+        if (currentPlace == null)
+            return MoveResult.OffMap;
+        
+        var parentPlace = currentPlace.Location?.Place;
         if (parentPlace == null)
+            return MoveResult.OffMap;
+        
+        int baseX = currentPlace.Location.X;
+        int baseY = currentPlace.Location.Y;
+        
+        // Calculate exit position: adjacent tile in exit direction.
+        int exitX = baseX + dx;
+        int exitY = baseY + dy;
+        
+        // Handle wrapping if parent map wraps.
+        if (parentPlace.Wraps)
         {
-            Console.WriteLine($"{GetName()} can't leave - no parent place!");
-            return false;
+            exitX = parentPlace.WrapX(exitX);
+            exitY = parentPlace.WrapY(exitY);
         }
-    
-        int parentX = currentPlace.Location.X;
-        int parentY = currentPlace.Location.Y;
-    
-        Console.WriteLine($"{GetName()} exits {currentPlace.Name} to {parentPlace.Name}");
-        Relocate(parentPlace, parentX, parentY);
-        return true;
+        
+        // Only check if we're off the map entirely - ignore passability!
+        if (parentPlace.IsOffMap(exitX, exitY))
+        {
+            // Can't exit off the edge of the world map, fall back to town tile.
+            exitX = baseX;
+            exitY = baseY;
+        }
+        
+        Console.WriteLine($"[ExitToParentPlace] Relocating from {currentPlace.Name} to ({exitX},{exitY}) on {parentPlace.Name}");
+        
+        currentPlace.Exit();
+        Relocate(parentPlace, exitX, exitY);
+        
+        return MoveResult.Ok;
     }
 }

@@ -719,8 +719,8 @@ public class Session
                         return;
                     }
                     
-                    int parentX = currentPlace.Location.X;
-                    int parentY = currentPlace.Location.Y;
+                    int parentX = currentPlace.Location.X + dx;
+                    int parentY = currentPlace.Location.Y + dy;
                     
                     ShowMessage($"Exiting {currentPlace.Name} to {parentPlace.Name}...");
                     

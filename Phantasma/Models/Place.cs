@@ -323,46 +323,46 @@ public class Place
     /// </summary>
     public void SetDefaultEdgeEntrances()
     {
-        int centerX = Width / 2;
-        int centerY = Height / 2;
-        int maxX = Width - 1;
-        int maxY = Height - 1;
+        int w = Width;
+        int h = Height;
         
-        // Enter from NORTH (player appears at south edge, center).
-        EdgeEntrances[(int)Direction.North, 0] = centerX;
-        EdgeEntrances[(int)Direction.North, 1] = maxY;
+        // NEW BEHAVIOR: Enter from direction X → appear on edge X (same side)
         
-        // Enter from NORTHEAST (player appears at southwest corner).
-        EdgeEntrances[(int)Direction.NorthEast, 0] = 0;
-        EdgeEntrances[(int)Direction.NorthEast, 1] = maxY;
+        // Northwest: upper left corner (same corner you entered from)
+        EdgeEntrances[Common.NORTHWEST, 0] = 0;
+        EdgeEntrances[Common.NORTHWEST, 1] = 0;
         
-        // Enter from EAST (player appears at west edge, center).
-        EdgeEntrances[(int)Direction.East, 0] = 0;
-        EdgeEntrances[(int)Direction.East, 1] = centerY;
+        // North: upper center (north edge)
+        EdgeEntrances[Common.NORTH, 0] = w / 2;
+        EdgeEntrances[Common.NORTH, 1] = 0;
         
-        // Enter from SOUTHEAST (player appears at northwest corner).
-        EdgeEntrances[(int)Direction.SouthEast, 0] = 0;
-        EdgeEntrances[(int)Direction.SouthEast, 1] = 0;
+        // Northeast: upper right corner
+        EdgeEntrances[Common.NORTHEAST, 0] = w - 1;
+        EdgeEntrances[Common.NORTHEAST, 1] = 0;
         
-        // Enter from SOUTH (player appears at north edge, center).
-        EdgeEntrances[(int)Direction.South, 0] = centerX;
-        EdgeEntrances[(int)Direction.South, 1] = 0;
+        // West: left center
+        EdgeEntrances[Common.WEST, 0] = 0;
+        EdgeEntrances[Common.WEST, 1] = h / 2;
         
-        // Enter from SOUTHWEST (player appears at northeast corner).
-        EdgeEntrances[(int)Direction.SouthWest, 0] = maxX;
-        EdgeEntrances[(int)Direction.SouthWest, 1] = 0;
+        // Here: center of map
+        EdgeEntrances[Common.HERE, 0] = w / 2;
+        EdgeEntrances[Common.HERE, 1] = h / 2;
         
-        // Enter from WEST (player appears at east edge, center).
-        EdgeEntrances[(int)Direction.West, 0] = maxX;
-        EdgeEntrances[(int)Direction.West, 1] = centerY;
+        // East: right center
+        EdgeEntrances[Common.EAST, 0] = w - 1;
+        EdgeEntrances[Common.EAST, 1] = h / 2;
         
-        // Enter from NORTHWEST (player appears at southeast corner).
-        EdgeEntrances[(int)Direction.NorthWest, 0] = maxX;
-        EdgeEntrances[(int)Direction.NorthWest, 1] = maxY;
+        // Southwest: lower left corner
+        EdgeEntrances[Common.SOUTHWEST, 0] = 0;
+        EdgeEntrances[Common.SOUTHWEST, 1] = h - 1;
         
-        // Enter from HERE/CENTER (player appears at center).
-        EdgeEntrances[(int)Direction.Here, 0] = centerX;
-        EdgeEntrances[(int)Direction.Here, 1] = centerY;
+        // South: lower center (south edge)
+        EdgeEntrances[Common.SOUTH, 0] = w / 2;
+        EdgeEntrances[Common.SOUTH, 1] = h - 1;
+        
+        // Southeast: lower right corner
+        EdgeEntrances[Common.SOUTHEAST, 0] = w - 1;
+        EdgeEntrances[Common.SOUTHEAST, 1] = h - 1;
     }
 
     /// <summary>
