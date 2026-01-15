@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -152,6 +153,10 @@ public class Screen
     /// </summary>
     public void DrawItem(DrawingContext context, int x, int y, Item item)
     {
+        // Invisible objects don't render at all.
+        if (!item.IsVisible())
+            return;
+
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
     
         // Get sprite from the item's type.
@@ -189,6 +194,10 @@ public class Screen
     /// </summary>
     public void DrawBeing(DrawingContext context, int x, int y, Being being)
     {
+        // Invisible objects don't render at all.
+        if (!being.IsVisible())
+            return;
+
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
             
         if (being.CurrentSprite?.SourceImage != null)
@@ -203,6 +212,10 @@ public class Screen
     
     public void DrawVehicle(DrawingContext context, int x, int y, Vehicle vehicle)
     {
+        // Invisible objects don't render at all.
+        if (!vehicle.IsVisible())
+            return;
+        
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         var sprite = vehicle.GetSprite();
     
@@ -345,6 +358,10 @@ public class Screen
     /// </summary>
     public void DrawMechanism(DrawingContext context, int x, int y, Models.Object mech)
     {
+        // Invisible objects don't render at all.
+        if (!mech.IsVisible())
+            return;
+
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         
         // Get sprite from the mechanism's type.
@@ -367,10 +384,43 @@ public class Screen
     }
     
     /// <summary>
+    /// Draw a portal.
+    /// </summary>
+    public void DrawPortal(DrawingContext context, int x, int y, Portal portal)
+    {
+        // Invisible objects don't render at all.
+        if (!portal.IsVisible())
+            return;
+
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+    
+        // Check object's direct sprite first (for animated moongates).
+        Sprite? sprite = portal.Sprite;
+    
+        // Fall back to type sprite.
+        if (sprite == null && portal.Type is ObjectType objType)
+            sprite = objType.Sprite;
+    
+        if (sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // Fallback: draw a purple rectangle for portals.
+            context.FillRectangle(new SolidColorBrush(Color.FromRgb(128, 0, 128)), destRect);
+        }
+    }
+    
+    /// <summary>
     /// Draw a field (fire, poison, energy field, etc.).
     /// </summary>
     public void DrawField(DrawingContext context, int x, int y, Field field)
     {
+        // Invisible objects don't render at all.
+        if (!field.IsVisible())
+            return;
+        
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         
         // Get sprite from the field's type.
@@ -834,6 +884,11 @@ public class Screen
     {
         if (place == null) return;
         
+        var mechCount = place.GetAllMechanisms().Count();
+        var itemCount = place.GetAllItems().Count();
+        var portalCount = place.GetAllPortals().Count();
+        Console.WriteLine($"[DEBUG DrawMap] Place={place.Name}, Mechanisms={mechCount}, Items={itemCount}, Portals={portalCount}");
+        
         // Get visibility mask.
         byte[] vmask = visibilityCache.Get(place, centerX, centerY);
     
@@ -941,7 +996,23 @@ public class Screen
         }
     
         // Layer 4: Draw portals (stairs, ladders, exits).
-        // TODO: Implement portals
+        var portals = place.GetAllPortals();
+        foreach (var portal in portals)
+        {
+            Console.WriteLine($"[DEBUG Screen] Drawing portal: {portal.Name} at ({portal.GetX()},{portal.GetY()}), sprite={portal.Sprite?.Tag ?? "null"}, typeSprite={portal.Type?.Sprite?.Tag ?? "null"}");
+            
+            viewX = portal.GetX() - viewStartX;
+            viewY = portal.GetY() - viewStartY;
+
+            if (viewX >= 0 && viewX < tilesWide &&
+                viewY >= 0 && viewY < tilesHigh)
+            {
+                if (IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawPortal(context, viewX, viewY, portal);
+                }
+            }
+        }
     
         // Layer 5: Draw vehicles (boats, horses, carts).
         var vehicles = place.GetAllVehicles();

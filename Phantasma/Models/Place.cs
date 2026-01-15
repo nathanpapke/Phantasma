@@ -556,6 +556,8 @@ public class Place
         // Determine layer based on object type.
         ObjectLayer layer = DetermineLayer(obj);
         
+        Console.WriteLine($"[DEBUG PlaceObject] {obj.Name ?? obj.GetType().Name} at ({x},{y}) -> layer={layer} ({(int)layer}), objType={obj.Type?.Tag}, typeLayer={obj.Type?.Layer}");
+        
         var key = (x, y, layer);
         objectsByLocation[key] = obj;
         
@@ -597,6 +599,8 @@ public class Place
     
     public void AddObject(Object? obj, int x, int y)
     {
+        Console.WriteLine($"[DEBUG AddObject] {obj?.Name ?? obj?.GetType().Name} at ({x},{y}), layer={obj?.Layer}, typeLayer={obj?.Type?.Layer}");
+        
         if (obj == null || IsOffMap(x, y))
             return;
             
@@ -859,12 +863,21 @@ public class Place
     /// </summary>
     private ObjectLayer DetermineLayer(Object obj)
     {
-        // In Nazghul, objects have getLayer() method.
+        // First check if object has an explicit layer from its type.
+        if (obj.Type?.Layer != null && obj.Type.Layer != ObjectLayer.Null)
+            return obj.Type.Layer;
+        
+        // Also check if object itself has a Layer property.
+        if (obj.Layer != ObjectLayer.Null)
+            return obj.Layer;
+        
         // For now, determine by type.
         if (obj is Being)
             return ObjectLayer.Being;
         else if (obj is IMechanism)
             return ObjectLayer.Mechanism;
+        else if (obj is Portal)
+            return ObjectLayer.Portal;
         else if (obj is Container)
             return ObjectLayer.Container;
         else if (obj.GetType().Name.Contains("Feature"))
@@ -1012,6 +1025,14 @@ public class Place
             return $"Blocked by {mechanism.Name}";
         
         return "Unknown obstruction";
+    }
+    
+    public IEnumerable<Portal> GetAllPortals()
+    {
+        return objectsByLocation
+            .Where(kvp => kvp.Key.layer == ObjectLayer.Portal)
+            .Select(kvp => kvp.Value)
+            .OfType<Portal>();
     }
 
 // ============================================================================

@@ -1049,7 +1049,9 @@ public partial class Kernel
                 return "nil".Eval();
             }
         }
-    
+        
+        Console.WriteLine($"[DEBUG kern-mk-obj] type={objType?.Tag}, layer={objType?.Layer} ({(int)(objType?.Layer ?? 0)})");
+        
         // Check the ObjectType's layer and create appropriate object.
         switch (objType.Layer)
         {
@@ -1113,7 +1115,9 @@ public partial class Kernel
         object capabilities, object interactionHandler)
     {
         string tagStr = tag?.ToString()?.TrimStart('\'');
-    
+        
+        Console.WriteLine($"[DEBUG kern-mk-obj-type] tag={tagStr}, layer={layer} (as int: {Convert.ToInt32(layer ?? 0)})");
+        
         var objType = new ObjectType
         {
             Tag = tagStr ?? "unknown",
