@@ -161,6 +161,10 @@ public class Screen
     
         // Get sprite from the item's type.
         var sprite = item.Type?.Sprite;
+        
+        // No sprite defined for intentionally invisible objects.
+        if (sprite == null)
+            return;
     
         if (sprite?.SourceImage != null)
         {
@@ -199,8 +203,13 @@ public class Screen
             return;
 
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        var sprite = being.CurrentSprite;
+        
+        // No sprite defined for intentionally invisible objects.
+        if (sprite == null)
+            return;
             
-        if (being.CurrentSprite?.SourceImage != null)
+        if (sprite?.SourceImage != null)
         {
             DrawSprite(context, being.CurrentSprite, destRect);
         }
@@ -218,6 +227,10 @@ public class Screen
         
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         var sprite = vehicle.GetSprite();
+        
+        // No sprite defined for intentionally invisible objects.
+        if (sprite == null)
+            return;
     
         if (sprite?.SourceImage != null)
         {
@@ -365,7 +378,11 @@ public class Screen
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         
         // Get sprite from the mechanism's type.
-        Sprite? sprite = mech.Sprite;
+        Sprite? sprite = mech.Type.Sprite;
+        
+        // No sprite defined for intentionally invisible objects.
+        if (sprite == null)
+            return;
         
         if (mech.Type is ObjectType objType && objType.Sprite != null)
         {
@@ -396,6 +413,10 @@ public class Screen
     
         // Check object's direct sprite first (for animated moongates).
         Sprite? sprite = portal.Sprite;
+        
+        // No sprite defined for intentionally invisible objects.
+        if (sprite == null)
+            return;
     
         // Fall back to type sprite.
         if (sprite == null && portal.Type is ObjectType objType)
@@ -426,6 +447,10 @@ public class Screen
         // Get sprite from the field's type.
         var fieldType = field.GetFieldType();
         var sprite = fieldType?.Sprite;
+        
+        // No sprite defined for intentionally invisible objects.
+        if (sprite == null)
+            return;
         
         if (sprite?.SourceImage != null)
         {
@@ -887,7 +912,6 @@ public class Screen
         var mechCount = place.GetAllMechanisms().Count();
         var itemCount = place.GetAllItems().Count();
         var portalCount = place.GetAllPortals().Count();
-        Console.WriteLine($"[DEBUG DrawMap] Place={place.Name}, Mechanisms={mechCount}, Items={itemCount}, Portals={portalCount}");
         
         // Get visibility mask.
         byte[] vmask = visibilityCache.Get(place, centerX, centerY);
@@ -999,8 +1023,6 @@ public class Screen
         var portals = place.GetAllPortals();
         foreach (var portal in portals)
         {
-            Console.WriteLine($"[DEBUG Screen] Drawing portal: {portal.Name} at ({portal.GetX()},{portal.GetY()}), sprite={portal.Sprite?.Tag ?? "null"}, typeSprite={portal.Type?.Sprite?.Tag ?? "null"}");
-            
             viewX = portal.GetX() - viewStartX;
             viewY = portal.GetY() - viewStartY;
 
