@@ -1,5 +1,6 @@
 using System;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -12,7 +13,12 @@ public class Mechanism : Object, IBlockingObject
     
     // Mechanism-specific Properties
     public bool IsActivated { get; set; }
-    public bool IsPassable { get; set; } = true;
+    public bool IsPassable { get; set; } = false;
+    
+    public Mechanism()
+    {
+        PassabilityClass = 0;
+    }
     
     /// <summary>
     /// Handle this mechanism (open door, pull lever, etc.).
@@ -31,7 +37,8 @@ public class Mechanism : Object, IBlockingObject
         {
             if (closure is Callable callable)
             {
-                callable.Call("handle", this, handler);
+                var handleSymbol = SymbolTable.StringToObject("handle");
+                callable.Call(handleSymbol, this, handler);
             }
         }
         catch (Exception ex)

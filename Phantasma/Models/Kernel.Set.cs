@@ -35,23 +35,16 @@ public partial class Kernel
         if (objTypeRef is object[] arr && arr.Length > 0)
             objTypeRef = arr[0];
         
-        Console.WriteLine($"[DEBUG kern-set-crosshair] After unwrap: Type={objTypeRef?.GetType().Name}, " +
-                          $"Value={objTypeRef}");
-        
         ObjectType? objType = ResolveObject<ObjectType>(objTypeRef);
 
         if (objType == null)
         {
-            Console.WriteLine("kern-set-crosshair: invalid object type");
             return "nil".Eval();
         }
 
         // Store with well-known "crosshair" key.
         Phantasma.RegisterObject("crosshair", objType);
-        $"(define crosshair \"crosshair\")".Eval(); //testing if this fixes it
-
-        Console.WriteLine($"  Set crosshair type: {objType.Name}");
-
+        
         return objType;
     }
     
@@ -66,22 +59,15 @@ public partial class Kernel
         if (spriteRef is object[] arr && arr.Length > 0)
             spriteRef = arr[0];
         
-        Console.WriteLine($"[DEBUG kern-set-cursor] After unwrap: Type={spriteRef?.GetType().Name}, " +
-                          $"Value={spriteRef}");
-        
         Sprite? sprite = ResolveObject<Sprite>(spriteRef);
 
         if (sprite == null)
         {
-            Console.WriteLine("kern-set-cursor: invalid sprite");
             return "nil".Eval();
         }
 
         // Store with well-known "cursor-sprite" key.
         Phantasma.RegisterObject("cursor-sprite", sprite);
-        $"(define cursor-sprite \"cursor-sprite\")".Eval(); // testing if this fixes it
-
-        Console.WriteLine($"  Set cursor sprite: {sprite.Tag}");
 
         return sprite;
     }
@@ -114,8 +100,7 @@ public partial class Kernel
     
         // Register for lookup
         Phantasma.RegisterObject("frame-sprites", frameSprites);
-    
-        Console.WriteLine("  Set frame sprites");
+        
         return "nil".Eval();
     }
     
@@ -140,8 +125,7 @@ public partial class Kernel
     
         // Register for lookup.
         Phantasma.RegisterObject("ascii-config", asciiConfig);
-    
-        Console.WriteLine($"  Set ASCII sprite set (offset={offset})");
+        
         return "nil".Eval();
     }
     
@@ -231,8 +215,7 @@ public partial class Kernel
             char letter = (char)('A' + i);
             Magic.AddWordGlobal(letter, words[i]);
         }
-    
-        Console.WriteLine($"  Set {words.Count} spell words");
+        
         return "#t".Eval();
     }
     

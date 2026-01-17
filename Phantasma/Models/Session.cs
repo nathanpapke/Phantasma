@@ -700,14 +700,6 @@ public class Session
             // Check if we're moving off the map.
             if (currentPlace.IsOffMap(targetX, targetY))
             {
-                // DEBUG: Add this to trace the issue
-                Console.WriteLine($"[DEBUG] IsOffMap=true for ({targetX}, {targetY})");
-                Console.WriteLine($"[DEBUG] currentPlace.Name = {currentPlace?.Name ?? "null"}");
-                Console.WriteLine($"[DEBUG] currentPlace.Wraps = {currentPlace?.Wraps}");
-                Console.WriteLine($"[DEBUG] currentPlace.Location = {currentPlace?.Location}");
-                Console.WriteLine($"[DEBUG] currentPlace.Location?.Place = {currentPlace?.Location?.Place}");
-                Console.WriteLine($"[DEBUG] currentPlace.Location?.Place?.Name = {currentPlace?.Location?.Place?.Name ?? "null"}");
-
                 // Handle wrapping maps.
                 if (currentPlace.Wraps)
                 {
@@ -727,8 +719,6 @@ public class Session
                     
                     int parentX = currentPlace.Location.X + dx;
                     int parentY = currentPlace.Location.Y + dy;
-                    
-                    ShowMessage($"Exiting {currentPlace.Name} to {parentPlace.Name}...");
                     
                     // Move all party members to parent place.
                     playerCharacter.Relocate(parentPlace, parentX, parentY);
@@ -843,7 +833,36 @@ public class Session
             }
             else
             {
-                ShowMessage("Can't move there!");
+                // =========================================================
+                // AUTO-HANDLE MECHANISM ON BLOCKED MOVEMENT
+                // "If the move failed because something impassable is there 
+                //  then check for a mech and try to handle it. This is good 
+                //  enough to automatically open unlocked doors."
+                // =========================================================
+                var mech = currentPlace?.GetObjectAt(targetX, targetY, ObjectLayer.Mechanism);
+                if (mech != null && mech.CanHandle())
+                {
+                    // Handle the mechanism (e.g., open the door).
+                    mech.Handle(playerCharacter);
+                    
+                    ShowMessage($"Handled {mech.Name}");
+                    
+                    // Try to move again after handling.
+                    if (playerCharacter.Move(dx, dy))
+                    {
+                        playerCharacter.DecreaseActionPoints(movementCost);
+                        AdvanceTurn();
+                        ShowMessage($"Player moved to ({playerCharacter.GetX()}, {playerCharacter.GetY()})");
+                    }
+                    else
+                    {
+                        ShowMessage("Still blocked!");
+                    }
+                }
+                else
+                {
+                    ShowMessage("Can't move there!");
+                }
                 return;
             }
         }

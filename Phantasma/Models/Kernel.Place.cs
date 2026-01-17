@@ -247,8 +247,6 @@ public partial class Kernel
         // Set the combat map on the terrain.
         t.CombatMap = combatMap;
         
-        Console.WriteLine($"  Set combat map for terrain '{t.Name}'");
-        
         return terrain;
     }
     

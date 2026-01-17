@@ -25,7 +25,6 @@ public partial class Kernel
             if (character != null)
             {
                 character.RevealDuration = Math.Max(character.RevealDuration, duration);
-                Console.WriteLine($"[AddReveal] {character.GetName()} gained Reveal for {duration} turns");
             }
             else
             {
@@ -54,7 +53,6 @@ public partial class Kernel
             if (character != null)
             {
                 character.QuickenDuration = Math.Max(character.QuickenDuration, duration);
-                Console.WriteLine($"[AddQuicken] {character.GetName()} gained Quicken for {duration} turns");
             }
             else
             {
@@ -83,7 +81,6 @@ public partial class Kernel
             if (character != null)
             {
                 character.TimeStopDuration = Math.Max(character.TimeStopDuration, duration);
-                Console.WriteLine($"[AddTimeStop] {character.GetName()} gained Time Stop for {duration} turns");
             }
             else
             {
@@ -112,7 +109,6 @@ public partial class Kernel
             if (character != null)
             {
                 character.MagicNegatedDuration = Math.Max(character.MagicNegatedDuration, duration);
-                Console.WriteLine($"[AddMagicNegated] {character.GetName()} gained Magic Negated for {duration} turns");
             }
             else
             {
@@ -141,7 +137,6 @@ public partial class Kernel
             if (character != null)
             {
                 character.XrayVisionDuration = Math.Max(character.XrayVisionDuration, duration);
-                Console.WriteLine($"[AddXrayVision] {character.GetName()} gained Xray Vision for {duration} turns");
             }
             else
             {
@@ -209,8 +204,7 @@ public partial class Kernel
         }
     
         Magic.AddSpellByCode(code, objectType, level, cost, context, flags, range, actionPoints, reagents);
-    
-        Console.WriteLine($"  Added spell: {code} -> {typeTag} (level={level}, cost={cost})");
+        
         return "nil".Eval();
     }
     

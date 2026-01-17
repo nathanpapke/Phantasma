@@ -23,15 +23,15 @@ public partial class Kernel
         
         // Resolve the object (might be a Character, Object, etc.).
         var gameObj = obj as Object;
-        
+
         if (gameObj == null)
         {
             // Try to resolve from tag if it's a string.
             if (obj is string objTag)
             {
-            Console.WriteLine($"[kern-obj-put-at] Looking up tag: '{objTag}'");
+                Console.WriteLine($"[kern-obj-put-at] Looking up tag: '{objTag}'");
                 gameObj = Phantasma.GetRegisteredObject(objTag) as Object;
-            Console.WriteLine($"[kern-obj-put-at] Lookup result: {gameObj?.GetType().Name ?? "NULL"}");
+                Console.WriteLine($"[kern-obj-put-at] Lookup result: {gameObj?.GetType().Name ?? "NULL"}");
             }
         }
         
@@ -107,6 +107,26 @@ public partial class Kernel
         else
         {
             Console.WriteLine($"[kern-obj-put-at] Error: location is not a list (type: {location?.GetType().Name ?? "NULL"})");
+        }
+        
+        // After successfully placing the object, send 'init signal.
+        if (gameObj != null)
+        {
+            // Call the object's 'init handler if it has one.
+            var ifc = gameObj.Type?.InteractionHandler;
+            if (ifc is Callable callable)
+            {
+                try
+                {
+                    Console.WriteLine($"[kern-obj-put-at] Sending 'init to {gameObj.Name}");
+                    callable.Call("init", gameObj);
+                }
+                catch (Exception ex)
+                {
+                    // 'init handler may not exist for all objects, that's okay.
+                    Console.WriteLine($"[kern-obj-put-at] No init handler or error: {ex.Message}");
+                }
+            }
         }
         
         return "nil".Eval();
@@ -642,6 +662,16 @@ public partial class Kernel
             Flags = Gob.GOB_SAVECAR
         };
         
+        if (obj.Type != null && obj.Type.CanExec && obj.Type.InteractionHandler != null)
+        {
+            if (obj.Type.InteractionHandler is Callable callable)
+            {
+                // Try calling with "exec" string.
+                var execSymbol = SymbolTable.StringToObject("exec");
+                var result = callable.Call(execSymbol, obj);
+            }
+        }
+        
         return "nil".Eval();
     }
     
@@ -651,6 +681,8 @@ public partial class Kernel
     /// </summary>
     public static object ObjectSetPassability(object obj, object pclass)
     {
+        Console.WriteLine($"[kern-obj-set-pclass] Called with obj={obj?.GetType().Name}, pclass={pclass}");
+        
         var gameObj = obj as Object;
         if (gameObj == null)
         {

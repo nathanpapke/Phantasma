@@ -556,8 +556,6 @@ public class Place
         // Determine layer based on object type.
         ObjectLayer layer = DetermineLayer(obj);
         
-        Console.WriteLine($"[DEBUG PlaceObject] {obj.Name ?? obj.GetType().Name} at ({x},{y}) -> layer={layer} ({(int)layer}), objType={obj.Type?.Tag}, typeLayer={obj.Type?.Layer}");
-        
         var key = (x, y, layer);
         objectsByLocation[key] = obj;
         
@@ -599,8 +597,6 @@ public class Place
     
     public void AddObject(Object? obj, int x, int y)
     {
-        Console.WriteLine($"[DEBUG AddObject] {obj?.Name ?? obj?.GetType().Name} at ({x},{y}), layer={obj?.Layer}, typeLayer={obj?.Type?.Layer}");
-        
         if (obj == null || IsOffMap(x, y))
             return;
             
@@ -848,10 +844,30 @@ public class Place
         if (checkMechanisms)
         {
             var mechanism = GetObjectAt(x, y, ObjectLayer.Mechanism);
-            if (mechanism != null && mechanism is IBlockingObject blocker)
+            Console.WriteLine($"[DEBUG] Checking mechanism at ({x},{y}): {mechanism?.Name ?? "none"}, pclass={mechanism?.PassabilityClass ?? -1}");
+            
+            if (mechanism != null)
             {
-                if (!blocker.IsPassable)
-                    return false;
+                int mechPclass = mechanism.PassabilityClass;
+                Console.WriteLine($"[DEBUG] Mechanism {mechanism.Name} has pclass={mechPclass}");
+                
+                // Does the object care about passability?
+                // PCLASS_NONE (0) means ignore passability.
+                if (mechPclass != PCLASS_NONE)
+                {
+                    // Check if subject can pass this pclass.
+                    var ptable = Phantasma.GetRegisteredObject("ptable") as PassabilityTable 
+                                 ?? PassabilityTable.CreateDefault();
+                    int movementMode = 0;
+                    if (subject is Character ch)
+                        movementMode = ch.Species.MovementMode.Index;
+                    
+                    if (!ptable.IsPassable(movementMode, mechPclass))
+                    {
+                        Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): mechanism={mechanism.Name}, pclass={mechPclass}");
+                        return false;
+                    }
+                }
             }
         }
         

@@ -247,11 +247,6 @@ public class Phantasma
             return;
         }
         
-        if (registeredObjects.ContainsKey(tag))
-        {
-            Console.WriteLine($"Warning: Overwriting existing object with tag '{tag}'");
-        }
-        
         registeredObjects[tag] = obj;
     }
     

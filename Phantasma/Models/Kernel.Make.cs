@@ -115,10 +115,8 @@ public partial class Kernel
         
         // DEBUG: Check what pclass actually is
         var pclassArg = args[i];
-        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: pclass arg type={pclassArg?.GetType().Name}, value={pclassArg}");
         
         int pclass = ToInt(args[i++], 0);
-        Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: pclass result={pclass}");
         
         object spriteArg = args[i++];
         int alpha = ToInt(args[i++], 255);
@@ -129,14 +127,8 @@ public partial class Kernel
         // Optional Parameter
         object effectProc = i < args.Length ? args[i] : null;
         
-        // DEBUG: Trace sprite resolution.
-        //Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: spriteArg type={spriteArg?.GetType().Name}, value={spriteArg}");
-        
         // Resolve sprite after extraction.
         var sprite = spriteArg as Sprite ?? ResolveObject<Sprite>(spriteArg);
-        
-        // DEBUG: Check resolution result.
-        //Console.WriteLine($"[DEBUG MakeTerrain] {tagStr}: sprite={sprite != null}, SourceImage={sprite?.SourceImage != null}");
         
         Terrain terrain = new Terrain(tagStr, name, sprite, pclass, alpha, light);
         Phantasma.RegisterObject(tagStr, terrain);
@@ -237,8 +229,6 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        //Console.WriteLine($"  Created palette: {tagStr} ({count} entries.)");
-        
         return palette;
     }
     
@@ -306,8 +296,6 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        //Console.WriteLine($"  Created map: {tagStr} ({w}x{h})");
-        
         return map;
     }
     
@@ -318,8 +306,6 @@ public partial class Kernel
     /// </summary>
     public static object MakePlace(object[] args)
     {
-        Console.WriteLine($"[DEBUG kern-mk-place] ENTRY - args count={args?.Length ?? 0}");
-        
         if (args == null || args.Length < 8)
         {
             LoadError($"kern-mk-place: expected at least 8 args, got {args?.Length ?? 0}");
@@ -518,6 +504,20 @@ public partial class Kernel
                         if (gameObj != null)
                         {
                             place.AddObject(gameObj, x, y);
+    
+                            // Send 'init signal to initialize object state (doors set pclass, etc.).
+                            var ifc = gameObj.Type?.InteractionHandler;
+                            if (ifc is Callable initCallable)
+                            {
+                                try
+                                {
+                                    initCallable.Call("init", gameObj);
+                                }
+                                catch
+                                {
+                                    // 'init handler may not exist for all objects.
+                                }
+                            }
                         }
                     }
                 }
@@ -558,18 +558,12 @@ public partial class Kernel
             }
         }
         
-        // Debug: Show parent relationship
-        Console.WriteLine($"[DEBUG MakePlace] {tagStr} Location.Place = {place.Location?.Place?.Tag ?? "null"}");
-        Console.WriteLine($"[DEBUG MakePlace] {tagStr} has {place.Subplaces?.Count ?? 0} subplaces");
-
         // Register the place.
         if (!string.IsNullOrEmpty(tagStr))
         {
             Phantasma.RegisterObject(tagStr, place);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
-        
-        Console.WriteLine($"  Created place: {tagStr} ({place.Width}x{place.Height})");
         
         return place;
     }
@@ -589,7 +583,6 @@ public partial class Kernel
         Phantasma.RegisterObject(tagStr, mmode);
         $"(define {tagStr} \"{tagStr}\")".Eval();
         
-        //Console.WriteLine($"  Created mmode: {nameStr} (index={index})");
         return mmode;
     }
     
@@ -698,8 +691,6 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        //Console.WriteLine($"  Created species: {nameStr} (str={str}, dex={dex}, hp={hpmod}+{hpmult}/lvl)");
-        
         return species;
     }
     
@@ -736,8 +727,6 @@ public partial class Kernel
             Phantasma.RegisterObject(tagStr, occ);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
-        
-        //Console.WriteLine($"  Created occupation: {occ.Name} (magic={occ.Magic:F1}, hp+{occ.HpMod}+{occ.HpMult}/lvl)");
         
         return occ;
     }
@@ -1005,9 +994,6 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        Console.WriteLine($"  Created character: {nameStr} (str={character.GetStrength()}, " +
-                          $"hp={character.HP}/{character.MaxHP}, lvl={lvl})");
-        
         return character;
     }
     
@@ -1050,8 +1036,6 @@ public partial class Kernel
             }
         }
         
-        Console.WriteLine($"[DEBUG kern-mk-obj] type={objType?.Tag}, layer={objType?.Layer} ({(int)(objType?.Layer ?? 0)})");
-        
         // Check the ObjectType's layer and create appropriate object.
         switch (objType.Layer)
         {
@@ -1064,7 +1048,7 @@ public partial class Kernel
                     // Inherit passability class from type (default to 1 for walkable).
                     PassabilityClass = 1
                 };
-                Console.WriteLine($"[kern-mk-obj] Created TerrainFeature: {objType.Name}");
+                
                 return tfeat;
             
             case ObjectLayer.Mechanism:
@@ -1116,8 +1100,6 @@ public partial class Kernel
     {
         string tagStr = tag?.ToString()?.TrimStart('\'');
         
-        Console.WriteLine($"[DEBUG kern-mk-obj-type] tag={tagStr}, layer={layer} (as int: {Convert.ToInt32(layer ?? 0)})");
-        
         var objType = new ObjectType
         {
             Tag = tagStr ?? "unknown",
@@ -1145,8 +1127,6 @@ public partial class Kernel
             Phantasma.RegisterObject(tagStr, objType);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
-        
-        //Console.WriteLine($"  Created object type: {tagStr} '{objType.Name}'");
         
         return objType;
     }
@@ -1245,8 +1225,6 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         
-        //Console.WriteLine($"  Created arms type: {nameStr} (dmg={damageDice}, rng={range})");
-        
         return armsType;
     }
     
@@ -1281,9 +1259,7 @@ public partial class Kernel
                 contents = contents.cdr as Cons;
             }
         }
-    
-        //Console.WriteLine($"  Created container with {container.Capacity} item types");
-    
+        
         return container;
     }
     
@@ -1298,9 +1274,7 @@ public partial class Kernel
         party.Faction = Convert.ToInt32(faction ?? 0);
         // vehicle - Vehicle the party is in, ignored for now
         party.IsPlayerParty = false;
-    
-        //Console.WriteLine($"  Created party (faction={party.Faction})");
-    
+        
         return party;
     }
     
@@ -1392,8 +1366,6 @@ public partial class Kernel
             Phantasma.SetPendingPlayerCharacter(firstMember);
         }
         
-        Console.WriteLine($"  Created player party with {party.Size} members (food={party.Food}, gold={party.Gold})");
-        
         return party;
     }
     /// <summary>
@@ -1442,8 +1414,6 @@ public partial class Kernel
             Sprite = sprite as Sprite
         };
         
-        //Console.WriteLine($"  Created reagent type: {tagStr} - {nameStr}");
-        
         // Register for later lookup.
         if (!string.IsNullOrEmpty(tagStr))
         {
@@ -1487,8 +1457,6 @@ public partial class Kernel
             Effect = effect
         };
         
-        //Console.WriteLine($"  Created spell: {tagStr} - {nameStr} (Lv{lvl}, {cost}MP)");
-        
         // Process reagent list.
         var reagentVector = Builtins.ListToVector(reagents);
         if (reagentVector is object[] reagentArray)
@@ -1515,8 +1483,6 @@ public partial class Kernel
             Phantasma.RegisterObject(tagStr, spell);      // For lookup by tag
             Magic.RegisterSpellForEnumeration(spell);     // For enumeration
         }
-        
-        //Console.WriteLine($"  Created spell: {tagStr} '{nameStr}' (lvl={level}, mana={manaCost})");
         
         return spell;
     }
@@ -1599,8 +1565,6 @@ public partial class Kernel
             Phantasma.RegisterObject(tagStr, effect);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
-        
-        //Console.WriteLine($"  Created effect: {tagStr} - {nameStr} (hook={hookName}, dur={duration})");
         
         return effect;
     }
@@ -1704,8 +1668,6 @@ public partial class Kernel
         // Register in global namespace so Scheme can reference by tag.
         Phantasma.RegisterObject(tag, body);
         
-        Console.WriteLine($"  Created astral body: {tag} '{name}' (distance={distance}, phases={phases.Length})");
-        
         return body;
     }
     
@@ -1791,8 +1753,6 @@ public partial class Kernel
         // Register with Phantasma.
         Phantasma.RegisterObject(tagStr, vehicleType);
         
-        //Console.WriteLine($"  Created vehicle type: {tagStr} '{vehicleType.Name}'");
-        
         return vehicleType;
     }
     
@@ -1819,9 +1779,7 @@ public partial class Kernel
         int hpInt = Convert.ToInt32(hp ?? vehicleType.MaxHp);
             
         var vehicle = vehicleType.CreateInstance(facingInt, hpInt);
-            
-        //Console.WriteLine($"  Created vehicle: {vehicleType.Name} (facing={facingInt}, hp={hpInt})");
-            
+        
         return vehicle;
     }
     /// <summary>
@@ -1864,8 +1822,6 @@ public partial class Kernel
             Phantasma.RegisterObject(tagStr, sound);
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
-        
-        //Console.WriteLine($"  Created sound: {tagStr} ('{filenameStr}')");
         
         return sound;
     }
@@ -1984,9 +1940,7 @@ public partial class Kernel
     
         Phantasma.RegisterObject("dtable", dtable);
         $"(define dtable \"dtable\")".Eval();
-    
-        //Console.WriteLine($"[kern-mk-dtable] Created {numFactions}x{numFactions} diplomacy table");
-    
+        
         return dtable;
     }
     
@@ -2042,10 +1996,8 @@ public partial class Kernel
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] Could not define {tagStr} in Scheme: {ex.Message}");
+            Console.WriteLine($"[ERROR] Could not define {tagStr} in Scheme: {ex.Message}");
         }
-        
-        //Console.WriteLine($"  Created field type: {tagStr} '{nameStr}' (light={lightVal}, duration={durationVal}, pclass={pclassVal})");
         
         return fieldType;
     }
@@ -2160,10 +2112,8 @@ public partial class Kernel
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] Could not define {tagStr} in Scheme: {ex.Message}");
+            Console.WriteLine($"[ERROR] Could not define {tagStr} in Scheme: {ex.Message}");
         }
-        
-        //Console.WriteLine($"  Created party type: {tagStr} '{nameStr}' ({groupCount} groups)");
         
         return partyType;
     }
@@ -2282,8 +2232,6 @@ public partial class Kernel
             $"(define {tagStr} \"{tagStr}\")".Eval();
         }
         catch { }
-        
-        //Console.WriteLine($"  Created schedule: {tagStr} ({schedule.Appointments.Count} appointments)");
         
         return schedule;
     }

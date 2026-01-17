@@ -26,8 +26,6 @@ public class SpriteManager
         
         if (!File.Exists(path))
         {
-            Console.WriteLine($"[SpriteManager] Not found: {filename}");
-            Console.WriteLine($"[SpriteManager]   Expected: {path}");
             return null;
         }
         
@@ -50,7 +48,6 @@ public class SpriteManager
         
         var bitmap = new Bitmap(stream);
         imageCache[filename] = bitmap;
-        Console.WriteLine($"[SpriteManager] Loaded: {filename}");
         return bitmap;
     }
 
