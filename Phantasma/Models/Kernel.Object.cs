@@ -18,6 +18,17 @@ public partial class Kernel
     /// </summary>
     public static object ObjectPutAt(object obj, object location)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            location = arr[1];
+            obj = arr[0];
+        }
+        else if (obj is object[] singleArr && singleArr.Length == 1)
+        {
+            obj = singleArr[0];
+        }
+        
         Console.WriteLine($"[kern-obj-put-at] Received obj type: {obj?.GetType().FullName ?? "NULL"}");
         Console.WriteLine($"[kern-obj-put-at] Received obj value: {obj}");
         

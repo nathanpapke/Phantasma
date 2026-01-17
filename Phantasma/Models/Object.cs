@@ -408,4 +408,28 @@ public abstract class Object
         Array.Clear(condition);
         condition[0] = 'G';
     }
+    
+    /// <summary>
+    /// Send the 'init signal to this object's game interface.
+    /// Called when object is placed on a map to initialize state like door pclass.
+    /// </summary>
+    public virtual void SendInitSignal()
+    {
+        var gifc = Type?.InteractionHandler;
+        if (gifc == null) return;
+        
+        try
+        {
+            Console.WriteLine($"[{Name ?? Type?.Name}] Receiving 'init signal");
+            
+            if (gifc is Callable callable)
+            {
+                callable.Call("init", this);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{Name ?? Type?.Name}] Init signal error: {ex.Message}");
+        }
+    }
 }

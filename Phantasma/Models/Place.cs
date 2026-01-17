@@ -752,7 +752,7 @@ public class Place
     /// <param name="checkMechanisms">If true, check for blocking mechanisms (doors, etc.).</param>
     /// <returns>True if the location can be entered, false if blocked.</returns>
     public bool IsPassable(int x, int y, Object? subject = null, 
-                           bool checkBeings = true, bool checkMechanisms = true)
+                           bool checkBeings = true, bool checkMechanisms = true, bool isMovementAttempt = false)
     {
         // Check map boundaries.
         if (!IsInBounds(x, y))
@@ -864,6 +864,38 @@ public class Place
                     
                     if (!ptable.IsPassable(movementMode, mechPclass))
                     {
+                        // =========================================================
+                        // BUMP HANDLING: Try to open doors on movement attempt.
+                        // =========================================================
+                        Console.WriteLine($"[DEBUG] Bump check: isMovementAttempt={isMovementAttempt}");
+                        
+                        if (isMovementAttempt)
+                        {
+                            var objType = mechanism.Type;
+                            Console.WriteLine($"[DEBUG] Bump check: objType={objType?.Name ?? "null"}");
+                            Console.WriteLine($"[DEBUG] Bump check: CanBump={objType?.CanBump}");
+                            Console.WriteLine($"[DEBUG] Bump check: InteractionCapabilities={objType?.Capabilities}");
+                            Console.WriteLine($"[DEBUG] Bump check: InteractionHandler={objType?.InteractionHandler?.GetType().Name ?? "null"}");
+                            
+                            if (objType?.CanBump == true)
+                            {
+                                var gifc = objType.InteractionHandler;
+                                if (gifc is Callable callable)
+                                {
+                                    Console.WriteLine($"[Bump] Sending 'open to {mechanism.Name}");
+                                    try
+                                    {
+                                        // Nazghul's bump() sends 'open, not 'bump!
+                                        callable.Call("open", mechanism, subject);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Console.WriteLine($"[Bump] Error: {ex.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        
                         Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): mechanism={mechanism.Name}, pclass={mechPclass}");
                         return false;
                     }

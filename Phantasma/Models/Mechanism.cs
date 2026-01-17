@@ -17,7 +17,7 @@ public class Mechanism : Object, IBlockingObject
     
     public Mechanism()
     {
-        PassabilityClass = 0;
+        PassabilityClass = 8;
     }
     
     /// <summary>

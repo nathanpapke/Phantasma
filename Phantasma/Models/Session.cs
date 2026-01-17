@@ -306,7 +306,6 @@ public class Session
     private void ShowMessage(string message)
     {
         MessageDisplayed?.Invoke(message);
-        Console.WriteLine(message); // Also log to console.
     }
     
     /// <summary>

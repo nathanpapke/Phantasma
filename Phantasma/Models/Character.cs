@@ -1058,7 +1058,7 @@ public class Character : Being
         // =========================================================
         
         // Check if destination is passable.
-        if (!place.IsPassable(newX, newY, this, checkBeings: true))
+        if (!place.IsPassable(newX, newY, this, checkBeings: true, isMovementAttempt: true))
         {
             string reason = place.GetBlockageReason(newX, newY);
             Console.WriteLine($"{Name} can't move there: {reason}");
@@ -1101,11 +1101,6 @@ public class Character : Being
         if (apCost > 1)
         {
             var terrain = place.GetTerrain(newX, newY);
-            Console.WriteLine($"{Name} moved to ({newX},{newY}) through {terrain?.Name} (cost: {apCost} AP, {ActionPoints} AP remaining)");
-        }
-        else
-        {
-            Console.WriteLine($"{Name} moved to ({newX},{newY}) ({ActionPoints} AP remaining)");
         }
         
         // Check for hazardous terrain.
@@ -1196,7 +1191,7 @@ public class Character : Being
         if (Position == null)
             return false;
         
-        return Position.Place.IsPassable(x, y, this, checkBeings: true);
+        return Position.Place.IsPassable(x, y, this, checkBeings: true, isMovementAttempt: true);
     }
     
     /// <summary>

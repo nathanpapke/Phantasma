@@ -525,6 +525,12 @@ public partial class Kernel
             }
         }
         
+        // After all contents are placed, send init signals
+        foreach (var obj in place.GetAllMechanisms())
+        {
+            obj.SendInitSignal();
+        }
+        
         // Load hooks.
         if (hooksArg != null && !IsNil(hooksArg))
         {

@@ -214,7 +214,6 @@ public class SoundManager
                 _loadedSounds[tag] = sound;
             }
             
-            Console.WriteLine($"[SoundManager] Loaded sound: {tag} ({sound.DurationMs}ms)");
             return sound;
         }
         catch (Exception ex)

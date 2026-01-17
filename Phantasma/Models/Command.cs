@@ -1,4 +1,5 @@
 using System;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
@@ -23,8 +24,84 @@ public partial class Command
     /// </summary>
     public bool Open()
     {
-        // TODO: Implement for Task 9 completion
-        Log("Open command not yet implemented");
+        ShowPrompt("Open-");
+        
+        // Get the party member who will open.
+        var pc = SelectPartyMember();
+        if (pc == null)
+        {
+            return false;
+        }
+        
+        ShowPrompt("-");
+        
+        // Get direction to open.
+        var dir = PromptForDirection();
+        if (dir == Direction.None)
+        {
+            Log("none!");
+            return false;
+        }
+        
+        int dx = Common.DirectionToDx(dir);
+        int dy = Common.DirectionToDy(dir);
+        
+        var place = pc.GetPlace();
+        if (place == null)
+            return false;
+        
+        int x = place.WrapX(pc.GetX() + dx);
+        int y = place.WrapY(pc.GetY() + dy);
+        
+        // Check for a mechanism (door, etc).
+        var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
+        
+        // Check for a container.
+        var container = place.GetObjectAt(x, y, ObjectLayer.Container);
+        
+        if (mech == null && container == null)
+        {
+            Log("Open - nothing there!");
+            return false;
+        }
+        
+        // TODO: If both mech and container present, prompt user to select.
+        // For now, prioritize mechanism.
+        
+        // Open a mechanism (door, chest mechanism, etc.)
+        if (mech != null)
+        {
+            var gifc = mech.Type?.InteractionHandler;
+            if (gifc is Callable callable)
+            {
+                Log($"{mech.Name}!");
+                Console.WriteLine($"[Open] Sending 'open to {mech.Name}");
+                try
+                {
+                    callable.Call("open", mech, pc);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Open] Error: {ex.Message}");
+                }
+                
+                return true;
+            }
+            else
+            {
+                Log($"{mech.Name} - can't be opened!");
+                return false;
+            }
+        }
+        
+        // Open a container.
+        if (container != null)
+        {
+            // TODO: Implement container opening (check traps, spill contents)
+            Log($"{container.Name}! (containers not yet implemented)");
+            return false;
+        }
+        
         return false;
     }
     
