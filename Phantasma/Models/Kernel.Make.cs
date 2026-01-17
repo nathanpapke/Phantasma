@@ -1859,7 +1859,6 @@ public partial class Kernel
         for (int pclass = 0; pclass < numPClass; pclass++)
         {
             var rowStr = string.Join(",", rows[pclass]);
-            Console.WriteLine($"  pclass {pclass}: [{rowStr}]");
         
             for (int mmode = 0; mmode < numMMode; mmode++)
                 if (mmode < rows[pclass].Count)
@@ -1868,11 +1867,9 @@ public partial class Kernel
     
         Phantasma.RegisterObject("ptable", ptable);
         $"(define ptable \"ptable\")".Eval();
-        Console.WriteLine($"[kern-mk-ptable] Registered ptable in object registry");
         
         // Verify it was stored.
         var verify = Phantasma.GetRegisteredObject("ptable");
-        Console.WriteLine($"[kern-mk-ptable] Verify lookup: {verify?.GetType().Name ?? "NULL"}");
         
         return "nil".Eval();
     }

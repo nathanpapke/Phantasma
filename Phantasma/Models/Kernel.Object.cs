@@ -138,6 +138,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectGetName(object obj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length > 0)
+            obj = arr[0];
+        
         if (obj is Character character)
             return character.GetName();
         else if (obj is Object gameObj)
@@ -153,6 +157,10 @@ public partial class Kernel
     // ============================================================
     public static object ObjectGetType(object obj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length > 0)
+            obj = arr[0];
+        
         if (obj == null || IsNil(obj))
             return RuntimeHelpers.False;  // Return #f as nil.
     
@@ -303,8 +311,14 @@ public partial class Kernel
     /// (kern-obj-remove object)
     /// Removes an object from the map.
     /// </summary>
-    public static object ObjectRemove(object obj)
+    public static object ObjectRemove(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
+        Object? obj = objArg as Object;
+
         if (obj is not Object gameObj)
         {
             RuntimeError("kern-obj-remove: not a game object");
@@ -475,6 +489,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectWander(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
         if (objArg is not Being being)
         {
             Console.WriteLine("[kern-obj-wander] Object is not a being");
@@ -508,6 +526,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectIsVisible(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
         if (objArg is not Being being) return true; // Non-beings default visible
         return being.IsVisible();
     }
@@ -517,6 +539,14 @@ public partial class Kernel
     /// </summary>
     public static object ObjectMove(object objArg, object dxArg, object dyArg)
     {
+        // Handle case where all args come bundled in objArg as array.
+        if (objArg is object[] arr && arr.Length >= 3)
+        {
+            objArg = arr[0];
+            dxArg = arr[1];
+            dyArg = arr[2];
+        }
+        
         if (objArg is not Being being) return false;
         return being.Move(Convert.ToInt32(dxArg), Convert.ToInt32(dyArg));
     }
@@ -526,6 +556,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectGetActionPoints(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
         if (objArg is not Being being) return 0;
         return being.ActionPoints;
     }
@@ -535,6 +569,13 @@ public partial class Kernel
     /// </summary>
     public static object ObjectSetActionPoints(object objArg, object apArg)
     {
+        // Handle case where both args come bundled in objArg as array.
+        if (objArg is object[] arr && arr.Length >= 2)
+        {
+            objArg = arr[0];
+            apArg = arr[1];
+        }
+        
         if (objArg is not Being being) return false;
         being.ActionPoints = Convert.ToInt32(apArg);
         return being;
@@ -545,6 +586,13 @@ public partial class Kernel
     /// </summary>
     public static object ObjectDecreaseActionPoints(object objArg, object amountArg)
     {
+        // Handle case where both args come bundled in objArg as array.
+        if (objArg is object[] arr && arr.Length >= 2)
+        {
+            objArg = arr[0];
+            amountArg = arr[1];
+        }
+        
         if (objArg is not Being being) return false;
         being.ActionPoints = Math.Max(0, being.ActionPoints - Convert.ToInt32(amountArg));
         return being;
@@ -555,6 +603,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectIsBeing(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+
         return objArg is Being;
     }
     
@@ -570,11 +622,16 @@ public partial class Kernel
     /// <returns>The Scheme data, or NIL if no gob attached</returns>
     public static object ObjectGetGob(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
         // Handle the object argument.
         Object? obj = objArg as Object;
         
         if (obj == null)
         {
+            Console.WriteLine($"[kern-obj-get-gob] arg type: {objArg?.GetType().Name ?? "null"}, value: {objArg}");
             RuntimeError("kern-obj-get-gob: bad args");
             return "nil".Eval();
         }
@@ -603,6 +660,13 @@ public partial class Kernel
     /// <returns>Unspecified</returns>
     public static object ObjectSetGob(object objArg, object gobData)
     {
+        // Handle case where both args come bundled in objArg as array.
+        if (objArg is object[] arr && arr.Length >= 2)
+        {
+            objArg = arr[0];
+            gobData = arr[1];
+        }
+        
         // Handle null object argument.
         if (objArg == null)
         {
@@ -681,7 +745,12 @@ public partial class Kernel
     /// </summary>
     public static object ObjectSetPassability(object obj, object pclass)
     {
-        Console.WriteLine($"[kern-obj-set-pclass] Called with obj={obj?.GetType().Name}, pclass={pclass}");
+        // Handle case where both args come bundled in obj as array.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            obj = arr[0];
+            pclass = arr[1];
+        }
         
         var gameObj = obj as Object;
         if (gameObj == null)
