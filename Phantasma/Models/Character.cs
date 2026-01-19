@@ -204,6 +204,27 @@ public class Character : Being
     {
         return VisionRadius;
     }
+
+    public int GetLevel()
+    {
+        return Level;
+    }
+    
+    public int GetExperience()
+    {
+        return Experience;
+    }
+
+    public int GetHealth()
+    {
+        return HP;
+    }
+
+    public int GetMana()
+    {
+        return MP;
+    }
+    
     public int GetStrength()
     {
         return Species.Str + Strength;  // species base + modifier
@@ -895,14 +916,14 @@ public class Character : Being
     /// For player characters, this would be set by targeting UI.
     /// For NPCs, this is set by AI.
     /// </summary>
-    private Character? attackTarget;
+    private Being attackTarget;
 
-    public Character? GetAttackTarget()
+    public Being? GetAttackTarget()
     {
         return attackTarget;
     }
 
-    public void SetAttackTarget(Character? target)
+    public void SetAttackTarget(Being target)
     {
         attackTarget = target;
     }

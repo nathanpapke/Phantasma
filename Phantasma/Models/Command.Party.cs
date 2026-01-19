@@ -6,108 +6,59 @@ namespace Phantasma.Models;
 /// Command.Party - Party Management Commands
 /// 
 /// Commands for interacting with party members and NPCs:
-/// - Talk: Start conversations with NPCs
 /// - Ztats: View detailed character stats
 /// - NewOrder: Rearrange party member order
+/// - SelectPartyMember: Helper for selecting a party member
 /// </summary>
 public partial class Command
 {
     // ===================================================================
-    // TALK COMMAND - Initiate conversations with NPCs
+    // PARTY MEMBER SELECTION - Helper for other commands
     // ===================================================================
     
     /// <summary>
-    /// Start a conversation with an NPC.
+    /// Select a party member.
+    /// 
+    /// SIMPLIFIED VERSION: Returns first party member or player.
+    /// Full implementation would show status selection UI and wait for input.
     /// </summary>
-    /// <param name="member">Party member doing the talking, or null to prompt</param>
-    public bool Talk(Character? member = null)
+    /// <returns>Selected character, or null if no party/cancelled</returns>
+    protected Character? SelectPartyMember()
     {
-        if (session.Player == null || session.CurrentPlace == null)
+        if (session.Party == null)
         {
-            Log("Talk - no player or place");
-            return false;
+            return null;
         }
         
-        ShowPrompt("Talk-");
+        // Save current status mode.
+        var oldMode = session.Status?.Mode ?? StatusMode.ShowParty;
         
-        // Select party member if not provided.
-        if (member == null)
+        // Switch to character selection mode.
+        session.Status?.SetMode(StatusMode.SelectCharacter);
+        
+        // TODO: Full implementation should:
+        // 1. Push a CharacterSelectKeyHandler onto the key handler stack
+        // 2. Wait for user to select with arrow keys + Enter
+        // 3. Pop the handler when done
+        // 4. Return the selected character
+        
+        // SIMPLIFIED VERSION for now:
+        // Return first party member (or player if no party).
+        Character? selected = null;
+        
+        if (session.Party.GetSize() > 0)
         {
-            member = SelectPartyMember();
-            if (member == null)
-            {
-                return false;
-            }
+            selected = session.Party.GetMemberAtIndex(0);
+        }
+        else if (session.Player != null)
+        {
+            selected = session.Player;
         }
         
-        int x = member.GetX();
-        int y = member.GetY();
+        // Restore old status mode.
+        session.Status?.SetMode(oldMode);
         
-        // TODO: Implement full targeting for talk.
-        // For now, check adjacent tiles for NPCs.
-        // Full implementation uses select_target(x, y, &x, &y, range).
-        
-        // Check all 8 adjacent directions for an NPC.
-        int[] dx = { -1, 0, 1, -1, 1, -1, 0, 1 };
-        int[] dy = { -1, -1, -1, 0, 0, 1, 1, 1 };
-        
-        Object? target = null;
-        for (int i = 0; i < 8; i++)
-        {
-            int checkX = x + dx[i];
-            int checkY = y + dy[i];
-            
-            var being = session.CurrentPlace.GetBeingAt(checkX, checkY);
-            if (being != null && being != member)
-            {
-                target = being;
-                break;
-            }
-        }
-        
-        if (target == null)
-        {
-            ShowPrompt("nobody there!");
-            Log("Try talking to a PERSON.");
-            return false;
-        }
-        
-        // Get the actual speaker (in case target is a party).
-        var speaker = target.GetSpeaker() as Character;
-        if (speaker == null)
-        {
-            ShowPrompt("cancel");
-            return false;
-        }
-        
-        // Check if speaker has a conversation.
-        var conv = speaker.Conversation;
-        if (conv == null)
-        {
-            ShowPrompt("no response!");
-            Log($"No response from {speaker.GetName()}.");
-            return true;
-        }
-        
-        ShowPrompt(speaker.GetName());
-        
-        Log("*** CONVERSATION ***");
-        Log($"You meet {speaker.GetName()}.");
-        
-        // Check if NPC is sleeping.
-        if (speaker.GetActivity() == Activity.Sleeping)
-        {
-            Log("Zzzz...");
-            return true;
-        }
-        
-        // Start the conversation.
-        // This pushes conversation handlers onto the key handler stack.
-        Conversation.Enter(session, speaker, member, conv);
-        
-        // TODO: mapSetDirty() when needed
-        
-        return true;
+        return selected;
     }
     
     // ===================================================================
@@ -116,10 +67,9 @@ public partial class Command
     
     /// <summary>
     /// Ztats Command - view detailed character statistics.
-    /// Mirrors Nazghul's cmdZtats().
     /// </summary>
     /// <param name="pc">Character to view stats for, or null to prompt</param>
-    public bool Ztats(Character? pc = null)
+    public void Ztats(Character? pc = null)
     {
         ShowPrompt("Stats-");
         
@@ -128,11 +78,12 @@ public partial class Command
             pc = SelectPartyMember();
             if (pc == null)
             {
-                return false;
+                ShowPrompt("Stats-none!");
+                return;
             }
         }
         
-        ShowPrompt(pc.GetName() + "-<ESC to exit>");
+        ShowPrompt($"Stats-{pc.GetName()}-<ESC to exit>");
         
         // Select this character in status window.
         if (session.Status != null)
@@ -140,6 +91,12 @@ public partial class Command
             session.Status.SelectedCharacterIndex = pc.Order;
             session.Status.SetMode(StatusMode.Ztats);
         }
+        
+        Log($"=== {pc.GetName()} ===");
+        Log($"Lvl={pc.GetLevel(),3}    XP:{pc.GetExperience(),7}");
+        Log($"Str={pc.GetStrength(),3}    HP:{pc.GetHealth(),3}/{pc.GetMaxHp(),3}");
+        Log($"Int={pc.GetIntelligence(),3}    MP:{pc.GetMana(),3}/{pc.GetMaxMana(),3}");
+        Log($"Dex={pc.GetDexterity(),3}    AC:{pc.ArmorClass,3}");
         
         // TODO: Push scroller key handler for navigating stats.
         // For now, just log that we're showing stats.
@@ -151,9 +108,6 @@ public partial class Command
         // Restore normal status mode.
         session.Status?.SetMode(StatusMode.ShowParty);
         ClearPrompt();
-        ShowPrompt("ok");
-        
-        return false;
     }
     
     // ===================================================================
@@ -162,7 +116,6 @@ public partial class Command
     
     /// <summary>
     /// NewOrder Command - switch positions of two party members.
-    /// Mirrors Nazghul's cmdNewOrder().
     /// </summary>
     public void NewOrder()
     {
@@ -208,7 +161,7 @@ public partial class Command
             return;
         }
         
-        ShowPrompt("-with-");
+        ShowPrompt($"Switch-{first.GetName()}-with-");
         
         var second = SelectPartyMember();
         if (second == null)
@@ -237,86 +190,13 @@ public partial class Command
         // If one was the party leader, make the other the new leader.
         if (pc1.IsLeader && pc2.CanBeLeader)
         {
-            SwitchPartyLeader(pc1, pc2);
+            session.Party.SetLeader(pc2);
+            Log($"{pc2.GetName()} is now the party leader.");
         }
         else if (pc2.IsLeader && pc1.CanBeLeader)
         {
-            SwitchPartyLeader(pc2, pc1);
+            session.Party.SetLeader(pc1);
+            Log($"{pc1.GetName()} is now the party leader.");
         }
-        
-        // Repaint status window to show new order.
-        // TODO: Trigger status repaint when implemented.
-    }
-    
-    /// <summary>
-    /// Helper to switch party leadership between two characters.
-    /// </summary>
-    private void SwitchPartyLeader(Character oldLeader, Character newLeader)
-    {
-        if (session.Party == null)
-            return;
-        
-        session.Party.SetLeader(newLeader);
-        
-        Log($"{newLeader.GetName()} is now the party leader.");
-    }
-    
-    /// <summary>
-    /// Select a party member interactively.
-    /// Mirrors Nazghul's select_party_member().
-    /// </summary>
-    /// <returns>Selected character, or null if cancelled</returns>
-    protected Character? SelectPartyMember()
-    {
-        if (session.Party == null)
-        {
-            ShowPrompt("none!");
-            return null;
-        }
-    
-        // Save current status mode.
-        var oldMode = session.Status?.Mode ?? StatusMode.ShowParty;
-    
-        // Switch to character selection mode.
-        session.Status?.SetMode(StatusMode.SelectCharacter);
-    
-        // Show selection prompt
-        ShowPrompt("<select>");
-    
-        // TODO: Full implementation should:
-        // 1. Push a CharacterSelectKeyHandler onto the key handler stack
-        // 2. Wait for user to select with arrow keys + Enter
-        // 3. Pop the handler when done
-        // 4. Return the selected character
-    
-        // SIMPLIFIED VERSION for now:
-        // Just return the first party member (or player character).
-        Character? selected = null;
-    
-        if (session.Party.GetSize() > 0)
-        {
-            // Return first party member.
-            selected = session.Party.GetMemberAtIndex(0);
-        }
-        else if (session.Player != null)
-        {
-            // Fallback to player if no party.
-            selected = session.Player;
-        }
-    
-        // Restore old status mode.
-        session.Status?.SetMode(oldMode);
-    
-        // Update prompt with result.
-        if (selected != null)
-        {
-            ShowPrompt(selected.GetName());
-        }
-        else
-        {
-            ShowPrompt("none!");
-        }
-    
-        return selected;
     }
 }

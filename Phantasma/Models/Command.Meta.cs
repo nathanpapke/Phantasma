@@ -7,8 +7,8 @@ namespace Phantasma.Models;
 /// 
 /// Commands for game control and information:
 /// - Quit: Quit and save the game
-/// - Save: Quick save
-/// - Load: Quick load
+/// - QuickSave: Quick save
+/// - Reload: Quick load
 /// - Help: Show help/commands
 /// - ShowInfo: Show current location/time info (AT command)
 /// </summary>
@@ -20,27 +20,44 @@ public partial class Command
     
     /// <summary>
     /// Quit Command - quit game with save prompt.
+    /// 
+    /// Flow:
+    /// 1. Show "Quit & Save Game-Y/N?" prompt
+    /// 2. Wait for Y/N input
+    /// 3. If yes, save and set quit flag
     /// </summary>
-    public bool Quit()
+    public void Quit()
     {
-        ShowPrompt("Quit & Save Game-Y/N?");
+        ShowPrompt("Quit & Save Game-<Y/N>?");
         
-        bool saveAndQuit = PromptForYesNo("Quit & Save Game");
-        
-        if (saveAndQuit)
+        // Request yes/no confirmation
+        RequestYesNo(confirmed => CompleteQuit(confirmed));
+    }
+    
+    /// <summary>
+    /// Complete the Quit command after confirmation received.
+    /// </summary>
+    private void CompleteQuit(bool confirmed)
+    {
+        if (confirmed)
         {
             ShowPrompt("Yes!");
             Log("Goodbye!");
+            
+            // Save the game.
             session.Save("quicksave.scm");
             
-            // Set quit flag.
-            // TODO: Implement proper quit handling.
-            return true;
+            // Signal quit
+            // TODO: Set a quit flag that the game loop checks
+            // For now, just log
+            Console.WriteLine("[Quit] Quit confirmed, game saved");
+            
+            // Close the application.
+            // This would typically be handled by the main window.
         }
         else
         {
-            ShowPrompt("No");
-            return false;
+            ShowPrompt("Quit & Save Game-No");
         }
     }
     
@@ -50,7 +67,6 @@ public partial class Command
     
     /// <summary>
     /// QuickSave Command - save to quicksave slot.
-    /// Mirrors Nazghul's cmdQuickSave().
     /// </summary>
     public void QuickSave()
     {
@@ -61,7 +77,6 @@ public partial class Command
     
     /// <summary>
     /// Reload Command - load from quicksave slot.
-    /// Mirrors Nazghul's cmdReload().
     /// </summary>
     public void Reload()
     {
@@ -76,7 +91,6 @@ public partial class Command
     
     /// <summary>
     /// Help Command - show help text with available commands.
-    /// Mirrors Nazghul's cmdHelp().
     /// </summary>
     public void Help()
     {
@@ -88,15 +102,19 @@ public partial class Command
         Log("=== PHANTASMA COMMANDS ===");
         Log("Arrow Keys / Numpad: Move");
         Log("G: Get items");
+        Log("D: Drop items");
         Log("T: Talk to NPCs");
         Log("Z: View character stats");
         Log("O: Open containers/doors");
+        Log("H: Handle mechanisms");
         Log("U: Use items");
         Log("R: Ready/equip weapons");
-        Log("C: Cast spells (Task 17)");
-        Log("M: Mix reagents (Task 17)");
+        Log("C: Cast spells");
+        Log("M: Mix reagents");
         Log("A: Attack");
         Log("N: New order (swap party positions)");
+        Log("S: Search");
+        Log("@: Show location info");
         Log("F5: Quick save");
         Log("F9: Quick load");
         Log("?: Help");
@@ -108,38 +126,47 @@ public partial class Command
     // ===================================================================
     
     /// <summary>
-    /// ShowInfo Command - display current location, time, and game state.
-    /// Mirrors Nazghul's cmdAT() (the @ command).
+    /// ShowInfo (@) Command - display current location, time, and game state.
     /// </summary>
     public void ShowInfo()
     {
-        var player = session.Player;
-        var place = session.CurrentPlace;
+        ShowPrompt("@-");
         
-        if (player == null || place == null)
+        var place = session.CurrentPlace;
+        var player = session.Player;
+        
+        if (place == null || player == null)
         {
+            Log("No location info available");
             return;
         }
         
-        LogBeginGroup();
+        Log($"=== LOCATION INFO ===");
+        Log($"Place: {place.Name}");
+        Log($"Position: ({player.GetX()}, {player.GetY()})");
         
-        // Show location info.
-        string who = session.Party != null ? "The party" : player.GetName();
-        string placeName = place.Name ?? "Unknown";
-        int x = player.GetX();
-        int y = player.GetY();
+        // Time info
+        var clock = session.Clock;
+        if (clock != null)
+        {
+            Log($"Time: {clock.Hour}:{clock.Min}");
+            Log($"Day: {clock.Day}");
+        }
         
-        Log($"{who} is in {placeName} ({x},{y}).");
+        // Weather/wind
+        var wind = session.Wind;
+        if (wind != null)
+        {
+            Log($"Wind: {wind.DirectionString}");
+        }
         
-        // TODO: Show time/date info when clock system is implemented.
-        // Log($"It is {time} on {date}.");
+        // Terrain at player position
+        var terrain = place.GetTerrain(player.GetX(), player.GetY());
+        if (terrain != null)
+        {
+            Log($"Terrain: {terrain.Name}");
+        }
         
-        // TODO: Show turn count when implemented.
-        // Log($"{turnCount} game turns have passed.");
-        
-        // TODO: Show wind direction when implemented.
-        // Log($"The wind is blowing from the {direction}.");
-        
-        LogEndGroup();
+        ClearPrompt();
     }
 }

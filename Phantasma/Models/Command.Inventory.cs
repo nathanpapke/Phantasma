@@ -11,7 +11,6 @@ namespace Phantasma.Models;
 /// - Ready: Equip weapons/armor
 /// - Unready: Remove equipped items
 /// - Use: Use consumable items
-/// - Open: Open containers and doors
 /// - Handle: Operate mechanisms (levers, buttons, etc)
 /// </summary>
 public partial class Command
@@ -24,49 +23,61 @@ public partial class Command
     /// Get Command - pick up items from the ground.
     /// </summary>
     /// <param name="scoopAll">If true, get ALL items at location (default behavior)</param>
-    public bool Get(bool scoopAll = true)
+    public void Get(bool scoopAll = true)
     {
         if (session.Party == null || session.Player == null)
-            return false;
+            return;
         
-        ShowPrompt("Get-");
+        ShowPrompt("Get-<direction>");
         
-        // Request direction from user.
-        var dir = PromptForDirection();
+        // Request direction - callback will complete the command
+        RequestDirection(dir => CompleteGet(dir, scoopAll));
+    }
+    
+    /// <summary>
+    /// Complete the Get command after direction is received.
+    /// </summary>
+    private void CompleteGet(Direction? dir, bool scoopAll)
+    {
         if (dir == null)
         {
-            ClearPrompt();
-            return false;
+            ShowPrompt("Get-none!");
+            return;
         }
         
-        // Get player's current position.
+        ShowPrompt($"Get-{DirectionToString(dir.Value)}");
+        
         var player = session.Player;
-        var place = player.GetPlace();
+        var place = player?.GetPlace();
         if (place == null)
-            return false;
-
-        int dx = Common.DirectionToDx(dir);
-        int dy = Common.DirectionToDy(dir);
+        {
+            return;
+        }
+        
+        int dx = Common.DirectionToDx(dir.Value);
+        int dy = Common.DirectionToDy(dir.Value);
         int targetX = player.GetX() + dx;
         int targetY = player.GetY() + dy;
         
+        // Find first gettable item at location
         var item = place.GetFilteredObject(targetX, targetY, obj => obj.IsGettable());
         
         if (item == null)
         {
             Log("Get - nothing there!");
-            return false;
+            return;
         }
         
         LogBeginGroup();
         
-        // Get the first item.
+        // Get the first item
         GetItem(item);
         
+        // If scooping all, get remaining items
         if (scoopAll)
         {
             while ((item = place.GetFilteredObject(targetX, targetY, 
-                obj => obj.IsGettable())) != null)
+                       obj => obj.IsGettable())) != null)
             {
                 GetItem(item);
             }
@@ -74,10 +85,8 @@ public partial class Command
         
         LogEndGroup();
         
-        // TODO: mapSetDirty() when map refresh is implemented
-        // TODO: player.DecActionPoints() when action points are implemented
-        
-        return true;
+        // Deduct action points
+        // TODO: player.DecActionPoints(Common.NAZGHUL_BASE_ACTION_POINTS);
     }
     
     /// <summary>
@@ -89,20 +98,43 @@ public partial class Command
         if (session.Party == null)
             return;
         
-        // Add to party inventory.
+        // Check if type has a custom 'get' handler via InteractionHandler (gifc).
+        var gifc = item.Type?.InteractionHandler;
+        if (gifc is IronScheme.Runtime.Callable callable && item.Type?.CanGet == true)
+        {
+            try
+            {
+                // Call the gifc with 'get signal: (gifc 'get item getter).
+                callable.Call("get", item, session.Player);
+                
+                // The handler is responsible for removing the item and adding to inventory.
+                return;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Get] Handler error: {ex.Message}");
+                // Fall through to default handling.
+            }
+        }
+        
+        // Default handling for items without custom handler.
         if (item is Item itemObj)
         {
             session.Party.Inventory.AddItem(itemObj);
             
             // Log what was picked up.
-            string description = itemObj.Name;
-            if (itemObj.Quantity > 1)
-            {
-                description = $"{itemObj.Name} x{itemObj.Quantity}";
-            }
+            string description = itemObj.Quantity > 1
+                ? $"{itemObj.Name} x{itemObj.Quantity}"
+                : itemObj.Name;
             Log($"You get: {description}");
             
             // Remove from map.
+            item.Remove();
+        }
+        else
+        {
+            // Non-Item gettable object - just log and remove
+            Log($"You get: {item.Name}");
             item.Remove();
         }
     }
@@ -133,7 +165,7 @@ public partial class Command
     /// Mirrors Nazghul's cmdReady().
     /// </summary>
     /// <param name="member">Party member to ready for, or null to prompt</param>
-    public bool Ready(Character? member = null)
+    public void Ready(Character? member = null)
     {
         ShowPrompt("Ready-");
         
@@ -143,18 +175,18 @@ public partial class Command
             member = SelectPartyMember();
             if (member == null)
             {
-                return false;
+                return;
             }
             
             // Check if charmed (charmed characters can't ready arms).
             if (member.IsCharmed)
             {
                 Log("Charmed characters can't ready arms!");
-                return false;
+                return;
             }
-            
-            ShowPrompt("-");
         }
+        
+        ShowPrompt($"Ready-{member.GetName()}-");
         
         LogBeginGroup();
         Log($"{member.GetName()} readies arms:");
@@ -166,19 +198,16 @@ public partial class Command
         
         Log("Ready command not fully implemented yet");
         LogEndGroup();
-        
-        return false;
     }
     
     /// <summary>
     /// Unready Command - remove equipped items.
     /// Usually handled through Ready() in Nazghul, but can be separate.
     /// </summary>
-    public bool Unready(Character? member = null)
+    public void Unready(Character? member = null)
     {
         // TODO: Implement for later task
         Log("Unready command not yet implemented");
-        return false;
     }
     
     // ===================================================================
@@ -187,10 +216,9 @@ public partial class Command
     
     /// <summary>
     /// Use Command - use items from inventory (potions, food, tools).
-    /// Mirrors Nazghul's cmdUse().
     /// </summary>
     /// <param name="member">Party member using the item, or null to prompt</param>
-    public bool Use(Character? member = null)
+    public void Use(Character? member = null)
     {
         ShowPrompt("Use-");
         
@@ -200,10 +228,12 @@ public partial class Command
             member = SelectPartyMember();
             if (member == null)
             {
-                return false;
+                ShowPrompt("Use-none!");
+                return;
             }
-            ShowPrompt("-");
         }
+        
+        ShowPrompt($"Use-{member.GetName()}-");
         
         // TODO: Implement full use UI
         // - Show Use status mode with usable items
@@ -211,72 +241,6 @@ public partial class Command
         // - Execute item's use effect (call Scheme closure)
         
         Log("Use command not fully implemented yet");
-        
-        return false;
-    }
-    
-    // ===================================================================
-    // OPEN COMMAND - Open containers and doors
-    // ===================================================================
-    
-    /// <summary>
-    /// Open Command - open containers/doors.
-    /// Mirrors Nazghul's cmdOpen().
-    /// </summary>
-    /// <param name="pc">Character opening, or null to prompt</param>
-    public bool Open(Character? pc = null)
-    {
-        ShowPrompt("Open-");
-        
-        // Get the party member who will open.
-        if (pc == null)
-        {
-            pc = SelectPartyMember();
-            if (pc == null)
-            {
-                return false;
-            }
-        }
-        
-        ShowPrompt(pc.GetName() + "-");
-        
-        // Get direction to open.
-        var dir = PromptForDirection();
-        if (dir == null)
-        {
-            return false;
-        }
-        
-        int dx = Common.DirectionToDx(dir);
-        int dy = Common.DirectionToDy(dir);
-        
-        int x = pc.GetX() + dx;
-        int y = pc.GetY() + dy;
-        
-        var place = pc.GetPlace();
-        if (place == null)
-            return false;
-        
-        // Check for a mechanism (door, chest, etc).
-        var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
-        
-        // Check for a container.
-        var container = place.GetObjectAt(x, y, ObjectLayer.Container);
-        
-        if (mech == null && container == null)
-        {
-            Log("Open - nothing there to open!");
-            return false;
-        }
-        
-        // TODO: Implement full open logic.
-        // - If both mech and container present, prompt to select.
-        // - Call mech/container's open handler.
-        // - Handle locked/unlocked states.
-        
-        Log("Open command not fully implemented yet");
-        
-        return false;
     }
     
     // ===================================================================
@@ -285,10 +249,15 @@ public partial class Command
     
     /// <summary>
     /// Handle Command - operate mechanisms (levers, buttons, switches).
-    /// Mirrors Nazghul's cmdHandle().
+    /// 
+    /// Flow:
+    /// 1. Show "Handle-" prompt
+    /// 2. Select party member
+    /// 3. Wait for direction input
+    /// 4. Call mechanism's handle handler
     /// </summary>
     /// <param name="pc">Character handling, or null to prompt</param>
-    public bool Handle(Character? pc = null)
+    public void Handle(Character? pc = null)
     {
         ShowPrompt("Handle-");
         
@@ -298,45 +267,81 @@ public partial class Command
             pc = SelectPartyMember();
             if (pc == null)
             {
-                return false;
+                ShowPrompt("Handle-none!");
+                return;
             }
         }
         
-        ShowPrompt(pc.GetName() + "-");
+        ShowPrompt($"Handle-{pc.GetName()}-<direction>");
         
-        // Get direction.
-        var dir = PromptForDirection();
+        // Capture pc in closure.
+        var actor = pc;
+        
+        // Request direction.
+        RequestDirection(dir => CompleteHandle(actor, dir));
+    }
+    
+    /// <summary>
+    /// Complete the Handle command after direction is received.
+    /// </summary>
+    private void CompleteHandle(Character pc, Direction? dir)
+    {
         if (dir == null)
         {
-            return false;
+            ShowPrompt($"Handle-{pc.GetName()}-none!");
+            return;
         }
-
-        int dx = Common.DirectionToDx(dir);
-        int dy = Common.DirectionToDy(dir);
         
-        int x = pc.GetX() + dx;
-        int y = pc.GetY() + dy;
+        ShowPrompt($"Handle-{pc.GetName()}-{DirectionToString(dir.Value)}");
+
+        int dx = Common.DirectionToDx(dir.Value);
+        int dy = Common.DirectionToDy(dir.Value);
         
         var place = pc.GetPlace();
         if (place == null)
-            return false;
+            return ;
+        
+        int x = place.WrapX(pc.GetX() + dx);
+        int y = place.WrapY(pc.GetY() + dy);
         
         // Check for a mechanism.
         var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
         
-        if (mech == null || !mech.CanHandle())
+        if (mech == null)
         {
-            Log("Handle - nothing there to handle!");
-            return false;
+            Log("Handle - nothing there!");
+            return;
         }
         
-        // TODO: Implement full handle logic.
-        // - Call mechanism's handle closure.
-        // - Handle results (door opening, trap triggering, etc).
+        if (!mech.CanHandle())
+        {
+            Log($"{mech.Name} can't be handled!");
+            return;
+        }
         
-        Log("Handle command not fully implemented yet");
-        
-        return false;
+        // Call mechanism's handle handler.
+        var gifc = mech.Type?.InteractionHandler;
+        if (gifc is IronScheme.Runtime.Callable callable)
+        {
+            ShowPrompt($"Handle-{pc.GetName()}-{mech.Name}!");
+            Log($"{mech.Name}!");
+            
+            Console.WriteLine($"[Handle] Sending 'handle signal to {mech.Name}");
+            
+            try
+            {
+                callable.Call("handle", mech, pc);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Handle] Error: {ex.Message}");
+                Log($"Error: {ex.Message}");
+            }
+        }
+        else
+        {
+            Log($"{mech.Name} has no handle action!");
+        }
     }
     
     // ===================================================================
@@ -347,21 +352,33 @@ public partial class Command
     /// Inventory Command - show inventory UI.
     /// This is more of a display command than an action command.
     /// </summary>
-    public bool Inventory()
+    public void Inventory()
     {
         // TODO: Implement with Task 14 (Status Display)
         // Should show full inventory UI with status mode.
         
         // For now, just print inventory to console.
-        if (session.Party?.Inventory != null)
+        if (session.Party?.Inventory == null)
         {
-            var items = session.Party.Inventory.GetContents();
-            Log($"Inventory ({items.Count} types):");
-            foreach (var item in items)
-            {
-                Log($"  - {item.Name} x{item.Quantity}");
-            }
+            Log("No inventory!");
+            return;
         }
-        return true;
+        
+        Log("=== INVENTORY ===");
+        
+        var contents = session.Party.Inventory.GetContents();
+        if (contents == null || contents.Count == 0)
+        {
+            Log("(empty)");
+            return;
+        }
+        
+        foreach (var item in contents)
+        {
+            string desc = item.Quantity > 1
+                ? $"  {item.Name} x{item.Quantity}"
+                : $"  {item.Name}";
+            Log(desc);
+        }
     }
 }

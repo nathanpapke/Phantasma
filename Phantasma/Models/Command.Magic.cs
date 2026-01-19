@@ -20,7 +20,6 @@ public partial class Command
     
     /// <summary>
     /// CastSpell Command - cast a magic spell.
-    /// Mirrors Nazghul's cmdCastSpell().
     /// 
     /// Flow:
     /// 1. Select caster (party member)
@@ -31,121 +30,197 @@ public partial class Command
     /// </summary>
     /// <param name="pc">Character casting, or null to prompt</param>
     /// <returns>True if spell was cast successfully</returns>
-    public bool CastSpell(Character? pc = null)
+    public void CastSpell(Character? pc = null)
     {
-        if (session?.Party == null)
-            return false;
-        
         ShowPrompt("Cast-");
         
-        // Select caster if not provided
+        // Select caster if not provided.
         if (pc == null)
         {
             pc = SelectPartyMember();
             if (pc == null)
             {
-                ClearPrompt();
-                return false;
+                ShowPrompt("Cast-none!");
+                return;
             }
         }
         
         ShowPrompt($"Cast [{pc.GetName()}]-");
         
-        // Get spells this character can cast
-        var castableSpells = pc.GetCastableSpells().ToList();
+        // Check if character can cast spells.
+        if (pc.GetMaxMana() <= 0)
+        {
+            Log($"{pc.GetName()} cannot cast spells!");
+            ClearPrompt();
+            return;
+        }
         
-        if (castableSpells.Count == 0)
+        // Get list of known spells.
+        var knownSpells = pc.GetCastableSpells();
+        if (knownSpells == null || knownSpells.Count() == 0)
         {
             Log($"{pc.GetName()} knows no spells!");
             ClearPrompt();
-            return false;
+            return;
         }
         
-        // Show spell menu
-        Log($"Castable spells for {pc.GetName()}:");
+        // Filter to castable spells (have mana and reagents).
+        var castableSpells = new List<SpellType>();
+        foreach (var spell in knownSpells)
+        {
+            if (pc.MP >= spell.ManaCost)
+            {
+                castableSpells.Add(spell);
+            }
+        }
+        
+        if (castableSpells.Count == 0)
+        {
+            Log($"{pc.GetName()} has no castable spells (not enough mana)!");
+            ClearPrompt();
+            return;
+        }
+        
+        // Show available spells
+        Log($"=== Spells ({pc.MP}/{pc.GetMaxMana()} MP) ===");
         for (int i = 0; i < castableSpells.Count; i++)
         {
             var spell = castableSpells[i];
-            string manaInfo = spell.CanAfford(pc) ? $"{spell.ManaCost} MP" : $"{spell.ManaCost} MP (NOT ENOUGH!)";
-            string reagentInfo = spell.HasReagents(pc) ? "" : " (missing reagents!)";
-            Log($"  {i + 1}. {spell.Name} - {manaInfo}{reagentInfo}");
+            Log($"  {i + 1}. {spell.Name} ({spell.ManaCost} MP)");
         }
         
-        // Prompt for spell selection
-        ShowPrompt($"Cast [{pc.GetName()}]-Which spell? (1-{castableSpells.Count}, ESC=cancel): ");
+        // TODO: Implement spell selection UI
+        // For now, auto-cast first spell for testing
+        Log("(Spell selection not implemented - casting first spell)");
         
-        // TODO: Replace with actual menu selection when UI is ready
-        // For now, just auto-select first spell for testing
-        int spellIndex = 0; // Would come from user input
+        var selectedSpell = castableSpells[0];
+        CastSelectedSpell(pc, selectedSpell);
+    }
+    
+    /// <summary>
+    /// Cast a selected spell, handling targeting if needed.
+    /// </summary>
+    private void CastSelectedSpell(Character caster, SpellType spell)
+    {
+        ShowPrompt($"Cast-{caster.GetName()}-{spell.Name}-");
         
-        if (spellIndex < 0 || spellIndex >= castableSpells.Count)
-        {
-            Log("Cancelled.");
-            ClearPrompt();
-            return false;
-        }
-        
-        var selectedSpell = castableSpells[spellIndex];
-        ShowPrompt($"Cast [{pc.GetName()}]-{selectedSpell.Name}-");
-        
-        // Determine target based on spell type
-        object? target = null;
-        
-        if (selectedSpell.CanTargetSelf && !selectedSpell.CanTargetAlly && !selectedSpell.CanTargetEnemy)
+        // Determine target based on spell type.
+        if (spell.CanTargetSelf && !spell.CanTargetAlly && !spell.CanTargetEnemy)
         {
             // Self-only spell
-            target = pc;
+            ExecuteSpell(caster, spell, caster);
         }
-        else if (selectedSpell.Range == 0)
+        else if (spell.Range == 0)
         {
-            // Melee range - prompt for direction
-            ShowPrompt($"Cast [{pc.GetName()}]-{selectedSpell.Name}-Direction: ");
-            var dir = PromptForDirection();
-            if (dir == null)
-            {
-                ClearPrompt();
-                return false;
-            }
+            // Melee range - need direction
+            ShowPrompt($"Cast-{caster.GetName()}-{spell.Name}-<direction>");
             
-            int targetX = pc.GetX() + Common.DirectionToDx(dir);
-            int targetY = pc.GetY() + Common.DirectionToDy(dir);
-            target = session.CurrentPlace?.GetBeingAt(targetX, targetY);
-            
-            if (target == null && !selectedSpell.CanTargetEmpty)
-            {
-                Log("No target there!");
-                ClearPrompt();
-                return false;
-            }
+            var c = caster;
+            var s = spell;
+            RequestDirection(dir => CompleteSpellCastDirection(c, s, dir));
         }
         else
         {
             // Ranged spell - use targeting
-            ShowPrompt($"Cast [{pc.GetName()}]-{selectedSpell.Name}-Select target (arrows to move, Enter to select, ESC to cancel)");
-            target = PromptForTarget(pc.GetX(), pc.GetY(), selectedSpell.Range);
+            ShowPrompt($"Cast-{caster.GetName()}-{spell.Name}-<select target>");
             
-            if (target == null && !selectedSpell.CanTargetEmpty)
-            {
-                Log("Cancelled.");
-                ClearPrompt();
-                return false;
-            }
+            var c = caster;
+            var s = spell;
+            
+            // Note: BeginTargeting callback is (targetX, targetY, cancelled)
+            session.BeginTargeting(
+                caster.GetX(),
+                caster.GetY(),
+                spell.Range,
+                caster.GetX(),
+                caster.GetY(),
+                (x, y, cancelled) => CompleteSpellCastTarget(c, s, !cancelled, x, y)
+            );
+        }
+    }
+    
+    /// <summary>
+    /// Complete spell cast after direction received.
+    /// </summary>
+    private void CompleteSpellCastDirection(Character caster, SpellType spell, Direction? dir)
+    {
+        if (dir == null)
+        {
+            ShowPrompt($"Cast-{caster.GetName()}-{spell.Name}-cancelled");
+            return;
         }
         
-        // Cast the spell
-        bool success = Magic.CastSpell(pc, selectedSpell, target);
+        int dx = Common.DirectionToDx(dir.Value);
+        int dy = Common.DirectionToDy(dir.Value);
         
-        if (success)
+        var place = caster.GetPlace();
+        if (place == null)
         {
-            Log($"{pc.GetName()} casts {selectedSpell.Name}!");
+            return;
         }
-        else
+        
+        int targetX = caster.GetX() + dx;
+        int targetY = caster.GetY() + dy;
+        
+        var target = place.GetBeingAt(targetX, targetY);
+        
+        if (target == null && !spell.CanTargetEmpty)
         {
-            Log($"{pc.GetName()} failed to cast {selectedSpell.Name}.");
+            Log("No target there!");
+            ClearPrompt();
+            return;
+        }
+        
+        ExecuteSpell(caster, spell, target);
+    }
+    
+    /// <summary>
+    /// Complete spell cast after targeting.
+    /// Note: BeginTargeting automatically handles cleanup when callback is invoked.
+    /// </summary>
+    private void CompleteSpellCastTarget(Character caster, SpellType spell, 
+        bool confirmed, int x, int y)
+    {
+        // Note: targeting cleanup (IsTargeting=false, PopKeyHandler) is done by Session.BeginTargeting
+        
+        if (!confirmed)
+        {
+            ShowPrompt($"Cast-{caster.GetName()}-{spell.Name}-cancelled");
+            return;
+        }
+        
+        var place = caster.GetPlace();
+        var target = place?.GetBeingAt(x, y);
+        
+        if (target == null && !spell.CanTargetEmpty)
+        {
+            Log("No target there!");
+            ClearPrompt();
+            return;
+        }
+        
+        ExecuteSpell(caster, spell, target);
+    }
+    
+    /// <summary>
+    /// Execute the spell effect.
+    /// </summary>
+    private void ExecuteSpell(Character caster, SpellType spell, object? target)
+    {
+        // Deduct mana.
+        caster.MP -= spell.ManaCost;
+        
+        Log($"{caster.GetName()} casts {spell.Name}!");
+        
+        // Call the spell's effect handler.
+        bool success = Magic.CastSpell(caster, spell, target);
+        
+        if (!success)
+        {
+            Log("The spell fizzles...");
         }
         
         ClearPrompt();
-        return success;
     }
     
     // ===================================================================
@@ -154,7 +229,6 @@ public partial class Command
     
     /// <summary>
     /// MixReagents Command - mix reagents to discover spells (Ultima-style).
-    /// Mirrors Nazghul's cmdMixReagents().
     /// 
     /// Flow:
     /// 1. Select character
@@ -164,19 +238,19 @@ public partial class Command
     /// 5. If found, learn spell; if not, reagents are wasted
     /// </summary>
     /// <returns>True if mixing completed (even if failed)</returns>
-    public bool MixReagents()
+    public void MixReagents()
     {
         if (session?.Party == null)
-            return false;
+            return;
         
         ShowPrompt("Mix-");
         
-        // Select character
+        // Select character.
         var character = SelectPartyMember();
         if (character == null)
         {
-            ClearPrompt();
-            return false;
+            ShowPrompt("Mix-none!");
+            return;
         }
         
         var inventory = character.GetInventoryContainer();
@@ -184,10 +258,10 @@ public partial class Command
         {
             Log("No inventory!");
             ClearPrompt();
-            return false;
+            return;
         }
         
-        // Collect all reagent types from inventory
+        // Collect all reagent types from inventory.
         var reagentList = new List<ReagentType>();
         foreach (var item in inventory.GetContents())
         {
@@ -201,24 +275,23 @@ public partial class Command
         {
             Log($"{character.GetName()} has no reagents!");
             ClearPrompt();
-            return false;
+            return;
         }
         
-        // Show available reagents
+        // Show available reagents.
         Log($"Reagents available:");
         for (int i = 0; i < reagentList.Count; i++)
         {
             Log($"  {reagentList[i].DisplayChar}. {reagentList[i].Name}");
         }
         
-        // For now, try mixing all available reagent types
-        // TODO: Implement reagent selection UI
+        // For now, try mixing all available reagent types.
+        // TODO: Implement reagent selection UI.
         Log($"Mixing all {reagentList.Count} reagent types...");
         
         Magic.MixReagents(character, reagentList);
         
         ClearPrompt();
-        return true;
     }
     
     // ===================================================================
@@ -227,19 +300,43 @@ public partial class Command
     
     /// <summary>
     /// Yuse Command - use special abilities or skills.
-    /// Mirrors Nazghul's cmdYuse().
     /// 
     /// This is for character abilities that aren't spells or items.
     /// Examples: racial abilities, class skills, special powers.
     /// </summary>
-    /// <param name="pc">Character using ability, or null to prompt</param>
-    /// <returns>True if ability was used successfully</returns>
-    public bool Yuse(Character? pc = null)
+    public void Yuse()
     {
-        // TODO: Implement in Task 30 (Skill System) or later
-        Log("Yuse (special abilities) command not yet implemented");
-        Log("Will be implemented with the Skill System");
-        return false;
+        ShowPrompt("Yuse-");
+        
+        var pc = SelectPartyMember();
+        if (pc == null)
+        {
+            ShowPrompt("Yuse-none!");
+            return;
+        }
+        
+        ShowPrompt($"Yuse-{pc.GetName()}-");
+        
+        // Get character's available abilities.
+        var abilities = pc.Species.Spells;
+        if (abilities == null || abilities.Length == 0)
+        {
+            Log($"{pc.GetName()} has no special abilities!");
+            ClearPrompt();
+            return;
+        }
+        
+        // Show available abilities.
+        Log("=== Special Abilities ===");
+        for (int i = 0; i < abilities.Length; i++)
+        {
+            Log($"  {i + 1}. {abilities[i]}");
+        }
+        
+        // TODO: Implement ability selection and execution
+        Log("Yuse command not fully implemented yet");
+        
+        ClearPrompt();
     }
     
     // ===================================================================

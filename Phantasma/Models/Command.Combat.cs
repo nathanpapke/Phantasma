@@ -17,68 +17,221 @@ public partial class Command
 
     /// <summary>
     /// Attack Command - attack an enemy in a direction.
+    /// 
+    /// Flow for melee (range 1):
+    /// 1. Show "Attack-" prompt
+    /// 2. Wait for direction
+    /// 3. Attack target in that direction
+    /// 
+    /// Flow for ranged (range > 1):
+    /// 1. Show "Attack-" prompt  
+    /// 2. Enter targeting mode
+    /// 3. Player moves crosshair to target
+    /// 4. Attack target at crosshair position
     /// </summary>
     /// <param name="direction">Direction to attack (optional for simplified version)</param>
     /// <returns>True if attack succeeded</returns>
     public void Attack(Direction? direction = null)
     {
-        if (session.Player == null || session.Player.ActionPoints <= 0)
-            return;
-        
         var player = session.Player;
-        var place = player.GetPlace();
-        
-        if (place == null)
+        if (player == null)
         {
-            Log("Player not on map!");
             return;
         }
         
-        Log("Attack-");
+        ShowPrompt("Attack-<direction>");
         
-        // Get weapon.
-        var weapon = player.EnumerateArms();
-        if (weapon == null)
-        {
-            Log("no weapon readied!");
-            weapon = ArmsType.TestWeapons.Fists;
-            Log("attacking with fists-");
-        }
+        // Get the player's ready weapon.
+        var weapon = player.GetCurrentWeapon();
+        int range = weapon?.Range ?? 1;
         
-        if (!player.HasAmmo(weapon))
+        if (range <= 1)
         {
-            Log("no ammo!");
-            return;
-        }
-        
-        // Two paths: direct attack or targeted attack.
-        if (direction.HasValue)
-        {
-            // Direct attack in direction.
-            int dx = Common.DirectionToDx(direction.Value);
-            int dy = Common.DirectionToDy(direction.Value);
-            int targetX = player.GetX() + dx;
-            int targetY = player.GetY() + dy;
-            
-            Log($"{DirectionToString(direction.Value)}-");
-            ExecuteAttack(targetX, targetY, weapon);
+            // Melee attack - just need direction
+            RequestDirection(dir => CompleteMeleeAttack(player, dir));
         }
         else
         {
-            // Begin targeting - use callback for completion.
-            BeginTargetSelection(weapon, (targetX, targetY, cancelled) =>
-            {
-                if (cancelled)
+            // Ranged attack - use targeting
+            ShowPrompt("Attack-<select target>");
+            
+            // Note: BeginTargeting callback is (targetX, targetY, cancelled)
+            session.BeginTargeting(
+                player.GetX(),
+                player.GetY(),
+                range,
+                player.GetX(),
+                player.GetY(),
+                (targetX, targetY, cancelled) =>
                 {
-                    Log("none!");
-                    return;
+                    CompleteRangedAttack(player, weapon, !cancelled, targetX, targetY);
                 }
-                
-                ExecuteAttack(targetX, targetY, weapon);
-            });
+            );
         }
     }
     
+    /// <summary>
+    /// Complete a melee attack after direction received.
+    /// </summary>
+    private void CompleteMeleeAttack(Character attacker, Direction? dir)
+    {
+        if (dir == null)
+        {
+            ShowPrompt("Attack-none!");
+            return;
+        }
+        
+        ShowPrompt($"Attack-{DirectionToString(dir.Value)}");
+        
+        int dx = Common.DirectionToDx(dir.Value);
+        int dy = Common.DirectionToDy(dir.Value);
+        
+        var place = attacker.GetPlace();
+        if (place == null)
+        {
+            return;
+        }
+        
+        int targetX = place.WrapX(attacker.GetX() + dx);
+        int targetY = place.WrapY(attacker.GetY() + dy);
+        
+        // Find target at location.
+        var target = place.GetBeingAt(targetX, targetY);
+        
+        if (target == null)
+        {
+            Log("Attack - nobody there!");
+            return;
+        }
+        
+        // Execute the attack.
+        ExecuteAttack(attacker, target, attacker.GetCurrentWeapon());
+    }
+    
+    /// <summary>
+    /// Complete a ranged attack after targeting.
+    /// Note: BeginTargeting automatically handles cleanup when callback is invoked.
+    /// </summary>
+    private void CompleteRangedAttack(Character attacker, ArmsType? weapon, 
+        bool confirmed, int targetX, int targetY)
+    {
+        // Note: targeting cleanup (IsTargeting=false, PopKeyHandler) is done by Session.BeginTargeting.
+        
+        if (!confirmed)
+        {
+            ShowPrompt("Attack-cancelled!");
+            return;
+        }
+        
+        var place = attacker.GetPlace();
+        if (place == null)
+        {
+            return;
+        }
+        
+        // Find target at crosshair.
+        var target = place.GetBeingAt(targetX, targetY);
+        
+        if (target == null)
+        {
+            Log("Attack - nobody there!");
+            return;
+        }
+        
+        // Remember this target for next time.
+        attacker.SetAttackTarget(target);
+        
+        // Execute the attack.
+        ExecuteAttack(attacker, target, weapon);
+    }
+    
+    /// <summary>
+    /// Execute an attack against a target.
+    /// </summary>
+    private void ExecuteAttack(Character attacker, Being target, ArmsType? weapon)
+    {
+        // Use natural weapon if none provided.
+        if (weapon == null)
+        {
+            weapon = attacker.Species.Weapon;
+        }
+        
+        if (weapon == null)
+        {
+            Log("no weapon!");
+            return;
+        }
+        
+        string weaponName = weapon.Name ?? "fists";
+        
+        // Log attack start: "Attacker: Weapon - Target "
+        Log($"{attacker.GetName()}: {weaponName} - {target.GetName()} ");
+        
+        // Fire the weapon (handles missile animation for ranged weapons).
+        // Returns false if projectile missed (e.g., hit terrain).
+        bool hit = weapon.Fire(target, attacker.GetX(), attacker.GetY());
+        
+        // Consume action points and ammo.
+        attacker.DecreaseActionPoints(weapon.RequiredActionPoints);
+        attacker.UseAmmo(weapon);
+        
+        if (!hit)
+        {
+            Log("missed!");
+            return;
+        }
+        
+        // Roll to hit: 1d20 + weapon's to-hit dice
+        int toHitRoll = Dice.Roll("1d20") + Dice.Roll(weapon.ToHitDice);
+        int defense = target.GetDefend();
+        
+        Console.WriteLine($"[Combat] To-hit: {toHitRoll} vs Defense: {defense}");
+        
+        if (toHitRoll < defense)
+        {
+            Log("barely scratched!");
+            return;
+        }
+        
+        // Roll for damage: weapon damage dice - target armor
+        int damage = Dice.Roll(weapon.DamageDice);
+        int armor = target.GetArmor();
+        damage -= armor;
+        damage = Math.Max(0, damage);
+        
+        Console.WriteLine($"[Combat] Damage: {damage} (rolled - {armor} armor)");
+        
+        // Apply damage.
+        target.Damage(damage);
+        
+        Log($"{target.GetWoundDescription()}!");
+        
+        // Award XP if target was killed.
+        if (target.IsDead)
+        {
+            int xp = target.GetExperienceValue();
+            attacker.AddExperience(xp);
+            Log($"{attacker.GetName()} gains {xp} XP!");
+        }
+    }
+    /*
+    /// <summary>
+    /// Calculate damage for an attack.
+    /// </summary>
+    private int CalculateDamage(Character attacker, ArmsType? weapon)
+    {
+        var rand = new Random();
+        
+        int baseDamage = weapon?.BaseDamage ?? 1;
+        int bonusDamage = weapon?.BonusDamage ?? 0;
+        int strengthBonus = attacker.GetStrength() / 10;
+        
+        // Roll damage dice.
+        int damage = baseDamage + rand.Next(bonusDamage + 1) + strengthBonus;
+        
+        return Math.Max(1, damage);  // Minimum 1 damage
+    }
+    */
     // ===================================================================
     // FIRE COMMAND - Vehicle weapons
     // ===================================================================
@@ -91,41 +244,67 @@ public partial class Command
     /// 2. Prompt for direction
     /// 3. Fire weapon if it's a valid broadside
     /// </summary>
-    public bool Fire()
+    public void Fire()
     {
-        var party = session.Party;
-    
-        if (party?.Vehicle == null || party.Vehicle.GetOrdnance() == null)
+        var player = session.Player;
+        if (player == null)
         {
-            Log("Fire-No cannons available!");
-            return false;
+            return;
         }
-    
-        var vehicle = party.Vehicle;
+        
+        // Check if player is in a vehicle.
+        var vehicle = session.Party?.Vehicle;
+        if (vehicle == null)
+        {
+            Log("Fire - not in a vehicle!");
+            return;
+        }
+        
+        // Check if vehicle has ordnance.
         var ordnance = vehicle.GetOrdnance();
-    
-        Log($"Fire {ordnance.Name}-");
+        if (ordnance == null)
+        {
+            Log("Fire - vehicle has no weapons!");
+            return;
+        }
+        
         ShowPrompt("Fire-<direction>");
+        
+        // Capture for closure
+        var v = vehicle;
+        var o = ordnance;
+        
+        RequestDirection(dir => CompleteFireVehicle(player, v, o, dir));
+    }
     
-        var dir = PromptForDirection();
-        if (dir == Direction.None)
+    /// <summary>
+    /// Complete the Fire command after direction received.
+    /// </summary>
+    private void CompleteFireVehicle(Character player, Vehicle vehicle, 
+        ArmsType ordnance, Direction? dir)
+    {
+        if (dir == null)
         {
-            Log("None!");
-            return false;
+            ShowPrompt("Fire-none!");
+            return;
         }
-    
-        int dx = Common.DirectionToDx(dir);
-        int dy = Common.DirectionToDy(dir);
-    
-        Log($"{DirectionToString(dir)}-");
-    
-        if (!vehicle.FireWeapon(dx, dy, party))
+        
+        ShowPrompt($"Fire-{DirectionToString(dir.Value)}");
+        
+        int dx = Common.DirectionToDx(dir.Value);
+        int dy = Common.DirectionToDy(dir.Value);
+        
+        // Check if vehicle can fire in this direction.
+        if (!vehicle.CanFireInDirection(dx, dy))
         {
-            Log(vehicle.GetFiringRestrictionMessage());
-            return false;
+            Log($"Fire - can't fire {DirectionToString(dir.Value)} from this vehicle!");
+            return;
         }
-    
-        Log("Hits away!");
-        return true;
+        
+        // Fire!
+        Log($"Fire {ordnance.Name}!");
+        vehicle.FireWeapon(dx, dy, player);
+        
+        // TODO: Animation, sound effects.
     }
 }
