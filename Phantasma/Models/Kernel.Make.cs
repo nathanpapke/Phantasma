@@ -1053,6 +1053,7 @@ public partial class Kernel
                 {
                     Name = objType.Name,
                     Type = objType,
+                    Sprite = objType.Sprite,
                     // Inherit passability class from type (default to 1 for walkable).
                     PassabilityClass = 1
                 };
@@ -1060,11 +1061,12 @@ public partial class Kernel
                 return tfeat;
             
             case ObjectLayer.Mechanism:
-                // Create a mechanism object
+                // Create a mechanism object.
                 var mech = new Mechanism
                 {
                     Name = objType.Name,
-                    Type = objType
+                    Type = objType,
+                    Sprite = objType.Sprite
                 };
                 return mech;
             
@@ -1072,16 +1074,18 @@ public partial class Kernel
                 var portal = new Portal
                 {
                     Name = objType.Name,
-                    Type = objType
+                    Type = objType,
+                    Sprite = objType.Sprite
                 };
                 return portal;
             
             default:
-                // Default: create an Item
+                // Default: create an Item.
                 var item = new Item
                 {
                     Type = objType,
-                    Count = itemCount
+                    Count = itemCount,
+                    Sprite = objType.Sprite
                 };
                 item.Name = objType.Name;
                 return item;

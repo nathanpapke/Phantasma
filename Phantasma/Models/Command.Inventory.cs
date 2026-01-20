@@ -59,8 +59,14 @@ public partial class Command
         int targetX = player.GetX() + dx;
         int targetY = player.GetY() + dy;
         
-        // Find first gettable item at location
+        // Find first gettable item at location.
         var item = place.GetFilteredObject(targetX, targetY, obj => obj.IsGettable());
+        
+        if (item.Type?.Layer != ObjectLayer.Item)
+        {
+            Console.WriteLine("You can't pick that up!");
+            return;
+        }
         
         if (item == null)
         {
