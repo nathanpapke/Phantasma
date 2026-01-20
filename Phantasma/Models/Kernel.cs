@@ -240,6 +240,7 @@ public partial class Kernel
         DefineFunction("kern-obj-set-pclass", ObjectSetPassability);
         DefineFunction("kern-obj-get-sprite", ObjectGetSprite);
         DefineFunction("kern-obj-set-sprite", ObjectSetSprite);
+        DefineFunction("kern-obj-set-opacity", ObjectSetOpacity);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions
@@ -337,6 +338,7 @@ public partial class Kernel
         
         DefineFunction("kern-blit-map", BlitMap);
         DefineFunction("kern-map-rotate", MapRotate);
+        DefineFunction("kern-map-set-dirty", MapSetDirty);
         
         // ===================================================================
         // MISC API - Utility Functions
@@ -349,6 +351,7 @@ public partial class Kernel
         DefineFunction("kern-sound-play", SoundPlay);
         DefineFunction("kern-tag", Tag);
         DefineFunction("kern-dice-roll", DiceRoll);
+        DefineFunction("kern-log-msg", LogMessage);
         
         // TODO: Add remaining kern-* functions as needed.
         // The full Nazghul kern.c has ~150 functions.
@@ -583,6 +586,27 @@ public partial class Kernel
         
         int result = Dice.Roll(diceExpr);
         return result;
+    }
+    
+    /// <summary>
+    /// (kern-log-msg message)
+    /// Logs a message to the game console.
+    /// </summary>
+    public static object LogMessage(object[] args)
+    {
+        var sb = new StringBuilder();
+        foreach (var arg in args)
+        {
+            sb.Append(arg?.ToString() ?? "");
+        }
+        
+        string message = sb.ToString().TrimEnd('\n');
+        Console.WriteLine($"[LOG] {message}");
+        
+        // Also send to in-game log if you have one
+        // Session.Current?.Log(message);
+        
+        return "nil".Eval();
     }
     
     // ===================================================================

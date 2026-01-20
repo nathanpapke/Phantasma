@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -22,6 +23,7 @@ public abstract class Object
     public int PassabilityClass { get; set; } = 0;
     public int Count { get; set; } = 1;
     public int Light { get; set; } = 0;
+    public bool IsOpaque { get; set; } = false;
     public Gob? Gob { get; set; }  // Scheme object reference
     
     private int visible = 1;
@@ -424,7 +426,8 @@ public abstract class Object
             
             if (gifc is Callable callable)
             {
-                callable.Call("init", this);
+                var initSymbol = SymbolTable.StringToObject("init");
+                callable.Call(initSymbol, this);
             }
         }
         catch (Exception ex)

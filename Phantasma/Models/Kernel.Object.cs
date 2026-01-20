@@ -130,7 +130,8 @@ public partial class Kernel
                 try
                 {
                     Console.WriteLine($"[kern-obj-put-at] Sending 'init to {gameObj.Name}");
-                    callable.Call("init", gameObj);
+                    var initSymbol = SymbolTable.StringToObject("init");
+                    callable.Call(initSymbol, gameObj);
                 }
                 catch (Exception ex)
                 {
@@ -935,6 +936,32 @@ public partial class Kernel
         }
         
         obj.Sprite = sprite;
+        return "nil".Eval();
+    }
+    
+    /// <summary>
+    /// (kern-obj-set-opacity)
+    /// </summary>
+    /// <param name="objArg">Object to set opacity</param>
+    /// <param name="opacityArg">Opacity #t or #f</param>
+    public static object ObjectSetOpacity(object objArg, object opacityArg)
+    {
+        if (objArg is object[] arr && arr.Length >= 2)
+        {
+            objArg = arr[0];
+            opacityArg = arr[1];
+        }
+    
+        var obj = objArg as Object;
+        if (obj == null)
+        {
+            Console.WriteLine("[kern-obj-set-opacity] Error: null object");
+            return "nil".Eval();
+        }
+    
+        bool isOpaque = ToBool(opacityArg, false);
+        obj.IsOpaque = isOpaque;
+    
         return "nil".Eval();
     }
 }

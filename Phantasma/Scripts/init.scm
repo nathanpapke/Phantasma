@@ -11,6 +11,29 @@
 ;; Enable case-insensitive symbols (TinyScheme default)
 ;#!fold-case
 
+(define %r6rs-eval% eval)
+
+(define (eval expr . rest)
+  (if (null? rest)
+    (%r6rs-eval% expr (interaction-environment))
+    (%r6rs-eval% expr (car rest))))
+
+;; -----------------------------------------------------------------------------
+;; safe-eval: evaluate expression, return #f on any error
+;; Used by Haxima's door code: (door-state-sprite ds) calls (safe-eval (car ds))
+;; -----------------------------------------------------------------------------
+(define (safe-eval expr)
+  (guard (ex (else #f))
+    (eval expr)))
+
+;; -----------------------------------------------------------------------------
+;; defined?: check if a symbol is bound (TinyScheme built-in)
+;; -----------------------------------------------------------------------------
+(define (defined? sym)
+  (guard (ex (else #f))
+    (eval sym (interaction-environment))
+    #t))
+
 ;; -----------------------------------------------------------------------------
 ;; CRITICAL: Custom apply to handle CallTargetN closures from C#
 ;; -----------------------------------------------------------------------------

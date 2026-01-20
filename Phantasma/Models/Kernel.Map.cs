@@ -142,4 +142,16 @@ public partial class Kernel
         
         return map;
     }
+    
+    /// <summary>
+    /// (kern-map-set-dirty)
+    /// Marks the map as needing a redraw.
+    /// </summary>
+    public static object MapSetDirty(object[] args)
+    {
+        // For now, this is a no-op since Avalonia handles its own invalidation.
+        // If you have a manual dirty flag, set it here.
+        // Session.Current?.RequestMapRefresh();
+        return "nil".Eval();
+    }
 }

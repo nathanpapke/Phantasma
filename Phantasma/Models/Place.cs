@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -886,7 +887,8 @@ public class Place
                                     try
                                     {
                                         // Nazghul's bump() sends 'open, not 'bump!
-                                        callable.Call("open", mechanism, subject);
+                                        var openSymbol = SymbolTable.StringToObject("open");
+                                        callable.Call(openSymbol, mechanism, subject);
                                     }
                                     catch (Exception ex)
                                     {

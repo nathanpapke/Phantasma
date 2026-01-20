@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using IronScheme;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -511,7 +512,8 @@ public partial class Kernel
                             {
                                 try
                                 {
-                                    initCallable.Call("init", gameObj);
+                                    var initSymbol = SymbolTable.StringToObject("init");
+                                    initCallable.Call(initSymbol, gameObj);
                                 }
                                 catch
                                 {

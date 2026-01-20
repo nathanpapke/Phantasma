@@ -1,5 +1,6 @@
 using System;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -491,10 +492,33 @@ public partial class Command
                 
                 try
                 {
-                    callable.Call("open", mech, pc);
+                    var openSymbol = SymbolTable.StringToObject("open");
+        
+                    // Debug: show what we're passing.
+                    Console.WriteLine($"[Open] openSymbol = {openSymbol} (type: {openSymbol?.GetType().Name})");
+                    Console.WriteLine($"[Open] mech = {mech?.Name} (type: {mech?.GetType().Name})");
+                    Console.WriteLine($"[Open] pc = {pc?.GetName()} (type: {pc?.GetType().Name})");
+                    
+                    callable.Call(openSymbol, mech, pc);
+                    Console.WriteLine($"[Open] SUCCESS! Door pclass is now: {mech.PassabilityClass}");
                 }
                 catch (Exception ex)
                 {
+                    // Print the FULL exception including all Scheme details
+                    Console.WriteLine($"[Open] EXCEPTION TYPE: {ex.GetType().FullName}");
+                    Console.WriteLine($"[Open] FULL EXCEPTION:");
+                    Console.WriteLine(ex.ToString());
+                    Console.WriteLine($"[Open] ----END EXCEPTION----");
+        
+                    // Also check inner exception
+                    if (ex.InnerException != null)
+                    {
+                        Console.WriteLine($"[Open] INNER EXCEPTION:");
+                        Console.WriteLine(ex.InnerException.ToString());
+                    }
+                    
+                    //// Debug code above; original code below.
+                    
                     Console.WriteLine($"[Open] Error calling open handler: {ex.Message}");
                     Log($"Error: {ex.Message}");
                 }
