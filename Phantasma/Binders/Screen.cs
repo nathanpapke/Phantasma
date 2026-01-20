@@ -378,16 +378,13 @@ public class Screen
         var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
         
         // Get sprite from the mechanism's type.
-        Sprite? sprite = mech.Type.Sprite;
+        Sprite? sprite = mech.Sprite;
+        if (sprite == null)
+            sprite = mech.Type?.Sprite;
         
         // No sprite defined for intentionally invisible objects.
         if (sprite == null)
             return;
-        
-        if (mech.Type is ObjectType objType && objType.Sprite != null)
-        {
-            sprite = objType.Sprite;
-        }
         
         if (sprite?.SourceImage != null)
         {

@@ -596,16 +596,9 @@ public partial class Kernel
     {
         var sb = new StringBuilder();
         foreach (var arg in args)
-        {
             sb.Append(arg?.ToString() ?? "");
-        }
         
-        string message = sb.ToString().TrimEnd('\n');
-        Console.WriteLine($"[LOG] {message}");
-        
-        // Also send to in-game log if you have one
-        // Session.Current?.Log(message);
-        
+        Console.WriteLine($"[GAME] {sb.ToString().TrimEnd('\n')}");
         return "nil".Eval();
     }
     
