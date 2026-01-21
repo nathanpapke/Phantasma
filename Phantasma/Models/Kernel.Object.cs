@@ -174,25 +174,28 @@ public partial class Kernel
             obj = arr[0];
         
         if (obj == null || IsNil(obj))
-            return RuntimeHelpers.False;  // Return #f as nil.
-    
-        if (obj is Item item)
-            return (object?)item.Type ?? RuntimeHelpers.False;
-    
+            return RuntimeHelpers.False;
+        
+        // Characters don't have ObjectTypes in Nazghul.
         if (obj is Character)
-            return RuntimeHelpers.False;  // Characters have no ObjectType.
-    
+            return RuntimeHelpers.False;
+        
+        // Beings also don't have ObjectTypes (they have Species instead).
         if (obj is Being)
             return RuntimeHelpers.False;
-    
+        
+        // Handle other Objects (Mechanism, Item, TerrainFeature, etc.).
+        if (obj is Object gameObj)
+            return (object?)gameObj.Type ?? RuntimeHelpers.False;
+        
         // Try to resolve by tag.
         if (obj is string tag)
         {
             var resolved = Phantasma.GetRegisteredObject(tag);
-            if (resolved is Item i)
-                return (object?)i.Type ?? RuntimeHelpers.False;
+            if (resolved is Object resolvedObj && !(resolvedObj is Being))
+                return (object?)resolvedObj.Type ?? RuntimeHelpers.False;
         }
-    
+        
         return RuntimeHelpers.False;
     }
     
@@ -985,6 +988,35 @@ public partial class Kernel
         bool isOpaque = ToBool(opacityArg, false);
         obj.IsOpaque = isOpaque;
     
+        return "nil".Eval();
+    }
+    
+    /// <summary>
+    /// (kern-obj-set-light obj light)
+    /// Sets the light radius emitted by an object.
+    /// </summary>
+    public static object ObjectSetLight(object obj, object light)
+    {
+        // Handle array wrapping.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            light = arr[1];
+            obj = arr[0];
+        }
+        
+        if (obj == null || IsNil(obj))
+            return "nil".Eval();
+        
+        var gameObj = obj as Object;
+        if (gameObj == null)
+        {
+            Console.WriteLine("[kern-obj-set-light] Error: not an Object");
+            return "nil".Eval();
+        }
+        
+        int lightValue = ToInt(light, 0);
+        gameObj.Light = lightValue;
+        
         return "nil".Eval();
     }
 }

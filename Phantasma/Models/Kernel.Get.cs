@@ -77,10 +77,20 @@ public partial class Kernel
     /// </summary>
     public static object TypeGetGameInterface(object type)
     {
+        Console.WriteLine($"[kern-type-get-gifc] Called with type: {type} (type: {type?.GetType().Name})");
+        
+        // Handle array wrapping.  IronScheme sometimes passes args as Object[] type.
+        if (type is object[] arr && arr.Length > 0)
+        {
+            type = arr[0];
+            Console.WriteLine($"[kern-type-get-gifc] Unwrapped from array: {type} (type: {type?.GetType().Name})");
+        }
+        
         // Handle null - not necessarily an error per Nazghul comment:
         // "Some objects (like characters) have no type"
         if (type == null || IsNil(type))
         {
+            Console.WriteLine("[kern-type-get-gifc] Type is null/nil");
             return "nil".Eval();
         }
         
@@ -89,16 +99,29 @@ public partial class Kernel
         
         if (objType == null && type is string typeTag)
         {
+            typeTag = type?.ToString()?.TrimStart('\'').Trim('"');
+            Console.WriteLine($"[kern-type-get-gifc] Not ObjectType, trying tag lookup: '{typeTag}'");
             objType = Phantasma.GetRegisteredObject(typeTag) as ObjectType;
         }
         
         if (objType == null)
         {
             // Not an ObjectType - could be Character, etc. Return nil.
+            Console.WriteLine($"[kern-type-get-gifc] Could not resolve ObjectType");
             return "nil".Eval();
         }
         
+        Console.WriteLine($"[kern-type-get-gifc] ObjectType: {objType.Tag}");
+        Console.WriteLine($"[kern-type-get-gifc] InteractionHandler: {objType.InteractionHandler} (type: {objType.InteractionHandler?.GetType().Name})");
+    
+        if (objType.InteractionHandler != null)
+        {
+            Console.WriteLine($"[kern-type-get-gifc] Returning handler");
+            return objType.InteractionHandler;
+        }
+        
         // Return the interaction handler (gifc) or nil.
+        Console.WriteLine("[kern-type-get-gifc] No handler, returning nil");
         return objType.InteractionHandler ?? "nil".Eval();
     }
 }

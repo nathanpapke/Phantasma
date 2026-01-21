@@ -241,6 +241,7 @@ public partial class Kernel
         DefineFunction("kern-obj-get-sprite", ObjectGetSprite);
         DefineFunction("kern-obj-set-sprite", ObjectSetSprite);
         DefineFunction("kern-obj-set-opacity", ObjectSetOpacity);
+        DefineFunction("kern-obj-set-light", ObjectSetLight);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions
@@ -319,7 +320,7 @@ public partial class Kernel
         
         DefineFunction("kern-conv-say", ConversationSay);
         DefineFunction("kern-conv-get-reply", ConversationGetReply);
-        DefineFunction("kern-conv-get-yes-no", ConversationGetYesNo);
+        DefineFunction("kern-conv-get-yes-no?", ConversationGetYesNo);
         DefineFunction("kern-conv-get-amount", ConversationGetAmount);
         DefineFunction("kern-conv-trade", ConversationTrade);
         DefineFunction("kern-conv-end", ConversationEnd);

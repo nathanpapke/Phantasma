@@ -1061,6 +1061,14 @@ public partial class Kernel
                 return tfeat;
             
             case ObjectLayer.Mechanism:
+                // DEBUG: Check what sprite the ObjectType has
+                Console.WriteLine($"[MakeObject] Creating Mechanism: {objType.Name}");
+                Console.WriteLine($"[MakeObject]   objType.Sprite = {objType.Sprite?.Tag ?? "NULL"}");
+                if (objType.Sprite != null)
+                {
+                    Console.WriteLine($"[MakeObject]   objType.Sprite.SourceImage = {(objType.Sprite.SourceImage != null ? "exists" : "NULL")}");
+                }
+                
                 // Create a mechanism object.
                 var mech = new Mechanism
                 {
@@ -1068,6 +1076,8 @@ public partial class Kernel
                     Type = objType,
                     Sprite = objType.Sprite
                 };
+    
+                Console.WriteLine($"[MakeObject]   mech.Sprite = {mech.Sprite?.Tag ?? "NULL"}");
                 return mech;
             
             case ObjectLayer.Portal:
@@ -1127,11 +1137,13 @@ public partial class Kernel
             // Try to resolve tag.
             var resolved = Phantasma.GetRegisteredObject(sprite.ToString().TrimStart('\'').Trim('"'));
             if (resolved is Sprite resolvedSprite)
+            {
                 objType.Sprite = resolvedSprite;
+            }
         }
         
         // Store interaction handler closure for later use.
-        if (interactionHandler != null && !(interactionHandler is bool b && b == false))
+        if (interactionHandler != null && !IsNil(interactionHandler) && !(interactionHandler is bool b && b == false))
             objType.InteractionHandler = interactionHandler;
         
         if (!string.IsNullOrEmpty(tagStr))

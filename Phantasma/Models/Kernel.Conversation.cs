@@ -110,7 +110,7 @@ public partial class Kernel
     }
     
     /// <summary>
-    /// (kern-conv-get-yes-no pc)
+    /// (kern-conv-get-yes-no? pc)
     /// Prompt player for yes/no response.
     /// Returns #t for yes, #f for no.
     /// </summary>
