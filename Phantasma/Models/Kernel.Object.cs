@@ -644,9 +644,27 @@ public partial class Kernel
         // Handle the object argument.
         Object? obj = objArg as Object;
         
+        // If not a direct Object, try string tag lookup.
+        if (obj == null && objArg is string tag)
+        {
+            string cleanTag = tag.TrimStart('\'').Trim('"');
+            var resolved = Phantasma.GetRegisteredObject(cleanTag);
+            obj = resolved as Object;
+        }
+        
+        // Try ToTag for symbols.
         if (obj == null)
         {
-            Console.WriteLine($"[kern-obj-get-gob] arg type: {objArg?.GetType().Name ?? "null"}, value: {objArg}");
+            string tagStr = ToTag(objArg);
+            if (!string.IsNullOrEmpty(tagStr))
+            {
+                var resolved = Phantasma.GetRegisteredObject(tagStr);
+                obj = resolved as Object;
+            }
+        }
+        
+        if (obj == null)
+        {
             RuntimeError("kern-obj-get-gob: bad args");
             return "nil".Eval();
         }
