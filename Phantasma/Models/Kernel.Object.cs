@@ -1037,4 +1037,56 @@ public partial class Kernel
         
         return "nil".Eval();
     }
+    
+    /// <summary>
+    /// (kern-obj-get-activity obj) -> string
+    /// Returns the current activity as a string: "idle", "working", "sleeping", etc.
+    /// </summary>
+    public static object ObjectGetActivity(object objArg)
+    {
+        Activity activity = Activity.Idle;
+        
+        if (objArg is Character ch)
+            activity = ch.CurrentActivity;
+        else if (objArg is Being being)
+            activity = being.CurrentActivity;
+        
+        // Return string name, not integer - Scheme uses string=? to compare
+        return activity switch
+        {
+            Activity.Idle => "idle",
+            Activity.Working => "working",
+            Activity.Sleeping => "sleeping",
+            Activity.Commuting => "commuting",
+            Activity.Eating => "eating",
+            Activity.Drunk => "drunk",
+            _ => "idle"
+        };
+    }
+
+    /// <summary>
+    /// (kern-obj-set-activity obj activity-string)
+    /// Sets the current activity from a string name.
+    /// </summary>
+    public static object ObjectSetActivity(object objArg, object activityArg)
+    {
+        string name = activityArg?.ToString()?.ToLower() ?? "idle";
+        
+        Activity activity = name switch
+        {
+            "working" => Activity.Working,
+            "sleeping" => Activity.Sleeping,
+            "commuting" => Activity.Commuting,
+            "eating" => Activity.Eating,
+            "drunk" => Activity.Drunk,
+            _ => Activity.Idle
+        };
+        
+        if (objArg is Character ch)
+            ch.CurrentActivity = activity;
+        else if (objArg is Being being)
+            being.CurrentActivity = activity;
+        
+        return "idle";
+    }
 }

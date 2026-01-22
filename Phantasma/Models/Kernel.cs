@@ -242,6 +242,8 @@ public partial class Kernel
         DefineFunction("kern-obj-set-sprite", ObjectSetSprite);
         DefineFunction("kern-obj-set-opacity", ObjectSetOpacity);
         DefineFunction("kern-obj-set-light", ObjectSetLight);
+        DefineFunction("kern-obj-get-activity", ObjectGetActivity);
+        DefineFunction("kern-obj-set-activity", ObjectSetActivity);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions

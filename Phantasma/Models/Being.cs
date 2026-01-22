@@ -28,6 +28,8 @@ public abstract class Being : Object
     public int MaxMP { get; set; }
     public int ActionPoints { get; set; }
     public int MaxActionPoints { get; set; }
+
+    public Activity CurrentActivity { get; set; } = Activity.Idle;
     
     // Effects
     private bool isFleeing = false;
