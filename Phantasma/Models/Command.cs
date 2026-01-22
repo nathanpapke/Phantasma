@@ -358,7 +358,7 @@ public partial class Command
     /// </param>
     protected void RequestYesNo(Action<bool> onResult)
     {
-        var handler = new YesNoKeyHandler(onResult);
+        var handler = new YesNoKeyHandler(session, onResult);
         session.PushKeyHandler(handler);
     }
     
@@ -669,5 +669,321 @@ public partial class Command
         // Start conversation with the NPC.
         ShowPrompt($"Talk-{nearestNPC.GetName()}");
         session.StartConversation(npcX, npcY);
+    }
+    
+    // ===================================================================
+    // HANDLE COMMAND
+    // ===================================================================
+    
+    /// <summary>
+    /// Handle Command - operate mechanisms (levers, buttons, switches).
+    /// </summary>
+    public void Handle()
+    {
+        if (session.Player == null || session.CurrentPlace == null)
+        {
+            return;
+        }
+        
+        ShowPrompt("Handle-");
+        
+        // Request direction.
+        RequestDirection(dir =>
+        {
+            if (dir == null)
+            {
+                ShowPrompt("Handle-none!");
+                return;
+            }
+            
+            int dx = Common.DirectionToDx(dir.Value);
+            int dy = Common.DirectionToDy(dir.Value);
+            
+            var place = session.CurrentPlace;
+            int targetX = place.WrapX(session.Player.GetX() + dx);
+            int targetY = place.WrapY(session.Player.GetY() + dy);
+            
+            // Look for a mechanism at the target.
+            var mech = place.GetMechanismAt(targetX, targetY);
+            
+            if (mech == null || !mech.CanHandle())
+            {
+                ShowPrompt("Handle-nothing!");
+                Log("Nothing to handle there.");
+                return;
+            }
+            
+            // Handle the mechanism.
+            ShowPrompt($"Handle-{mech.Name}");
+            mech.Handle(session.Player);
+            
+            Log($"Handled {mech.Name}.");
+            ClearPrompt();
+        });
+    }
+    
+    // ===================================================================
+    // EXAMINE COMMAND
+    // ===================================================================
+    
+    /// <summary>
+    /// Examine Command - examine an object/being in detail.
+    /// </summary>
+    public void Examine()
+    {
+        if (session.Player == null || session.CurrentPlace == null)
+        {
+            return;
+        }
+        
+        ShowPrompt("Examine-");
+        
+        // Request direction.
+        RequestDirection(dir =>
+        {
+            if (dir == null)
+            {
+                ShowPrompt("Examine-cancelled");
+                ClearPrompt();
+                return;
+            }
+            
+            int dx = Common.DirectionToDx(dir.Value);
+            int dy = Common.DirectionToDy(dir.Value);
+            
+            var place = session.CurrentPlace;
+            int targetX = place.WrapX(session.Player.GetX() + dx);
+            int targetY = place.WrapY(session.Player.GetY() + dy);
+            
+            // Look for objects at the target.
+            var being = place.GetBeingAt(targetX, targetY);
+            if (being != null)
+            {
+                Log($"You see {being.GetName()}.");
+                // TODO: Show more details about the being
+                ClearPrompt();
+                return;
+            }
+
+            var item = place.GetObjectAt(targetX, targetY, ObjectLayer.Item);
+            if (item != null)
+            {
+                Log($"You see {item.Name}.");
+                ClearPrompt();
+                return;
+            }
+            
+            var terrain = place.GetTerrain(targetX, targetY);
+            if (terrain != null)
+            {
+                Log($"You see {terrain.Name}.");
+            }
+            else
+            {
+                Log("You see nothing special.");
+            }
+            
+            ClearPrompt();
+        });
+    }
+    
+    // ===================================================================
+    // LOOK COMMAND
+    // ===================================================================
+    
+    /// <summary>
+    /// Look Command - describe what you see in a direction.
+    /// </summary>
+    public void Look()
+    {
+        if (session.Player == null || session.CurrentPlace == null)
+        {
+            return;
+        }
+        
+        ShowPrompt("Look-");
+        
+        // Request direction.
+        RequestDirection(dir =>
+        {
+            if (dir == null)
+            {
+                // Look at current tile.
+                var place = session.CurrentPlace;
+                int x = session.Player.GetX();
+                int y = session.Player.GetY();
+                
+                var terrain = place.GetTerrain(x, y);
+                Log($"You are standing on {terrain?.Name ?? "ground"}.");
+                ClearPrompt();
+                return;
+            }
+            
+            // Look in a direction.
+            int dx = Common.DirectionToDx(dir.Value);
+            int dy = Common.DirectionToDy(dir.Value);
+            
+            var lookPlace = session.CurrentPlace;
+            int targetX = lookPlace.WrapX(session.Player.GetX() + dx);
+            int targetY = lookPlace.WrapY(session.Player.GetY() + dy);
+            
+            var being = lookPlace.GetBeingAt(targetX, targetY);
+            if (being != null)
+            {
+                Log($"You see {being.GetName()}.");
+            }
+            else
+            {
+                var terrain = lookPlace.GetTerrain(targetX, targetY);
+                Log($"You see {terrain?.Name ?? "nothing"}.");
+            }
+            
+            ClearPrompt();
+        });
+    }
+    
+    // ===================================================================
+    // KLIMB COMMAND
+    // ===================================================================
+    
+    /// <summary>
+    /// Klimb Command - climb ladders, ropes, etc. or set up camp.
+    /// </summary>
+    public void Klimb()
+    {
+        ShowPrompt("Klimb-");
+        
+        // TODO: Check for climbable objects at player location
+        // TODO: Implement camping
+        
+        Log("Nothing to climb here.");
+        ClearPrompt();
+    }
+    
+    // ===================================================================
+    // ENTER COMMAND
+    // ===================================================================
+    
+    /// <summary>
+    /// Enter Command - enter a portal, building, etc.
+    /// </summary>
+    public void Enter()
+    {
+        if (session.Player == null || session.CurrentPlace == null)
+        {
+            return;
+        }
+        
+        ShowPrompt("Enter-");
+        
+        int x = session.Player.GetX();
+        int y = session.Player.GetY();
+        
+        // Check for portal at current location.
+        var portal = session.CurrentPlace.GetObjectAt(x, y, ObjectLayer.Portal);
+        
+        if (portal != null)
+        {
+            Log($"Entering {portal.Name}...");
+            // TODO: Execute portal transition.
+            ClearPrompt();
+            return;
+        }
+        
+        // Check for subplace.
+        var subplace = session.CurrentPlace.GetSubplace(x, y);
+        if (subplace != null)
+        {
+            Log($"Entering {subplace.Name}...");
+            //session.EnterPlace(subplace);
+            // TODO: Execute subplace transition.
+            ClearPrompt();
+            return;
+        }
+        
+        Log("Nothing to enter here.");
+        ClearPrompt();
+    }
+    
+    // ===================================================================
+    // ZOOM COMMANDS
+    // ===================================================================
+    
+    /// <summary>
+    /// Zoom In Command - enter detailed/combat view.
+    /// </summary>
+    public void ZoomIn()
+    {
+        ShowPrompt("Zoom in-");
+        
+        // TODO: Implement zoom/combat entry
+        Log("Zoom in not yet implemented.");
+        ClearPrompt();
+    }
+    
+    /// <summary>
+    /// Zoom Out Command - exit combat view.
+    /// </summary>
+    public void ZoomOut()
+    {
+        ShowPrompt("Zoom out-");
+        
+        // TODO: Implement zoom/combat exit
+        Log("Zoom out not yet implemented.");
+        ClearPrompt();
+    }
+    
+    // ===================================================================
+    // ZTATS COMMAND
+    // ===================================================================
+    
+    /// <summary>
+    /// Ztats Command - show character statistics.
+    /// </summary>
+    public void Ztats()
+    {
+        if (session.Status == null)
+        {
+            Log("Stats not available.");
+            return;
+        }
+        
+        ShowPrompt("Ztats-");
+        session.Status.SetMode(StatusMode.Ztats);
+        session.Status.SelectedCharacterIndex = 0;
+        
+        Log("Viewing stats. Press Escape to return.");
+    }
+    
+    // ===================================================================
+    // SOLO MODE COMMANDS
+    // ===================================================================
+    
+    /// <summary>
+    /// Enter solo mode with a specific party member.
+    /// </summary>
+    public void EnterSoloMode(int memberIndex)
+    {
+        if (session.Party == null)
+            return;
+        
+        var member = session.Party.GetMemberAtIndex(memberIndex);
+        if (member == null || member.IsIncapacitated())
+        {
+            Log($"Party member {memberIndex + 1} not available.");
+            return;
+        }
+        
+        // TODO: Implement solo mode
+        Log($"{member.GetName()} goes solo.");
+    }
+    
+    /// <summary>
+    /// Exit solo mode and return to party control.
+    /// </summary>
+    public void ExitSoloMode()
+    {
+        // TODO: Implement exit solo mode
+        Log("Returning to party control.");
     }
 }

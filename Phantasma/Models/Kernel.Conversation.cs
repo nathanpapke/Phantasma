@@ -1,70 +1,76 @@
 using System;
+using System.Text;
 using IronScheme;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
+
+/*
+ *  These functions run on a background thread and BLOCK waiting for input.
+ *  This is safe because the UI thread remains responsive.
+ *  
+ *  To convert to async in a future project, simply:
+ *  1. Change methods to async
+ *  2. Change .Result to await
+ *  
+ *  Example:
+ *    Current:  var answer = ConversationAsync.RequestYesNoAsync().Result;
+ *    Future:   var answer = await ConversationAsync.RequestYesNoAsync();
+ */
 
 public partial class Kernel
 {
     // ===================================================================
-    // KERN-CONV API IMPLEMENTATIONS
-    // Conversation functions for keyword-based dialog.
+    // KERN-CONV-SAY - NPC speaks dialog
     // ===================================================================
     
     /// <summary>
-    /// (kern-conv-say speaker text)
-    /// NPC speaks a line of dialog to the player.
+    /// (kern-conv-say speaker text ...)
+    /// NPC speaks a line of dialog.
+    /// Thread-safe: marshals to UI thread.
     /// </summary>
     public static object ConversationSay(object[] args)
     {
-        Console.WriteLine($"[kern-conv-say] Called with {args.Length} args");
-        
         if (args.Length < 1)
         {
             Console.WriteLine("[kern-conv-say] No arguments!");
             return "nil".Eval();
         }
         
-        // First arg is speaker.
-        var speaker = args[0];
-        string speakerName = "???";
+        // First arg is speaker
+        string speakerName = GetSpeakerName(args[0]);
         
-        if (speaker is Character ch)
-            speakerName = ch.GetName();
-        else if (speaker is Being b)
-            speakerName = b.GetName();
-        else if (speaker != null)
-            speakerName = speaker.ToString() ?? "???";
-        
-        // Remaining args are text items to concatenate.
-        var sb = new System.Text.StringBuilder();
-        sb.Append(speakerName);
-        sb.Append(": ");
-        
+        // Remaining args are text to concatenate
+        var sb = new StringBuilder();
         for (int i = 1; i < args.Length; i++)
         {
             AppendSchemeValue(sb, args[i]);
         }
         
-        string message = sb.ToString();
-        Console.WriteLine($"[kern-conv-say] Message: {message}");
+        string message = $"{speakerName}: {sb}";
+        Console.WriteLine($"[kern-conv-say] {message}");
         
-        var session = Phantasma.MainSession;
-        session?.LogMessage(message);
+        // Thread-safe logging
+        ConversationAsync.LogToGame(message);
         
         return "nil".Eval();
     }
+    
+    private static string GetSpeakerName(object speaker)
+    {
+        if (speaker is Character ch)
+            return ch.GetName();
+        if (speaker is Being b)
+            return b.GetName();
+        return speaker?.ToString() ?? "???";
+    }
 
-    /// <summary>
-    /// Recursively append a Scheme value to a StringBuilder.
-    /// Handles Cons lists, strings, numbers, etc.
-    /// </summary>
-    private static void AppendSchemeValue(System.Text.StringBuilder sb, object value)
+    private static void AppendSchemeValue(StringBuilder sb, object value)
     {
         if (value == null)
             return;
         
-        // Handle Cons (Scheme list) - iterate through elements
         if (value is Cons cons)
         {
             while (cons != null)
@@ -83,55 +89,77 @@ public partial class Kernel
         }
         else
         {
-            // For other types, try ToString but log it.
             string str = value.ToString() ?? "";
             if (!string.IsNullOrEmpty(str) && !str.Contains("IronScheme"))
             {
                 sb.Append(str);
             }
-            else
-            {
-                Console.WriteLine($"[kern-conv-say] Skipping unknown type: {value.GetType().Name}");
-            }
         }
     }
+    
+    // ===================================================================
+    // KERN-CONV-GET-REPLY - Keyword input (BLOCKS)
+    // ===================================================================
     
     /// <summary>
     /// (kern-conv-get-reply pc)
     /// Get a keyword reply from the player.
-    /// Returns a symbol representing the keyword (truncated to 4 chars).
+    /// BLOCKS the background thread until input is received.
+    /// Returns a symbol (truncated to 4 chars).
     /// </summary>
     public static object ConversationGetReply(object pc)
     {
-        // TODO: Implement proper UI input.
-        // For now, just return 'bye to end conversation.
-        Console.WriteLine("[Conversation] Getting player reply (returning 'bye for now)");
-        return "bye".Eval();
+        Console.WriteLine("[kern-conv-get-reply] Blocking for input...");
+        
+        string reply = ConversationAsync.RequestReplyAsync().Result;
+        
+        Console.WriteLine($"[kern-conv-get-reply] Got: '{reply}'");
+        return SymbolTable.StringToObject(reply);
     }
+    
+    // ===================================================================
+    // KERN-CONV-GET-YES-NO? - Yes/No prompt (BLOCKS)
+    // ===================================================================
     
     /// <summary>
     /// (kern-conv-get-yes-no? pc)
     /// Prompt player for yes/no response.
+    /// BLOCKS the background thread until input is received.
     /// Returns #t for yes, #f for no.
     /// </summary>
     public static object ConversationGetYesNo(object pc)
     {
-        // TODO: Implement UI prompt.
-        Console.WriteLine("[Conversation] Yes/No prompt (returning #f for now)");
-        return "#f".Eval();
+        Console.WriteLine("[kern-conv-get-yes-no?] Blocking for input...");
+        
+        // BLOCKING call - safe because we're on background thread
+        bool answer = ConversationAsync.RequestYesNoAsync().Result;
+        
+        Console.WriteLine($"[kern-conv-get-yes-no?] Got: {answer}");
+        return answer ? "#t".Eval() : "#f".Eval();
     }
+    
+    // ===================================================================
+    // KERN-CONV-GET-AMOUNT - Numeric input (BLOCKS)
+    // ===================================================================
     
     /// <summary>
     /// (kern-conv-get-amount pc)
     /// Prompt player for a numeric amount.
-    /// Returns the number entered.
+    /// BLOCKS the background thread until input is received.
     /// </summary>
     public static object ConversationGetAmount(object pc)
     {
-        // TODO: Implement UI prompt.
-        Console.WriteLine("[Conversation] Amount prompt (returning 0 for now)");
-        return 0;
+        Console.WriteLine("[kern-conv-get-amount] Blocking for input...");
+        
+        int amount = ConversationAsync.RequestAmountAsync().Result;
+        
+        Console.WriteLine($"[kern-conv-get-amount] Got: {amount}");
+        return amount;
     }
+    
+    // ===================================================================
+    // KERN-CONV-TRADE - Trading interface
+    // ===================================================================
     
     /// <summary>
     /// (kern-conv-trade npc pc trade-list)
@@ -139,10 +167,18 @@ public partial class Kernel
     /// </summary>
     public static object ConversationTrade(object npc, object pc, object tradeList)
     {
-        // TODO: Implement trading system.
-        Console.WriteLine("[Conversation] Trade interface (not yet implemented)");
+        Console.WriteLine("[kern-conv-trade] Trade requested");
+        
+        // TODO: Implement trade UI
+        // For now, just show a message
+        ConversationAsync.LogToGame("(Trading not yet implemented)");
+        
         return "nil".Eval();
     }
+    
+    // ===================================================================
+    // KERN-CONV-END - End conversation
+    // ===================================================================
     
     /// <summary>
     /// (kern-conv-end)
@@ -150,7 +186,7 @@ public partial class Kernel
     /// </summary>
     public static object ConversationEnd()
     {
-        Console.WriteLine("[Conversation] Ending conversation.");
+        Console.WriteLine("[kern-conv-end] Ending conversation");
         Conversation.End();
         return "nil".Eval();
     }

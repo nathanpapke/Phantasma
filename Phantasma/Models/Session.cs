@@ -699,14 +699,6 @@ public class Session
             // Check if we're moving off the map.
             if (currentPlace.IsOffMap(targetX, targetY))
             {
-                // DEBUG: Add this to trace the issue
-                Console.WriteLine($"[DEBUG] IsOffMap=true for ({targetX}, {targetY})");
-                Console.WriteLine($"[DEBUG] currentPlace.Name = {currentPlace?.Name ?? "null"}");
-                Console.WriteLine($"[DEBUG] currentPlace.Wraps = {currentPlace?.Wraps}");
-                Console.WriteLine($"[DEBUG] currentPlace.Location = {currentPlace?.Location}");
-                Console.WriteLine($"[DEBUG] currentPlace.Location?.Place = {currentPlace?.Location?.Place}");
-                Console.WriteLine($"[DEBUG] currentPlace.Location?.Place?.Name = {currentPlace?.Location?.Place?.Name ?? "null"}");
-
                 // Handle wrapping maps.
                 if (currentPlace.Wraps)
                 {
@@ -866,7 +858,7 @@ public class Session
         if (currentPlace == null)
             return;
         
-        // Get all Characters (not just Beings) since only Characters have turns.
+        // Get all Characters in the place (not just those with custom AI).
         var characters = currentPlace.GetAllBeings()
             .OfType<Character>()
             .Where(c => c != playerCharacter && !c.IsDead)
@@ -876,33 +868,36 @@ public class Session
         {
             if (npc.IsDead)
                 continue;
+        
+            // Skip incapacitated NPCs.
+            if (npc.IsIncapacitated())
+                continue;
             
             npc.StartTurn();
-            
-            // Run AI if this character has one.
-            if (npc.HasAI)  // Or: npc.AIBehavior != null
+        
+            // Execute AI until turn is ended or action points are exhausted.
+            int maxIterations = 20;  // Safety limit
+            int iterations = 0;
+        
+            while (!npc.IsTurnEnded() && npc.ActionPoints > 0 && iterations < maxIterations)
             {
-                int lastPoints = 0;
-                while (!npc.IsTurnEnded() && npc.ActionPoints != lastPoints)
-                {
-                    lastPoints = npc.ActionPoints;
-                    try
-                    {
-                        // Execute AI behavior closure.
-                        if (npc.AIBehavior is IronScheme.Runtime.Callable callable)
-                        {
-                            callable.Call(npc);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Session] NPC AI error for {npc.GetName()}: {ex.Message}");
-                        break;
-                    }
-                }
+                int pointsBefore = npc.ActionPoints;
+            
+                // Execute the AI controller.
+                Behavior.Execute(npc);
+            
+                iterations++;
+            
+                // If no action points were consumed, break to avoid infinite loop.
+                if (npc.ActionPoints == pointsBefore)
+                    break;
             }
             
-            npc.EndTurn();
+            // Ensure turn is ended.
+            if (!npc.IsTurnEnded())
+            {
+                npc.EndTurn();
+            }
         }
     }
     

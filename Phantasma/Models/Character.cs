@@ -874,6 +874,22 @@ public class Character : Being
     
         return armor;
     }
+    
+    /// <summary>
+    /// Get all readied weapons for iteration.
+    /// Used by NPC AI to try each weapon against a target.
+    /// </summary>
+    public IEnumerable<ArmsType> GetReadiedWeapons()
+    {
+        if (readiedArms == null)
+            yield break;
+        
+        foreach (var arms in readiedArms)
+        {
+            if (arms != null)
+                yield return arms;
+        }
+    }
     /*
     /// <summary>
     /// Iterate through equipped weapons.
@@ -885,7 +901,7 @@ public class Character : Being
             return null;
         return readiedArms[0];
     }
-    
+    /*
     /// <summary>
     /// Get next equipped weapon in iteration.
     /// </summary>
@@ -1213,6 +1229,40 @@ public class Character : Being
             return false;
         
         return Position.Place.IsPassable(x, y, this, checkBeings: true, isMovementAttempt: true);
+    }
+    
+    /// <summary>
+    /// Check if this character can see another object.
+    /// Considers distance, visibility, and line of sight.
+    /// </summary>
+    public bool CanSee(Object obj)
+    {
+        if (obj == null)
+            return false;
+        
+        // Must be in same place.
+        if (obj.GetPlace() != GetPlace())
+            return false;
+        
+        // Check distance vs vision radius.
+        var place = GetPlace();
+        if (place == null)
+            return false;
+        
+        int distance = place.GetFlyingDistance(
+            GetX(), GetY(),
+            obj.GetX(), obj.GetY());
+        
+        if (distance > VisionRadius)
+            return false;
+        
+        // Check if target is visible.
+        if (!obj.IsVisible())
+            return false;
+        
+        // TODO: Add line-of-sight check if needed
+        
+        return true;
     }
     
     /// <summary>

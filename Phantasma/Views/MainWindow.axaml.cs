@@ -148,13 +148,17 @@ public partial class MainWindow : Window
         if (gameSession == null)
             return;
         
-        // Global keys that work even during text input.
+        // ===================================================================
+        // GLOBAL KEYS - Work even during text input/targeting.
+        // ===================================================================
         switch (e.Key)
         {
             case Key.F5:
                 gameSession.Save("quicksave.scm");
+                gameSession.LogMessage("Quick saved.");
                 e.Handled = true;
                 return;
+                
             case Key.F9:
                 var quickSavePath = System.IO.Path.Combine(
                     Phantasma.Configuration["saved-games-dirname"],
@@ -163,66 +167,44 @@ public partial class MainWindow : Window
                 if (System.IO.File.Exists(quickSavePath))
                 {
                     gameSession.Load("quicksave.scm");
+                    gameSession.LogMessage("Quick save loaded.");
+                }
+                else
+                {
+                    gameSession.LogMessage("No quick save found.");
                 }
                 e.Handled = true;
                 return;
         }
-    
-        // *** CHECK FOR ACTIVE KEY HANDLER FIRST! ***
-        // If there's a handler (text input, targeting, etc.), route keys there
+        
+        // ===================================================================
+        // CHECK FOR ACTIVE KEY HANDLER (text input, targeting, yes/no, etc.)
+        // ===================================================================
         var handler = gameSession.CurrentKeyHandler;
         if (handler != null)
         {
-            // Route to the handler
             bool done = handler.HandleKey(e.Key, e.KeySymbol);
-        
+            
             if (done)
             {
                 gameSession.PopKeyHandler();
             }
-        
+            
             e.Handled = true;
-            return;  // <-- IMPORTANT: Don't fall through to command processing!
-        }
-    
-        // No active handler - NOW process normal game commands
-        switch (e.Key)
-        {
-            // ===== MAGIC COMMANDS =====
-            case Key.C:
-                // Cast spell
-                command.CastSpell();
-                break;
-            
-            case Key.M:
-                // Mix reagents
-                command.MixReagents();
-                break;
-            
-            case Key.Y:
-                // Yuse (special abilities) - not yet implemented
-                command.Yuse();
-                break;
-            
-            // ===== COMBAT COMMANDS =====
-            case Key.A:
-                // Attack
-                command.Attack();
-                break;
-            
-            case Key.F:
-                // Fire (vehicle weapons) - not yet implemented
-                command.Fire();
-                break;
+            return;  // Don't fall through to command processing
         }
         
-        // No active handler - process normal game input.
+        // ===================================================================
+        // NO ACTIVE HANDLER - Process normal game commands
+        // ===================================================================
         if (gameSession.Player == null)
             return;
         
         switch (e.Key)
         {
-            // Movement Keys
+            // =============================================================
+            // MOVEMENT KEYS
+            // =============================================================
             case Key.Up:
             case Key.NumPad8:
                 gameSession.HandlePlayerMove(0, -1);
@@ -252,28 +234,170 @@ public partial class MainWindow : Window
                 gameSession.HandlePlayerMove(1, 1);
                 break;
             case Key.NumPad5:
+            case Key.Space:
+                // Pass turn / wait
                 gameSession.HandlePlayerMove(0, 0);
                 break;
             
-            // Command Keys
-            case Key.G:
-                command.Get(scoopAll: true);
+            // =============================================================
+            // COMBAT COMMANDS
+            // =============================================================
+            case Key.A:
+                // Attack
+                command.Attack();
                 break;
-            case Key.O:
-                command.Open();
-                break;
-            case Key.I:
-                command.Inventory();
-                break;
-            case Key.T:
-                command.Talk();
+            case Key.F:
+                // Fire (vehicle weapons)
+                command.Fire();
                 break;
             
+            // =============================================================
+            // MAGIC COMMANDS
+            // =============================================================
+            case Key.C:
+                // Cast spell
+                command.CastSpell();
+                break;
+            case Key.M:
+                // Mix reagents
+                command.MixReagents();
+                break;
+            case Key.Y:
+                // Yuse (special abilities)
+                command.Yuse();
+                break;
+            
+            // =============================================================
+            // INVENTORY/EQUIPMENT COMMANDS
+            // =============================================================
+            case Key.G:
+                // Get/pickup items
+                command.Get(scoopAll: true);
+                break;
+            case Key.I:
+                // Show inventory
+                command.Inventory();
+                break;
+            case Key.R:
+                // Ready (equip) items
+                command.Ready();
+                break;
+            case Key.U:
+                // Use item
+                command.Use();
+                break;
+            case Key.D:
+                // Drop item (or Descend/Dismount)
+                command.Drop();
+                break;
+            
+            // =============================================================
+            // INTERACTION COMMANDS
+            // =============================================================
+            case Key.T:
+                // Talk to NPC
+                command.Talk();
+                break;
+            case Key.O:
+                // Open (door, chest, etc.)
+                command.Open();
+                break;
+            case Key.H:
+                // Handle (mechanism)
+                command.Handle();
+                break;
+            case Key.S:
+                // Search
+                command.Search();
+                break;
+            case Key.X:
+                // Examine
+                command.Examine();
+                break;
+            case Key.L:
+                // Look
+                command.Look();
+                break;
+            
+            // =============================================================
+            // NAVIGATION COMMANDS
+            // =============================================================
+            case Key.K:
+                // Klimb (ladders, etc.) or Camp
+                command.Klimb();
+                break;
+            case Key.E:
+                // Enter (portal, building)
+                command.Enter();
+                break;
+            case Key.B:
+                // Board vehicle
+                command.Board();
+                break;
+            case Key.OemPeriod:  // '>'
+                // Zoom in / enter combat
+                command.ZoomIn();
+                break;
+            case Key.OemComma:  // '<'
+                // Zoom out / exit combat
+                command.ZoomOut();
+                break;
+            
+            // =============================================================
+            // PARTY MANAGEMENT
+            // =============================================================
+            case Key.N:
+                // New order (party formation)
+                command.NewOrder();
+                break;
+            case Key.Z:
+                // Ztats (character statistics)
+                command.Ztats();
+                break;
+            
+            // =============================================================
+            // GAME COMMANDS
+            // =============================================================
+            case Key.Q:
+                // Quit
+                command.Quit();
+                break;
+            case Key.OemQuestion:  // '?'
+                // Help
+                command.Help();
+                break;
+            
+            // =============================================================
+            // SPECIAL/DEBUG
+            // =============================================================
             case Key.Escape:
-                this.Close();
+                // Cancel current action or exit modal
+                if (gameSession.Status != null && gameSession.Status.Mode != StatusMode.ShowParty)
+                {
+                    gameSession.Status.SetMode(StatusMode.ShowParty);
+                    gameSession.LogMessage("");
+                }
+                break;
+            
+            // Solo mode keys (1-9 to control individual party members)
+            case Key.D1:
+            case Key.D2:
+            case Key.D3:
+            case Key.D4:
+            case Key.D5:
+            case Key.D6:
+            case Key.D7:
+            case Key.D8:
+            case Key.D9:
+                int memberIndex = e.Key - Key.D1;
+                command.EnterSoloMode(memberIndex);
+                break;
+            case Key.D0:
+                // Exit solo mode
+                command.ExitSoloMode();
                 break;
         }
-
+        
         e.Handled = true;
     }
         

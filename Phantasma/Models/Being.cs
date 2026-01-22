@@ -30,6 +30,8 @@ public abstract class Being : Object
     public int MaxActionPoints { get; set; }
     
     // Effects
+    private bool isFleeing = false;
+    private int fleeX, fleeY;
     private bool isDead = false;
     public bool IsDead 
     { 
@@ -240,6 +242,24 @@ public abstract class Being : Object
             visible++;
         else
             visible--;
+    }
+    
+    /// <summary>
+    /// Whether this character is fleeing.
+    /// </summary>
+    public bool IsFleeing
+    {
+        get => isFleeing;
+        set => isFleeing = value;
+    }
+    
+    /// <summary>
+    /// Set the flee direction (away from danger).
+    /// </summary>
+    public void SetFleeVector(int x, int y)
+    {
+        fleeX = x;
+        fleeY = y;
     }
 
     /// <summary>

@@ -14,53 +14,49 @@ namespace Phantasma.Models;
 public class YesNoKeyHandler : IKeyHandler
 {
     private readonly Action<bool> onComplete;
+    private readonly Session session;
     
     /// <summary>
-    /// Create a yes/no key handler.
+    /// Result of the prompt: true = yes, false = no, null = cancelled.
     /// </summary>
-    /// <param name="onComplete">
-    /// Called when user responds.
-    /// Receives true for Yes, false for No/Cancel.
-    /// </param>
-    public YesNoKeyHandler(Action<bool> onComplete)
+    public bool? Result { get; private set; }
+    
+    /// <summary>
+    /// Create a yes/no handler.
+    /// </summary>
+    /// <param name="session">Game session for UI updates</param>
+    /// <param name="onComplete">Called when user responds (true=yes, false=no, null=cancel)</param>
+    public YesNoKeyHandler(Session session, Action<bool> onComplete)
     {
-        this.onComplete = onComplete ?? throw new ArgumentNullException(nameof(onComplete));
+        this.session = session;
+        this.onComplete = onComplete;
     }
     
-    /// <summary>
-    /// Handle a key press.
-    /// </summary>
-    /// <param name="key">The key that was pressed</param>
-    /// <param name="keySymbol">The character representation</param>
-    /// <returns>True if handler is done and should be popped, false to continue waiting</returns>
     public bool HandleKey(Key key, string? keySymbol)
     {
-        // Check the key symbol for y/n.
-        if (!string.IsNullOrEmpty(keySymbol))
+        switch (key)
         {
-            char c = char.ToLower(keySymbol[0]);
-            
-            if (c == 'y')
-            {
-                onComplete(true);
-                return true;  // Done - yes
-            }
-            
-            if (c == 'n')
-            {
-                onComplete(false);
-                return true;  // Done - no
-            }
+            case Key.Y:
+                Result = true;
+                session.UpdateCommandInput("Yes");
+                onComplete?.Invoke(true);
+                return true;  // Done
+                
+            case Key.N:
+                Result = false;
+                session.UpdateCommandInput("No");
+                onComplete?.Invoke(false);
+                return true;  // Done
+                
+            case Key.Escape:
+                Result = null;
+                session.UpdateCommandInput("(cancelled)");
+                //onComplete?.Invoke(null);
+                return true;  // Done
+                
+            default:
+                // Ignore other keys.
+                return false;
         }
-        
-        // Check for escape (same as no).
-        if (key == Key.Escape)
-        {
-            onComplete(false);
-            return true;  // Done - cancelled (same as no)
-        }
-        
-        // Invalid key - keep waiting
-        return false;
     }
 }
