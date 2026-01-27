@@ -46,4 +46,32 @@ public class Mechanism : Object, IBlockingObject
             Console.WriteLine($"Handle error on {Name}: {ex.Message}");
         }
     }
+    
+    /// <summary>
+    /// Synchronize mechanism state with game time.
+    /// Sends 'sync signal to the interaction handler if one exists.
+    /// </summary>
+    public override void Synchronize()
+    {
+        base.Synchronize();
+    
+        // Send 'sync signal to allow Scheme handler to update state if needed.
+        // This is similar to 'init but specifically for time-based sync.
+        var gifc = Type?.InteractionHandler;
+        if (gifc == null) 
+            return;
+    
+        try
+        {
+            if (gifc is Callable callable)
+            {
+                var syncSymbol = SymbolTable.StringToObject("sync");
+                callable.Call(syncSymbol, this);
+            }
+        }
+        catch
+        {
+            // 'sync handler may not exist for this mechanism - that's fine.
+        }
+    }
 }

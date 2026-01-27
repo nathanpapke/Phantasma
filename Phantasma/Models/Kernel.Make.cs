@@ -879,6 +879,42 @@ public partial class Kernel
             }
         }
         
+        // Debug schedule.
+        if (schedArg != null && !IsNil(schedArg))
+        {
+            Console.WriteLine($"[kern-mk-char] {tagStr}: Processing schedule argument");
+            Console.WriteLine($"[kern-mk-char]   schedArg type: {schedArg?.GetType().Name}");
+            Console.WriteLine($"[kern-mk-char]   schedArg value: {schedArg}");
+            
+            if (schedArg is Schedule sched)
+            {
+                character.Schedule = sched;
+                Console.WriteLine($"[kern-mk-char]   Assigned schedule directly: {sched.Tag}");
+            }
+            else
+            {
+                string schedTag = ToTag(schedArg);
+                Console.WriteLine($"[kern-mk-char]   Looking up schedule tag: {schedTag}");
+                
+                var resolved = Phantasma.GetRegisteredObject(schedTag);
+                Console.WriteLine($"[kern-mk-char]   Resolved to: {resolved?.GetType().Name ?? "NULL"}");
+        
+                if (resolved is Schedule resolvedSched)
+                {
+                    character.Schedule = resolvedSched;
+                    Console.WriteLine($"[kern-mk-char]   Assigned resolved schedule: {resolvedSched.Tag}");
+                }
+                else
+                {
+                    Console.WriteLine($"[kern-mk-char]   WARNING: Could not resolve schedule!");
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine($"[kern-mk-char] {tagStr}: No schedule argument provided");
+        }
+        
         // Set inventory.
         if (inventoryArg != null && !IsNil(inventoryArg))
         {
@@ -2157,7 +2193,7 @@ public partial class Kernel
     /// <param name="appointments">Variable number of appointment definitions, each being</param>
     public static object MakeSchedule(object tag, params object[] appointments)
     {
-        string tagStr = ToCleanString(tag) ?? "";
+        string tagStr = ToCleanString(tag) ?? $"sched_{Guid.NewGuid():N}";
         
         if (string.IsNullOrEmpty(tagStr))
         {
@@ -2171,88 +2207,85 @@ public partial class Kernel
         {
             if (apptObj == null) continue;
             
-            try
+            // Each appointment is in (hour minute (list x y w h) activity) format.
+            var hourObj = Builtins.Car(apptObj);
+            var rest1 = Builtins.Cdr(apptObj);
+            var minObj = Builtins.Car(rest1);
+            var rest2 = Builtins.Cdr(rest1);
+            var zoneOrRectObj = Builtins.Car(rest2);
+            var rest3 = Builtins.Cdr(rest2);
+            var activityObj = Builtins.Car(rest3);
+            
+            int hour = ToInt(hourObj, 0);
+            int minute = ToInt(minObj, 0);
+            
+            // Parse zone/rect.
+            int x = 0, y = 0, w = 1, h = 1;
+            if (zoneOrRectObj != null)
             {
-                // Each appointment is (hour minute zone-or-rect activity)
-                var hourObj = Builtins.Car(apptObj);
-                var rest1 = Builtins.Cdr(apptObj);
-                var minObj = Builtins.Car(rest1);
-                var rest2 = Builtins.Cdr(rest1);
-                var zoneOrRectObj = Builtins.Car(rest2);
-                var rest3 = Builtins.Cdr(rest2);
-                var activityObj = Builtins.Car(rest3);
-                
-                int hour = ToInt(hourObj, 0);
-                int minute = ToInt(minObj, 0);
-                
-                // Parse zone/rect - either (x y w h) list or zone symbol
-                int x = 0, y = 0, w = 1, h = 1;
-                if (zoneOrRectObj != null)
+                if (IsSymbol(zoneOrRectObj))
                 {
-                    if (IsSymbol(zoneOrRectObj))
+                    // Zone symbol lookup.
+                    var zone = Phantasma.GetRegisteredObject(zoneOrRectObj.ToString() ?? "");
+                    if (zone != null)
                     {
-                        // Zone symbol lookup
-                        var zone = Phantasma.GetRegisteredObject(zoneOrRectObj.ToString() ?? "");
-                        if (zone != null)
-                        {
-                            var zoneType = zone.GetType();
-                            var xProp = zoneType.GetProperty("X") ?? zoneType.GetProperty("x");
-                            var yProp = zoneType.GetProperty("Y") ?? zoneType.GetProperty("y");
-                            var wProp = zoneType.GetProperty("W") ?? zoneType.GetProperty("Width") ?? zoneType.GetProperty("w");
-                            var hProp = zoneType.GetProperty("H") ?? zoneType.GetProperty("Height") ?? zoneType.GetProperty("h");
-                            
-                            if (xProp != null) x = Convert.ToInt32(xProp.GetValue(zone) ?? 0);
-                            if (yProp != null) y = Convert.ToInt32(yProp.GetValue(zone) ?? 0);
-                            if (wProp != null) w = Convert.ToInt32(wProp.GetValue(zone) ?? 1);
-                            if (hProp != null) h = Convert.ToInt32(hProp.GetValue(zone) ?? 1);
-                        }
-                    }
-                    else
-                    {
-                        // Parse as (x y w h) list
-                        try
-                        {
-                            x = ToInt(Builtins.Car(zoneOrRectObj), 0);
-                            var r1 = Builtins.Cdr(zoneOrRectObj);
-                            y = ToInt(Builtins.Car(r1), 0);
-                            var r2 = Builtins.Cdr(r1);
-                            w = ToInt(Builtins.Car(r2), 1);
-                            var r3 = Builtins.Cdr(r2);
-                            h = ToInt(Builtins.Car(r3), 1);
-                        }
-                        catch { /* Use defaults */ }
+                        var zoneType = zone.GetType();
+                        var xProp = zoneType.GetProperty("X") ?? zoneType.GetProperty("x");
+                        var yProp = zoneType.GetProperty("Y") ?? zoneType.GetProperty("y");
+                        var wProp = zoneType.GetProperty("W") ?? zoneType.GetProperty("Width") ?? zoneType.GetProperty("w");
+                        var hProp = zoneType.GetProperty("H") ?? zoneType.GetProperty("Height") ?? zoneType.GetProperty("h");
+                        
+                        if (xProp != null) x = Convert.ToInt32(xProp.GetValue(zone) ?? 0);
+                        if (yProp != null) y = Convert.ToInt32(yProp.GetValue(zone) ?? 0);
+                        if (wProp != null) w = Convert.ToInt32(wProp.GetValue(zone) ?? 1);
+                        if (hProp != null) h = Convert.ToInt32(hProp.GetValue(zone) ?? 1);
                     }
                 }
-                
-                // Parse activity - handle both strings and symbols
-                string actStr = (ToCleanString(activityObj) ?? "idle").ToLower();
-                Activity activity = actStr switch
+                else
                 {
-                    "idle" => Activity.Idle,
-                    "working" => Activity.Working,
-                    "sleeping" => Activity.Sleeping,
-                    "commuting" => Activity.Commuting,
-                    "eating" => Activity.Eating,
-                    "drunk" => Activity.Drunk,
-                    "wandering" => Activity.Wandering,
-                    _ => Activity.Idle
-                };
-                
-                schedule.AddAppointment(hour, minute, x, y, w, h, activity);
+                    // Parse as list, then collect all values, then take last 4 values.
+                    // Handles both (x y w h) and (list x y w h) variations.
+                    var values = new List<int>();
+                    object current = zoneOrRectObj;
+                    
+                    while (current is Cons cons)
+                    {
+                        values.Add(ToInt(cons.car, 0));
+                        current = cons.cdr;
+                    }
+                    
+                    // Take the last 4 values (skips 'list' symbol if present).
+                    int count = values.Count;
+                    if (count >= 4)
+                    {
+                        x = values[count - 4];
+                        y = values[count - 3];
+                        w = values[count - 2];
+                        h = values[count - 1];
+                    }
+                }
             }
-            catch (Exception ex)
+            
+            // Parse activity.
+            string actStr = (ToCleanString(activityObj) ?? "idle").ToLower();
+            Activity activity = actStr switch
             {
-                Console.WriteLine($"[WARNING] Error parsing appointment for {tagStr}: {ex.Message}");
-            }
+                "idle" => Activity.Idle,
+                "working" => Activity.Working,
+                "sleeping" => Activity.Sleeping,
+                "commuting" => Activity.Commuting,
+                "eating" => Activity.Eating,
+                "drunk" => Activity.Drunk,
+                "wandering" => Activity.Wandering,
+                _ => Activity.Idle
+            };
+            
+            schedule.AddAppointment(hour, minute, x, y, w, h, activity);
         }
         
         Phantasma.RegisterObject(tagStr, schedule);
         
-        try
-        {
-            $"(define {tagStr} \"{tagStr}\")".Eval();
-        }
-        catch { }
+        $"(define {tagStr} \"{tagStr}\")".Eval();
         
         return schedule;
     }

@@ -464,9 +464,17 @@ public class Party : Object
     /// </summary>
     private void FollowSchedule()
     {
-        // TODO: Get current game time from clock system
-        int currentHour = 12;
-        int currentMinute = 0;
+        // Get current game time from clock system.
+        var clock = Phantasma.MainSession?.Clock;
+        if (clock == null)
+        {
+            if (IsWandering) Wander();
+            else ActionPoints = 0;
+            return;
+        }
+        
+        int currentHour = clock.Hour;
+        int currentMinute = clock.Min;
         
         var appointment = Schedule!.GetCurrentAppointment(currentHour, currentMinute);
         if (appointment == null)
@@ -587,6 +595,69 @@ public class Party : Object
             if (!Move(dx, dy))
             {
                 ActionPoints = 0;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Synchronize party and all members with game time.
+    /// If the party has a schedule, positions the party at the current
+    /// appointment location. Also synchronizes individual members.
+    /// </summary>
+    public override void Synchronize()
+    {
+        base.Synchronize();
+        
+        // Synchronize individual party members.
+        foreach (var member in members.ToList())
+        {
+            member.Synchronize();
+        }
+        
+        // If party itself has a schedule (for NPC groups), sync party position.
+        if (Schedule == null || Schedule.Appointments.Count == 0)
+            return;
+        
+        var clock = Phantasma.MainSession?.Clock;
+        if (clock == null)
+            return;
+        
+        int currentHour = clock.Hour;
+        int currentMinute = clock.Min;
+        
+        // Find current appointment.
+        CurrentAppointmentIndex = Schedule.GetCurrentAppointmentIndex(currentHour, currentMinute);
+        
+        if (CurrentAppointmentIndex < 0)
+            return;
+        
+        var appointment = Schedule.Appointments[CurrentAppointmentIndex];
+        CurrentActivity = appointment.Activity;
+        
+        // Position party leader at appointment location.
+        var leader = GetLeader();
+        var place = Position?.Place;
+        
+        if (leader != null && place != null)
+        {
+            int targetX = appointment.X;
+            int targetY = appointment.Y;
+            
+            if (!place.IsOffMap(targetX, targetY))
+            {
+                // Remove leader from old position.
+                place.RemoveObject(leader);
+                
+                // Update leader's position.
+                leader.SetPosition(place, targetX, targetY);
+                
+                // Add to new position.
+                place.AddObject(leader, targetX, targetY);
+                
+                // Update party position to match leader.
+                Position = leader.Position;
+                
+                Console.WriteLine($"[Synchronize] Party '{Tag}' moved to ({targetX}, {targetY}) for {appointment.Activity}");
             }
         }
     }

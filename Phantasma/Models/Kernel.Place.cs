@@ -288,8 +288,8 @@ public partial class Kernel
             return "nil".Eval();
         }
         
-        //place.Synchronize();
-        // TODO: Implement synchronization of characters' schedules.
+        place.Synchronize();
+        
         return "nil".Eval();
     }
     

@@ -1566,4 +1566,104 @@ public class Character : Being
     
         return enemy;
     }
+    
+    /// <summary>
+    /// Synchronize character position with their schedule.
+    /// Finds the current appointment based on game clock and teleports
+    /// the character to that location. Called when entering a place.
+    /// </summary>
+    public override void Synchronize()
+    {
+        base.Synchronize();
+        
+        // Only sync if we have a schedule with appointments.
+        if (Schedule == null || Schedule.Appointments.Count == 0)
+        {
+            return;
+        }
+        
+        // Get current game time from the session clock.
+        var clock = Phantasma.MainSession?.Clock;
+        if (clock == null)
+        {
+            return;
+        }
+        
+        int currentHour = clock.Hour;
+        int currentMinute = clock.Min;
+        
+        // List all appointments for debugging.
+        for (int i = 0; i < Schedule.Appointments.Count; i++)
+        {
+            var a = Schedule.Appointments[i];
+        }
+        
+        // Find the current appointment index.
+        int apptIndex = -1;
+        for (int i = 0; i < Schedule.Appointments.Count; i++)
+        {
+            var appt = Schedule.Appointments[i];
+            
+            if (appt.Hour > currentHour || 
+                (appt.Hour == currentHour && appt.Minute > currentMinute))
+            {
+                break;
+            }
+            
+            apptIndex = i;
+        }
+        
+        if (apptIndex < 0)
+        {
+            apptIndex = Schedule.Appointments.Count - 1;
+        }
+        
+        CurrentAppointmentIndex = apptIndex;
+        var appointment = Schedule.Appointments[apptIndex];
+        
+        var place = GetPlace();
+        if (place == null)
+        {
+            return;
+        }
+        
+        int targetX = -1;
+        int targetY = -1;
+        bool foundSpot = false;
+        
+        // Search the appointment rectangle for a passable tile.
+        for (int ty = appointment.Y; ty < appointment.Y + appointment.Height && !foundSpot; ty++)
+        {
+            for (int tx = appointment.X; tx < appointment.X + appointment.Width && !foundSpot; tx++)
+            {
+                // Check if passable.  Ignore beings and mechanisms during sync.
+                // (Doors might be closed; other NPCs might be synchronizing.)
+                if (place.IsPassable(tx, ty, this, checkBeings: false, checkMechanisms: false))
+                {
+                    targetX = tx;
+                    targetY = ty;
+                    foundSpot = true;
+                }
+            }
+        }
+        
+        if (!foundSpot)
+        {
+            // Fallback: try the upper-left corner anyway (original behavior).
+            targetX = appointment.X;
+            targetY = appointment.Y;
+        }
+        
+        // Remove from old position.
+        place.RemoveObject(this);
+        
+        // Update position.
+        SetPosition(place, targetX, targetY);
+        
+        // Add to new position.
+        place.AddObject(this, targetX, targetY);
+        
+        // Set the activity.
+        SetActivity(appointment.Activity);
+    }
 }

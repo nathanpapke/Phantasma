@@ -418,17 +418,68 @@ public class Place
 
     /// <summary>
     /// Called when a party/object enters this place.
+    /// Synchronizes all objects to the current game time and executes
+    /// the pre-entry hook if defined.
     /// </summary>
     public void Enter()
     {
+        Console.WriteLine($"[Place.Enter] ===== ENTERING PLACE: {Name} =====");
+        Console.WriteLine($"[Place.Enter] Object count: {Objects.Count}");
+        
+        // Synchronize all objects to current game time.
+        // This positions scheduled NPCs at their correct locations.
+        SynchronizeAllObjects();
+    
         // Execute pre-entry hook if defined and callable.
         if (PreEntryHook is Callable callable)
         {
+            Console.WriteLine($"[Place.Enter] Running pre-entry hook");
             callable.Call();
         }
-        
+    
         // Mark as dirty for rendering.
         Dirty = true;
+        Console.WriteLine($"[Place.Enter] ===== ENTER COMPLETE =====");
+    }
+
+    /// <summary>
+    /// Synchronize all objects in this place to the current game time.
+    /// Called when entering a place to ensure NPCs are at their schedule locations.
+    /// </summary>
+    public void SynchronizeAllObjects()
+    {
+        var clock = Phantasma.MainSession?.Clock;
+        Console.WriteLine($"[SynchronizeAllObjects] Current time: {clock?.Hour ?? -1}:{clock?.Min ?? -1:D2}");
+        Console.WriteLine($"[SynchronizeAllObjects] Synchronizing {Objects.Count} objects...");
+        
+        int syncCount = 0;
+        foreach (var obj in Objects.ToList())
+        {
+            // Check if this is a Character with a schedule.
+            if (obj is Character ch)
+            {
+                Console.WriteLine($"[SynchronizeAllObjects] Found Character: {ch.GetName()}");
+                Console.WriteLine($"[SynchronizeAllObjects]   Has Schedule: {ch.Schedule != null}");
+                if (ch.Schedule != null)
+                {
+                    Console.WriteLine($"[SynchronizeAllObjects]   Schedule Tag: {ch.Schedule.Tag}");
+                    Console.WriteLine($"[SynchronizeAllObjects]   Appointment Count: {ch.Schedule.Appointments.Count}");
+                }
+            }
+            
+            obj.Synchronize();
+            syncCount++;
+        }
+        
+        Console.WriteLine($"[SynchronizeAllObjects] Synchronized {syncCount} objects");
+    }
+
+    /// <summary>
+    /// Explicit synchronization call - can be invoked from Scheme via kern-place-synch.
+    /// </summary>
+    public void Synchronize()
+    {
+        SynchronizeAllObjects();
     }
 
     /// <summary>
@@ -802,7 +853,6 @@ public class Place
             // If terrain feature specifically BLOCKS, return false.
             if (tfeatPass == BLOCKS_PASSABILITY)
             {
-                Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): terrain feature blocks");
                 return false;
             }
         }
@@ -823,7 +873,6 @@ public class Place
                 
                 if (!ptable.IsPassable(movementMode, terrain.PassabilityClass))
                 {
-                    Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): terrain={terrain.Name}, pclass={terrain.PassabilityClass}, mmode={movementMode}");
                     return false;
                 }
             }
@@ -845,12 +894,10 @@ public class Place
         if (checkMechanisms)
         {
             var mechanism = GetObjectAt(x, y, ObjectLayer.Mechanism);
-            Console.WriteLine($"[DEBUG] Checking mechanism at ({x},{y}): {mechanism?.Name ?? "none"}, pclass={mechanism?.PassabilityClass ?? -1}");
             
             if (mechanism != null)
             {
                 int mechPclass = mechanism.PassabilityClass;
-                Console.WriteLine($"[DEBUG] Mechanism {mechanism.Name} has pclass={mechPclass}");
                 
                 // Does the object care about passability?
                 // PCLASS_NONE (0) means ignore passability.
@@ -868,22 +915,16 @@ public class Place
                         // =========================================================
                         // BUMP HANDLING: Try to open doors on movement attempt.
                         // =========================================================
-                        Console.WriteLine($"[DEBUG] Bump check: isMovementAttempt={isMovementAttempt}");
                         
                         if (isMovementAttempt)
                         {
                             var objType = mechanism.Type;
-                            Console.WriteLine($"[DEBUG] Bump check: objType={objType?.Name ?? "null"}");
-                            Console.WriteLine($"[DEBUG] Bump check: CanBump={objType?.CanBump}");
-                            Console.WriteLine($"[DEBUG] Bump check: InteractionCapabilities={objType?.Capabilities}");
-                            Console.WriteLine($"[DEBUG] Bump check: InteractionHandler={objType?.InteractionHandler?.GetType().Name ?? "null"}");
                             
                             if (objType?.CanBump == true)
                             {
                                 var gifc = objType.InteractionHandler;
                                 if (gifc is Callable callable)
                                 {
-                                    Console.WriteLine($"[Bump] Sending 'open to {mechanism.Name}");
                                     try
                                     {
                                         // Nazghul's bump() sends 'open, not 'bump!
@@ -898,7 +939,6 @@ public class Place
                             }
                         }
                         
-                        Console.WriteLine($"[IsPassable] BLOCKED at ({x},{y}): mechanism={mechanism.Name}, pclass={mechPclass}");
                         return false;
                     }
                 }

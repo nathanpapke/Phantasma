@@ -435,4 +435,18 @@ public abstract class Object
             Console.WriteLine($"[{Name ?? Type?.Name}] Init signal error: {ex.Message}");
         }
     }
+    
+    /// <summary>
+    /// Synchronize this object's state with the current game time.
+    /// Called when entering a place to ensure objects are in the correct
+    /// position/state for the current time.
+    /// 
+    /// Base implementation does nothing - override in derived classes
+    /// that need time-based synchronization (e.g., scheduled NPCs).
+    /// </summary>
+    public virtual void Synchronize()
+    {
+        // Base implementation is empty.
+        // Override in derived classes that need time-based state sync.
+    }
 }

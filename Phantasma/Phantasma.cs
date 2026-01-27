@@ -384,6 +384,15 @@ public class Phantasma
         Console.WriteLine("[CreateMainSession] Running start proc...");
         mainSession.RunStartProc();
         
+        // Synchronize all loaded places.
+        foreach (var kvp in registeredObjects)
+        {
+            if (kvp.Value is Place p)
+            {
+                p.Enter();
+            }
+        }
+        
         // Verify player placement
         var playerPlace = mainSession.Player?.GetPlace();
         Console.WriteLine($"[CreateMainSession] After start proc, player at: {playerPlace?.Name ?? "null"}");
