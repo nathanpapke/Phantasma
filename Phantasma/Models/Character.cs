@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using IronScheme;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -1299,12 +1301,28 @@ public class Character : Being
         // Run species on-death procedure (spawns corpse, plays sound, etc.).
         if (Species.OnDeath != null)
         {
-            Console.WriteLine($"[Kill] Executing OnDeath closure...");
-            if (Species.OnDeath is Callable callable)
+            object toCall = Species.OnDeath;
+    
+            // Resolve symbol to closure at execution time.
+            if (toCall is SymbolId symbolId)
             {
+                var symbolName = SymbolTable.IdToString(symbolId);
+                Console.WriteLine($"[Kill] Resolving OnDeath symbol '{symbolName}'...");
+                toCall = symbolName.Eval();
+            }
+            else if (!(toCall is Callable))
+            {
+                // Fallback: try evaluating the string representation.
+                var symbolName = toCall.ToString()?.TrimStart('\'');
+                Console.WriteLine($"[Kill] Resolving OnDeath string '{symbolName}'...");
+                toCall = symbolName.Eval();
+            }
+    
+            if (toCall is Callable callable)
+            {
+                Console.WriteLine($"[Kill] Executing OnDeath closure...");
                 callable.Call(this);
             }
-            Console.WriteLine($"[Kill] IsOnMap after OnDeath: {IsOnMap()}");
         }
         
         // Change to sleep/dead sprite if available.

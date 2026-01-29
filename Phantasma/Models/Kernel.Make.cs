@@ -682,13 +682,11 @@ public partial class Kernel
             Spells = spellsArray
         };
         
-        Console.WriteLine($"[kern-mk-species] {tagStr}: SleepSprite = {species.SleepSprite?.Tag ?? "NULL"}");
-        Console.WriteLine($"[kern-mk-species] {tagStr}: OnDeath = {(species.OnDeath != null ? "SET" : "NULL")}");
-        
-        // Set on-death closure if provided.
+        // Set on-death closure if provided.  Store raw and resolve at call time.
         if (!IsNil(onDeathArg))
         {
             species.OnDeath = onDeathArg;
+            Console.WriteLine($"[kern-mk-species] {tagStr}: OnDeath stored (type: {onDeathArg.GetType().Name})");
         }
         
         // Set sounds if provided.
