@@ -96,6 +96,10 @@ public abstract class Object
     
     public bool IsOnMap()
     {
+        // Return false if Position is null.
+        if (Position == null)
+            return false;
+        
         return Position.Place != null && 
                !Position.Place.IsOffMap(Position.X, Position.Y);
     }
@@ -158,6 +162,7 @@ public abstract class Object
         if (Position.Place != null)
         {
             Position.Place.RemoveObject(this);
+            Position = default;  // Clear the position reference!
         }
     }
 

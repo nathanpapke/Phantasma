@@ -568,9 +568,6 @@ public class Place
                 if (filter(obj))
                     return obj;
             }
-        
-            if (obj != null)
-                return obj;
         }
     
         return null;

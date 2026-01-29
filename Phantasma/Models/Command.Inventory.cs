@@ -58,15 +58,16 @@ public partial class Command
         var place = player?.GetPlace();
         if (place == null) return;
         
+        // Debug Filter Function
+        Func<Object, bool> gettableFilter = obj => {
+            bool gettable = obj.IsGettable();
+            Console.WriteLine($"[Get Filter] {obj.Name} Layer={obj.Layer} IsGettable={gettable} Type={obj.GetType().Name}");
+            return gettable;
+        };
+    
         // Find first gettable item at location.
-        var item = place.GetFilteredObject(targetX, targetY, obj => obj.IsGettable());
-        /* Commented out to debug Handle.
-        if (item.Type?.Layer != ObjectLayer.Item)
-        {
-            Console.WriteLine("You can't pick that up!");
-            return;
-        }
-        */
+        var item = place.GetFilteredObject(targetX, targetY, gettableFilter);
+        
         if (item == null)
         {
             Log("Get - nothing there!");
@@ -78,8 +79,7 @@ public partial class Command
         
         if (scoopAll)
         {
-            while ((item = place.GetFilteredObject(targetX, targetY, 
-                       obj => obj.IsGettable())) != null)
+            while ((item = place.GetFilteredObject(targetX, targetY, gettableFilter)) != null)
             {
                 GetItem(item);
             }
@@ -100,17 +100,24 @@ public partial class Command
         if (session.Party == null)
             return;
         
+        Console.WriteLine($"[GetItem] Processing: {item.Name} (type: {item.Type?.Tag ?? "no type"})");
+        Console.WriteLine($"[GetItem] CanGet: {item.Type?.CanGet}, HasGifc: {item.Type?.InteractionHandler != null}");
+        
         // Check if type has a custom 'get' handler via InteractionHandler (gifc).
         var gifc = item.Type?.InteractionHandler;
         if (gifc is IronScheme.Runtime.Callable callable && item.Type?.CanGet == true)
         {
             try
             {
-                // Call the gifc with 'get signal: (gifc 'get item getter).
+                Console.WriteLine($"[GetItem] Calling gifc 'get handler...");
                 callable.Call("get", item, session.Player);
                 
-                // The handler is responsible for removing the item and adding to inventory.
-                return;
+                // If handler removed the item, it fully handled the get - we're done.
+                if (!item.IsOnMap())
+                    return;
+                
+                // Handler didn't remove item - fall through to default handling.
+                Console.WriteLine($"[GetItem] WARNING: gifc didn't handle item, using default");
             }
             catch (Exception ex)
             {
@@ -119,23 +126,20 @@ public partial class Command
             }
         }
         
-        // Default handling for items without custom handler.
+        // Default Handling
         if (item is Item itemObj)
         {
             session.Party.Inventory.AddItem(itemObj);
             
-            // Log what was picked up.
             string description = itemObj.Quantity > 1
                 ? $"{itemObj.Name} x{itemObj.Quantity}"
                 : itemObj.Name;
             Log($"You get: {description}");
             
-            // Remove from map.
             item.Remove();
         }
         else
         {
-            // Non-Item gettable object - just log and remove
             Log($"You get: {item.Name}");
             item.Remove();
         }
