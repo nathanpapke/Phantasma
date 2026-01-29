@@ -199,10 +199,107 @@ public partial class Kernel
         return RuntimeHelpers.False;
     }
     
+    /// <summary>
+    /// (kern-obj-get-location obj)
+    /// Gets the location of an object as a list: (place x y)
+    /// Returns nil if object has no location.
+    /// </summary>
     public static object ObjectGetLocation(object args)
     {
-        // TODO: Implement
-        return "nil".Eval();
+        // Handle variadic array wrapper from IronScheme.
+        object objArg = args;
+        if (args is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
+        // Handle Cons list wrapping.
+        if (objArg is Cons cons)
+            objArg = cons.car;
+        
+        Console.WriteLine($"[kern-obj-get-location] Called with: {objArg?.GetType().Name ?? "NULL"}");
+        
+        if (objArg == null || IsNil(objArg))
+        {
+            Console.WriteLine("[kern-obj-get-location] ERROR: null object");
+            return "nil".Eval();
+        }
+        
+        // Extract place and coordinates from the object.
+        Place place = null;
+        int x = 0, y = 0;
+        
+        if (objArg is Character character)
+        {
+            place = character.GetPlace();
+            x = character.GetX();
+            y = character.GetY();
+            Console.WriteLine($"[kern-obj-get-location] Character '{character.GetName()}' at ({x}, {y}) in {place?.Name ?? "NULL"}");
+        }
+        else if (objArg is Being being)
+        {
+            place = being.GetPlace();
+            x = being.GetX();
+            y = being.GetY();
+            Console.WriteLine($"[kern-obj-get-location] Being at ({x}, {y}) in {place?.Name ?? "NULL"}");
+        }
+        else if (objArg is Object gameObj)
+        {
+            var pos = gameObj.GetPosition();
+            if (pos != null)
+            {
+                place = pos.Place;
+                x = pos.X;
+                y = pos.Y;
+            }
+            Console.WriteLine($"[kern-obj-get-location] Object '{gameObj.Name}' at ({x}, {y}) in {place?.Name ?? "NULL"}");
+        }
+        else
+        {
+            // Try to resolve by tag.
+            string tag = ToTag(objArg);
+            Console.WriteLine($"[kern-obj-get-location] Trying tag lookup: '{tag}'");
+            
+            if (!string.IsNullOrEmpty(tag))
+            {
+                var resolved = Phantasma.GetRegisteredObject(tag);
+                
+                if (resolved is Character ch)
+                {
+                    place = ch.GetPlace();
+                    x = ch.GetX();
+                    y = ch.GetY();
+                }
+                else if (resolved is Being b)
+                {
+                    place = b.GetPlace();
+                    x = b.GetX();
+                    y = b.GetY();
+                }
+                else if (resolved is Object obj)
+                {
+                    var pos = obj.GetPosition();
+                    if (pos != null)
+                    {
+                        place = pos.Place;
+                        x = pos.X;
+                        y = pos.Y;
+                    }
+                }
+            }
+        }
+        
+        // Return nil if object has no place.
+        if (place == null)
+        {
+            Console.WriteLine($"[kern-obj-get-location] Object has no place, returning nil");
+            return "nil".Eval();
+        }
+        
+        Console.WriteLine($"[kern-obj-get-location] Returning location: ({place.Name}, {x}, {y})");
+        
+        // Return as Scheme list: (place x y)
+        // Build Cons list that kern-obj-put-at can parse.
+        // Format: Cons(place, Cons(x, Cons(y, null)))
+        return new Cons(place, new Cons(x, new Cons(y, null)));
     }
     
     /// <summary>
