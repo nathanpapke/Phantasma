@@ -57,25 +57,44 @@ public class TargetingKeyHandler : IKeyHandler
                 dx = 1;
                 break;
             case Key.NumPad7:
+            case Key.Home:
                 dx = -1; dy = -1;
                 break;
             case Key.NumPad9:
+            case Key.PageUp:
                 dx = 1; dy = -1;
                 break;
             case Key.NumPad1:
+            case Key.End:
                 dx = -1; dy = 1;
                 break;
             case Key.NumPad3:
+            case Key.PageDown:
                 dx = 1; dy = 1;
                 break;
+            case Key.NumPad5:
+                // "Here" - select current position (only for range 1)
+                if (session.TargetRange == 1)
+                {
+                    OnComplete?.Invoke(true, session.TargetX, session.TargetY);
+                    return true;
+                }
+                return false;
             default:
                 return false;  // Unhandled key
         }
         
         if (dx != 0 || dy != 0)
         {
-            // Update targeting coordinates in Session.
-            session.MoveTarget(dx, dy);
+            bool moved = session.MoveTarget(dx, dy);
+            
+            // Range 1: auto-confirm on successful move.
+            if (moved && session.TargetRange == 1)
+            {
+                OnComplete?.Invoke(true, session.TargetX, session.TargetY);
+                return true;  // Done
+            }
+            
             return false;  // Keep handling
         }
         

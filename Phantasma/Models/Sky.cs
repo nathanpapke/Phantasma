@@ -78,8 +78,6 @@ public class Sky
         _clock = clock;
         _bodies.Clear();
         ComputeFactors();
-        
-        Console.WriteLine("[Sky] Initialized");
     }
     
     /// <summary>
@@ -148,8 +146,6 @@ public class Sky
         }
         
         _bodies.Insert(insertIndex, body);
-        
-        Console.WriteLine($"[Sky] Added astral body: {body.Name} (distance={body.Distance}, phases={body.NumPhases})");
     }
     
     /// <summary>
@@ -250,8 +246,6 @@ public class Sky
             // TODO: Execute Scheme callback
             // closure_exec(body->gifc, "ypdd", "phase-change", body, oldPhase, newPhase);
         }
-        
-        Console.WriteLine($"[Sky] {body.Name} phase changed: {body.Phases[oldPhase]?.Name} -> {body.Phases[newPhase]?.Name}");
     }
     
     // ===================================================================

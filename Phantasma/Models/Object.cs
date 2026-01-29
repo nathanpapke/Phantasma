@@ -422,8 +422,6 @@ public abstract class Object
         
         try
         {
-            Console.WriteLine($"[{Name ?? Type?.Name}] Receiving 'init signal");
-            
             if (gifc is Callable callable)
             {
                 var initSymbol = SymbolTable.StringToObject("init");

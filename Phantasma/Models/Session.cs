@@ -591,6 +591,19 @@ public class Session
         bool skyVisible = currentPlace != null && !currentPlace.Underground;
         sky.Advance(skyVisible);
     }
+    
+    public void CheckAndProcessTurnEnd()
+    {
+        if (playerCharacter == null) return;
+    
+        if (playerCharacter.ActionPoints <= 0)
+        {
+            playerCharacter.EndTurn();
+            HandleOtherBeings();
+            AdvanceTurn();
+            playerCharacter.StartTurn();
+        }
+    }
         
     public void Quit()
     {
@@ -1001,8 +1014,6 @@ public class Session
     /// </summary>
     public void SetCommandPrompt(string prompt)
     {
-        Console.WriteLine($"[DEBUG] SetCommandPrompt called with: '{prompt}'");
-        Console.WriteLine($"[DEBUG] PromptChanged has subscribers: {PromptChanged != null}");
         PromptChanged?.Invoke(prompt);
     }
 
@@ -1072,7 +1083,6 @@ public class Session
         handler.OnComplete = (success, targetX, targetY) =>
         {
             IsTargeting = false;
-            PopKeyHandler();
             SetCommandPrompt("");
             onComplete(targetX, targetY, !success);
         };
@@ -1080,21 +1090,42 @@ public class Session
         PushKeyHandler(handler);
         SetCommandPrompt("<target>");
     }
-
+    
     /// <summary>
     /// Move the targeting cursor (called by TargetingKeyHandler).
     /// </summary>
-    public void MoveTarget(int dx, int dy)
+    /// <param name="dx"></param>
+    /// <param name="dy"></param>
+    /// <returns>true if move was successful, false if blocked</returns>
+    public bool MoveTarget(int dx, int dy)
     {
-        if (!IsTargeting) return;
-    
+        if (!IsTargeting) return false;
+        
         int newX = TargetX + dx;
         int newY = TargetY + dy;
-    
-        // TODO: Validate range, bounds, etc.
-    
+        
+        // Wrap coordinates if place wraps.
+        if (currentPlace != null)
+        {
+            newX = currentPlace.WrapX(newX);
+            newY = currentPlace.WrapY(newY);
+            
+            // Check bounds.
+            if (currentPlace.IsOffMap(newX, newY))
+                return false;
+        }
+        
+        // Validate range (Chebyshev distance).
+        if (TargetRange > 0)
+        {
+            int distance = Math.Max(Math.Abs(newX - TargetOriginX), Math.Abs(newY - TargetOriginY));
+            if (distance > TargetRange)
+                return false;
+        }
+        
         TargetX = newX;
         TargetY = newY;
+        return true;
     }
     
     /// <summary>
@@ -1196,9 +1227,8 @@ public class Session
         try
         {
             // Try as IronScheme.Runtime.Callable.
-            if (startProc is IronScheme.Runtime.Callable callable)
+            if (startProc is Callable callable)
             {
-                Console.WriteLine("[Session] Invoking as Callable");
                 callable.Call(playerParty);
                 return;
             }
@@ -1210,7 +1240,6 @@ public class Session
             var callMethod = procType.GetMethod("Call", Type.EmptyTypes);
             if (callMethod != null)
             {
-                Console.WriteLine("[Session] Invoking via reflection Call()");
                 callMethod.Invoke(startProc, null);
                 return;
             }
@@ -1219,7 +1248,6 @@ public class Session
             callMethod = procType.GetMethod("Call", new Type[] { typeof(object[]) });
             if (callMethod != null)
             {
-                Console.WriteLine("[Session] Invoking via reflection Call(object[])");
                 callMethod.Invoke(startProc, new object[] { new object[] { playerParty } });
                 return;
             }

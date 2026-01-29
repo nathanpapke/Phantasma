@@ -272,25 +272,21 @@ public class Clock
         // Validate and clamp ranges.
         if (month < 0 || month >= Common.MONTHS_PER_YEAR)
         {
-            Console.WriteLine($"[Clock] Warning: month {month} out of range, clamping");
             month = Math.Clamp(month, 0, Common.MONTHS_PER_YEAR - 1);
             valid = false;
         }
         if (week < 0 || week >= Common.WEEKS_PER_MONTH)
         {
-            Console.WriteLine($"[Clock] Warning: week {week} out of range, clamping");
             week = Math.Clamp(week, 0, Common.WEEKS_PER_MONTH - 1);
             valid = false;
         }
         if (day < 0 || day >= Common.DAYS_PER_WEEK)
         {
-            Console.WriteLine($"[Clock] Warning: day {day} out of range, clamping");
             day = Math.Clamp(day, 0, Common.DAYS_PER_WEEK - 1);
             valid = false;
         }
         if (hour < 0 || hour >= Common.HOURS_PER_DAY)
         {
-            Console.WriteLine($"[Clock] Warning: hour {hour} out of range, clamping");
             hour = Math.Clamp(hour, 0, Common.HOURS_PER_DAY - 1);
             valid = false;
         }

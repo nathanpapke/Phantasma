@@ -27,45 +27,38 @@ public partial class Command
     /// </summary>
     public void Search()
     {
-        ShowPrompt("Search-<direction>");
+        if (session.Player == null || session.CurrentPlace == null)
+            return;
         
-        // Request direction.
-        RequestDirection(dir => CompleteSearch(dir));
+        ShowPrompt("Search-<target>");
+        
+        var player = session.Player;
+        int playerX = player.GetX();
+        int playerY = player.GetY();
+        
+        session.BeginTargeting(
+            playerX, playerY, 1, playerX, playerY,
+            (targetX, targetY, cancelled) => CompleteSearch(targetX, targetY, cancelled)
+        );
     }
     
     /// <summary>
     /// Complete the Search command after direction is received.
     /// </summary>
-    private void CompleteSearch(Direction? dir)
+    private void CompleteSearch(int targetX, int targetY, bool cancelled)
     {
-        if (dir == null)
+        if (cancelled)
         {
             ShowPrompt("Search-none!");
             return;
         }
         
-        ShowPrompt($"Search-{DirectionToString(dir.Value)}");
-        
         var player = session.Player;
         var place = session.CurrentPlace;
-        
-        if (player == null || place == null)
-        {
-            return;
-        }
-        
-        int dx = Common.DirectionToDx(dir.Value);
-        int dy = Common.DirectionToDy(dir.Value);
-        int x = place.WrapX(player.GetX() + dx);
-        int y = place.WrapY(player.GetY() + dy);
+        if (player == null || place == null) return;
         
         Log("You find:");
-        
-        // Enable reveal mode temporarily to show hidden things.
-        // TODO: Implement reveal flag like Nazghul's old_reveal/Reveal
-        
-        DescribeLocation(place, x, y, describeAll: true);
-        
+        DescribeLocation(place, targetX, targetY, describeAll: true);
         ClearPrompt();
     }
     

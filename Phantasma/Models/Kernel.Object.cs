@@ -459,7 +459,6 @@ public partial class Kernel
     {
         if (obj == null || IsNil(obj))
         {
-            Console.WriteLine("[kern-obj-set-visible] null object");
             return "nil".Eval();
         }
         
@@ -788,17 +787,12 @@ public partial class Kernel
         var gameObj = obj as Object;
         if (gameObj == null)
         {
-            Console.WriteLine("[kern-obj-set-pclass] Error: null object");
             return "nil".Eval();
         }
     
         int pclassValue = ToInt(pclass, 0);
         gameObj.PassabilityClass = pclassValue;
-    
-        // Debug output
-        string name = gameObj is Being b ? b.GetName() : (gameObj.Name ?? "(unnamed)");
-        Console.WriteLine($"[kern-obj-set-pclass] Set {name} pclass to {pclassValue}");
-    
+        
         return "nil".Eval();
     }
     
@@ -871,12 +865,9 @@ public partial class Kernel
     /// </summary>
     public static object ObjectSetSprite(object objArg, object spriteArg)
     {
-        Console.WriteLine($"[kern-obj-set-sprite] Called: obj={objArg?.GetType().Name}, sprite={spriteArg} (type: {spriteArg?.GetType().Name})");
-        
         // Handle null object argument.
         if (objArg == null)
         {
-            Console.WriteLine("[kern-obj-set-sprite] ERROR: null object");
             return "nil".Eval();
         }
         
@@ -886,7 +877,6 @@ public partial class Kernel
         if (objArg is Object directObj)
         {
             obj = directObj;
-            Console.WriteLine($"[kern-obj-set-sprite] Got object directly: {obj.Name}");
         }
         else if (objArg is string tagStr)
         {
@@ -894,7 +884,6 @@ public partial class Kernel
             var resolved = Phantasma.GetRegisteredObject(cleanTag);
             if (resolved is Object resolvedObj)
                 obj = resolvedObj;
-            Console.WriteLine($"[kern-obj-set-sprite] Looked up object by tag '{cleanTag}': {(obj != null ? obj.Name : "NOT FOUND")}");
         }
         else
         {
@@ -905,19 +894,16 @@ public partial class Kernel
                 if (resolved is Object resolvedObj)
                     obj = resolvedObj;
             }
-            Console.WriteLine($"[kern-obj-set-sprite] Looked up object by ToTag: {(obj != null ? obj.Name : "NOT FOUND")}");
         }
         
         if (obj == null)
         {
-            Console.WriteLine($"[kern-obj-set-sprite] ERROR: Could not resolve object");
             return "nil".Eval();
         }
         
         // Handle null/empty sprite.
         if (spriteArg == null || IsNil(spriteArg))
         {
-            Console.WriteLine($"[kern-obj-set-sprite] Setting sprite to null");
             obj.Sprite = null;
             return "nil".Eval();
         }
@@ -928,31 +914,22 @@ public partial class Kernel
         if (spriteArg is Sprite directSprite)
         {
             sprite = directSprite;
-            Console.WriteLine($"[kern-obj-set-sprite] Got sprite directly: {sprite.Tag}");
         }
         else if (spriteArg is string spriteTagStr)
         {
             string cleanTag = spriteTagStr.TrimStart('\'').Trim('"');
-            Console.WriteLine($"[kern-obj-set-sprite] Looking up sprite by tag: '{cleanTag}'");
             
             var resolved = Phantasma.GetRegisteredObject(cleanTag);
-            Console.WriteLine($"[kern-obj-set-sprite] GetRegisteredObject returned: {resolved?.GetType().Name ?? "null"}");
             
             if (resolved is Sprite resolvedSprite)
             {
                 sprite = resolvedSprite;
-                Console.WriteLine($"[kern-obj-set-sprite] Found sprite: {sprite.Tag}");
-            }
-            else if (resolved != null)
-            {
-                Console.WriteLine($"[kern-obj-set-sprite] WARNING: Found object but it's not a Sprite, it's {resolved.GetType().Name}");
             }
         }
         else
         {
             // Try ToTag for symbols.
             string spriteTag = ToTag(spriteArg);
-            Console.WriteLine($"[kern-obj-set-sprite] Using ToTag for sprite: '{spriteTag}'");
             
             if (!string.IsNullOrEmpty(spriteTag))
             {
@@ -960,25 +937,17 @@ public partial class Kernel
                 if (resolved is Sprite resolvedSprite)
                 {
                     sprite = resolvedSprite;
-                    Console.WriteLine($"[kern-obj-set-sprite] Found sprite via ToTag: {sprite.Tag}");
                 }
             }
         }
         
         if (sprite == null)
         {
-            Console.WriteLine($"[kern-obj-set-sprite] ERROR: Sprite not found for '{spriteArg}'");
             return "nil".Eval();
         }
         
-        // Store old sprite for debug.
-        var oldSprite = obj.Sprite;
-        Console.WriteLine($"[kern-obj-set-sprite] Old sprite: {oldSprite?.Tag ?? "null"}");
-        
         // Set the new sprite.
         obj.Sprite = sprite;
-        
-        Console.WriteLine($"[kern-obj-set-sprite] SUCCESS: Set {obj.Name} sprite from {oldSprite?.Tag ?? "null"} to {sprite.Tag}");
         
         return "nil".Eval();
     }
@@ -999,7 +968,6 @@ public partial class Kernel
         var obj = objArg as Object;
         if (obj == null)
         {
-            Console.WriteLine("[kern-obj-set-opacity] Error: null object");
             return "nil".Eval();
         }
     
@@ -1028,7 +996,6 @@ public partial class Kernel
         var gameObj = obj as Object;
         if (gameObj == null)
         {
-            Console.WriteLine("[kern-obj-set-light] Error: not an Object");
             return "nil".Eval();
         }
         

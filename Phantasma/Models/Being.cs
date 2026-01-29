@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using IronScheme.Runtime;
 
 namespace Phantasma.Models;
 
@@ -11,6 +12,7 @@ public abstract class Being : Object
     public override ObjectLayer Layer => ObjectLayer.Being;
     
     private string name;
+    public Species Species;
     private int baseFaction;
     private int currentFaction;
     public AStarNode CachedPath;
@@ -180,7 +182,15 @@ public abstract class Being : Object
     
     public void Damage(int amount)
     {
+        if (HP <= 0)
+            return;  // Already dead
+        
         HP = Math.Max(0, HP - amount);
+        
+        if (HP <= 0)
+        {
+            Kill();
+        }
     }
     
     /// <summary>
@@ -188,8 +198,30 @@ public abstract class Being : Object
     /// </summary>
     public virtual void Kill()
     {
+        // Already dead?
+        if (IsDead)
+            return;
+        
         HP = 0;
-        Remove();
+        
+        // Run species on-death procedure (spawns corpse, plays sound, etc.).
+        if (Species.OnDeath != null)
+        {
+            if (Species.OnDeath is Callable callable)
+            {
+                callable.Call(this);
+            }
+        }
+        
+        // Change to sleep/dead sprite if available.
+        if (Species.SleepSprite != null)
+        {
+            Sprite = Species.SleepSprite;
+        }
+        
+        // Corpse is passable and doesn't block LOS.
+        PassabilityClass = 0;
+        IsOpaque = false;
     }
     
     public void Heal(int amount)
@@ -390,8 +422,6 @@ public abstract class Being : Object
     /// <returns>MoveResult indicating success or failure</returns>
     public MoveResult ExitToParentPlace(int dx, int dy)
     {
-        Console.WriteLine($"[ExitToParentPlace] dx={dx}, dy={dy}");
-        
         var currentPlace = GetPlace();
         if (currentPlace == null)
             return MoveResult.OffMap;
@@ -421,8 +451,6 @@ public abstract class Being : Object
             exitX = baseX;
             exitY = baseY;
         }
-        
-        Console.WriteLine($"[ExitToParentPlace] Relocating from {currentPlace.Name} to ({exitX},{exitY}) on {parentPlace.Name}");
         
         currentPlace.Exit();
         Relocate(parentPlace, exitX, exitY);

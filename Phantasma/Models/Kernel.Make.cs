@@ -613,23 +613,23 @@ public partial class Kernel
         // Extract parameters.
         string tagStr = ToTag(args[0]);                                    // 0: y = tag
         string nameStr = args[1]?.ToString()?.Trim('"') ?? "Unknown";      // 1: s = name
-        int str = ToInt(args[2], 10);                                      // 2: d = str
-        int intl = ToInt(args[3], 10);                                     // 3: d = intl
-        int dex = ToInt(args[4], 10);                                      // 4: d = dex
-        int spd = ToInt(args[5], 10);                                      // 5: d = spd
-        int vr = ToInt(args[6], 10);                                       // 6: d = vr (vision radius)
+        int str = ToInt(args[2], 10);                            // 2: d = str
+        int intl = ToInt(args[3], 10);                           // 3: d = intl
+        int dex = ToInt(args[4], 10);                            // 4: d = dex
+        int spd = ToInt(args[5], 10);                            // 5: d = spd
+        int vr = ToInt(args[6], 10);                             // 6: d = vr (vision radius)
         object mmodeArg = args[7];                                         // 7: p = mmode
-        int hpmod = ToInt(args[8], 10);                                    // 8: d = hpmod
-        int hpmult = ToInt(args[9], 5);                                    // 9: d = hpmult
-        int mpmod = ToInt(args[10], 5);                                    // 10: d = mpmod
-        int mpmult = ToInt(args[11], 2);                                   // 11: d = mpmult
+        int hpmod = ToInt(args[8], 10);                          // 8: d = hpmod
+        int hpmult = ToInt(args[9], 5);                          // 9: d = hpmult
+        int mpmod = ToInt(args[10], 5);                          // 10: d = mpmod
+        int mpmult = ToInt(args[11], 2);                         // 11: d = mpmult
         object sleepSpriteArg = args[12];                                  // 12: p = sleep_sprite
         object weaponArg = args[13];                                       // 13: p = weapon
         bool visible = ConvertToBool(args[14] ?? true);                    // 14: b = visible
         object damageSoundArg = args[15];                                  // 15: p = damage_sound
         object walkingSoundArg = args[16];                                 // 16: p = walking_sound
         object onDeathArg = args[17];                                      // 17: c = on_death
-        int xpval = ToInt(args[18], 10);                                   // 18: d = xpval
+        int xpval = ToInt(args[18], 10);                         // 18: d = xpval
         object slotsArg = args[19];                                        // 19: slots list
         object spellsArg = args[20];                                       // 20: spells list
 
@@ -681,6 +681,9 @@ public partial class Kernel
             Slots = slotsArray,
             Spells = spellsArray
         };
+        
+        Console.WriteLine($"[kern-mk-species] {tagStr}: SleepSprite = {species.SleepSprite?.Tag ?? "NULL"}");
+        Console.WriteLine($"[kern-mk-species] {tagStr}: OnDeath = {(species.OnDeath != null ? "SET" : "NULL")}");
         
         // Set on-death closure if provided.
         if (!IsNil(onDeathArg))
@@ -1097,14 +1100,6 @@ public partial class Kernel
                 return tfeat;
             
             case ObjectLayer.Mechanism:
-                // DEBUG: Check what sprite the ObjectType has
-                Console.WriteLine($"[MakeObject] Creating Mechanism: {objType.Name}");
-                Console.WriteLine($"[MakeObject]   objType.Sprite = {objType.Sprite?.Tag ?? "NULL"}");
-                if (objType.Sprite != null)
-                {
-                    Console.WriteLine($"[MakeObject]   objType.Sprite.SourceImage = {(objType.Sprite.SourceImage != null ? "exists" : "NULL")}");
-                }
-                
                 // Create a mechanism object.
                 var mech = new Mechanism
                 {
@@ -1112,8 +1107,7 @@ public partial class Kernel
                     Type = objType,
                     Sprite = objType.Sprite
                 };
-    
-                Console.WriteLine($"[MakeObject]   mech.Sprite = {mech.Sprite?.Tag ?? "NULL"}");
+                
                 return mech;
             
             case ObjectLayer.Portal:

@@ -424,34 +424,35 @@ public partial class Command
             }
         }
         
-        ShowPrompt($"Open-{pc.GetName()}-<direction>");
+        ShowPrompt($"Open-{pc.GetName()}-<target>");
+        
+        int playerX = pc.GetX();
+        int playerY = pc.GetY();
         
         // Capture pc in closure for callback.
         var actor = pc;
         
-        // Request direction - this pushes a key handler
-        RequestDirection(dir => CompleteOpen(actor, dir));
+        // Use targeting with range 1 (adjacent only).
+        session.BeginTargeting(
+            playerX, playerY,   // Origin
+            1,                  // Range 1 = adjacent only
+            playerX, playerY,   // Start cursor at player position
+            (targetX, targetY, cancelled) => CompleteOpen(actor, targetX, targetY, cancelled)
+        );
     }
     
     /// <summary>
     /// Complete the Open command after direction is received.
     /// Called by DirectionKeyHandler callback.
     /// </summary>
-    private void CompleteOpen(Character pc, Direction? dir)
+    private void CompleteOpen(Character pc, int targetX, int targetY, bool cancelled)
     {
         // Handle cancellation.
-        if (dir == null)
+        if (cancelled)
         {
             ShowPrompt($"Open-{pc.GetName()}-none!");
             return;
         }
-        
-        // Update prompt with selected direction.
-        ShowPrompt($"Open-{pc.GetName()}-{DirectionToString(dir.Value)}");
-        
-        // Calculate target coordinates.
-        int dx = Common.DirectionToDx(dir.Value);
-        int dy = Common.DirectionToDy(dir.Value);
         
         var place = pc.GetPlace();
         if (place == null)
@@ -460,8 +461,9 @@ public partial class Command
             return;
         }
         
-        int x = place.WrapX(pc.GetX() + dx);
-        int y = place.WrapY(pc.GetY() + dy);
+        // Wrap coordinates if needed.
+        int x = place.WrapX(targetX);
+        int y = place.WrapY(targetY);
         
         // Check for a mechanism (door, chest mechanism, etc.).
         var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
@@ -472,6 +474,7 @@ public partial class Command
         // Nothing to open?
         if (mech == null && container == null)
         {
+            ShowPrompt($"Open-{pc.GetName()}-nothing there!");
             Log("Open - nothing there!");
             return;
         }
@@ -488,38 +491,19 @@ public partial class Command
                 ShowPrompt($"Open-{pc.GetName()}-{mech.Name}!");
                 Log($"{mech.Name}!");
                 
-                Console.WriteLine($"[Open] Sending 'open signal to {mech.Name}");
-                
                 try
                 {
                     var openSymbol = SymbolTable.StringToObject("open");
-        
-                    // Debug: show what we're passing.
-                    Console.WriteLine($"[Open] openSymbol = {openSymbol} (type: {openSymbol?.GetType().Name})");
-                    Console.WriteLine($"[Open] mech = {mech?.Name} (type: {mech?.GetType().Name})");
-                    Console.WriteLine($"[Open] pc = {pc?.GetName()} (type: {pc?.GetType().Name})");
-                    
                     callable.Call(openSymbol, mech, pc);
-                    Console.WriteLine($"[Open] SUCCESS! Door pclass is now: {mech.PassabilityClass}");
                 }
                 catch (Exception ex)
                 {
-                    // Print the FULL exception including all Scheme details
-                    Console.WriteLine($"[Open] EXCEPTION TYPE: {ex.GetType().FullName}");
-                    Console.WriteLine($"[Open] FULL EXCEPTION:");
+                    Console.WriteLine($"[Open] EXCEPTION: {ex.GetType().FullName}");
                     Console.WriteLine(ex.ToString());
-                    Console.WriteLine($"[Open] ----END EXCEPTION----");
-        
-                    // Also check inner exception
                     if (ex.InnerException != null)
                     {
-                        Console.WriteLine($"[Open] INNER EXCEPTION:");
-                        Console.WriteLine(ex.InnerException.ToString());
+                        Console.WriteLine($"[Open] INNER: {ex.InnerException}");
                     }
-                    
-                    //// Debug code above; original code below.
-                    
-                    Console.WriteLine($"[Open] Error calling open handler: {ex.Message}");
                     Log($"Error: {ex.Message}");
                 }
                 
@@ -628,98 +612,57 @@ public partial class Command
             return;
         }
         
-        Log("Talk-");
+        ShowPrompt("Talk-<target>");
         
-        // Get player position.
-        int playerX = session.Player.GetX();
-        int playerY = session.Player.GetY();
+        var player = session.Player;
+        int playerX = player.GetX();
+        int playerY = player.GetY();
         
-        // For MVP: Check adjacent tiles for NPCs.
-        // Full implementation would use target selection UI.
-        
-        // Check all 8 adjacent directions.
-        int[] dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
-        int[] dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
-        
-        Character nearestNPC = null;
-        int npcX = 0, npcY = 0;
-        
-        for (int i = 0; i < 8; i++)
-        {
-            int checkX = playerX + dx[i];
-            int checkY = playerY + dy[i];
-            
-            var being = session.CurrentPlace.GetBeingAt(checkX, checkY);
-            if (being is Character character && !character.IsPlayer)
-            {
-                nearestNPC = character;
-                npcX = checkX;
-                npcY = checkY;
-                break;
-            }
-        }
-        
-        if (nearestNPC == null)
-        {
-            ShowPrompt("Talk-nobody there!");
-            Log("Nobody nearby!");
-            return;
-        }
-        
-        // Start conversation with the NPC.
-        ShowPrompt($"Talk-{nearestNPC.GetName()}");
-        session.StartConversation(npcX, npcY);
+        // Use targeting with range 4 (like Nazghul).
+        // This allows talking over counters and tables!
+        session.BeginTargeting(
+            playerX, playerY,   // Origin
+            4,                  // Range - matches Nazghul's cmdTalk
+            playerX, playerY,   // Start cursor at player position
+            (targetX, targetY, cancelled) => CompleteTalk(targetX, targetY, cancelled)
+        );
     }
     
-    // ===================================================================
-    // HANDLE COMMAND
-    // ===================================================================
-    
     /// <summary>
-    /// Handle Command - operate mechanisms (levers, buttons, switches).
+    /// Complete the Talk command after target is selected.
     /// </summary>
-    public void Handle()
+    private void CompleteTalk(int targetX, int targetY, bool cancelled)
     {
-        if (session.Player == null || session.CurrentPlace == null)
+        if (cancelled)
         {
+            ShowPrompt("Talk-none!");
             return;
         }
         
-        ShowPrompt("Handle-");
+        var place = session.CurrentPlace;
+        if (place == null) return;
         
-        // Request direction.
-        RequestDirection(dir =>
+        // Find being at target location.
+        var being = place.GetBeingAt(targetX, targetY);
+        
+        if (being == null)
         {
-            if (dir == null)
-            {
-                ShowPrompt("Handle-none!");
-                return;
-            }
-            
-            int dx = Common.DirectionToDx(dir.Value);
-            int dy = Common.DirectionToDy(dir.Value);
-            
-            var place = session.CurrentPlace;
-            int targetX = place.WrapX(session.Player.GetX() + dx);
-            int targetY = place.WrapY(session.Player.GetY() + dy);
-            
-            // Look for a mechanism at the target.
-            var mech = place.GetMechanismAt(targetX, targetY);
-            
-            if (mech == null || !mech.CanHandle())
-            {
-                ShowPrompt("Handle-nothing!");
-                Log("Nothing to handle there.");
-                return;
-            }
-            
-            // Handle the mechanism.
-            ShowPrompt($"Handle-{mech.Name}");
-            mech.Handle(session.Player);
-            
-            Log($"Handled {mech.Name}.");
-            ClearPrompt();
-        });
+            ShowPrompt("Talk-nobody there!");
+            Log("Try talking to a PERSON.");
+            return;
+        }
+        
+        // Check if it's a valid NPC to talk to.
+        if (being is not Character npc || npc.IsPlayer)
+        {
+            ShowPrompt("Talk-nobody there!");
+            Log("Try talking to a PERSON.");
+            return;
+        }
+        
+        // Start conversation.
+        ShowPrompt($"Talk-{npc.GetName()}");
+        session.StartConversation(targetX, targetY);
     }
     
     // ===================================================================

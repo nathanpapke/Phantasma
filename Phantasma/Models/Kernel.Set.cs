@@ -76,7 +76,6 @@ public partial class Kernel
     {
         if (args.Length < 13)
         {
-            Console.Error.WriteLine($"[kern-set-frame] Error: expected 13 sprites, got {args.Length}");
             return "nil".Eval();
         }
     
@@ -108,7 +107,6 @@ public partial class Kernel
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine($"[kern-set-ascii] Error: expected 2 args, got {args.Length}");
             return "nil".Eval();
         }
     
@@ -186,7 +184,6 @@ public partial class Kernel
         }
     
         session.TimeAcceleration = accel;
-        Console.WriteLine($"[SetTimeAccel] Time acceleration set to {accel}x.");
     
         return "nil".Eval();
     }
@@ -266,14 +263,12 @@ public partial class Kernel
         if (Phantasma.MainSession == null)
         {
             Phantasma.SetPendingCampingProc(proc);
-            Console.WriteLine("[Phantasma] Stored pending camping proc");
         }
         else
         {
             Phantasma.MainSession.SetCampingProc(proc);
         }
         
-        Console.WriteLine("[kern-set-camping-proc] Camping procedure set");
         return "nil".Eval();
     }
     
@@ -304,14 +299,12 @@ public partial class Kernel
         if (Phantasma.MainSession == null)
         {
             Phantasma.SetPendingStartProc(proc);
-            Console.WriteLine("[Phantasma] Stored pending start proc");
         }
         else
         {
             Phantasma.MainSession.SetStartProc(proc);
         }
         
-        Console.WriteLine("[kern-set-start-proc] Start procedure set");
         return "nil".Eval();
     }
 }

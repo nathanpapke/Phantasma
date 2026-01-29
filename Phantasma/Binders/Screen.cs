@@ -1125,10 +1125,10 @@ public class Screen
         }
         
         // Layer 12: Draw cursor if active.
-        if (crosshair != null && crosshair.IsActive())
+        if (_session != null && _session.IsTargeting)
         {
-            viewX = crosshair.GetX() - viewStartX;
-            viewY = crosshair.GetY() - viewStartY;
+            viewX = _session.TargetX - viewStartX;
+            viewY = _session.TargetY - viewStartY;
             
             if (viewX >= 0 && viewX < tilesWide &&
                 viewY >= 0 && viewY < tilesHigh)

@@ -1077,9 +1077,6 @@ public class Character : Being
                 else if (newY >= place.Height)
                     exitDy = 1;   // Exiting south
                 
-                Console.WriteLine($"[OffMap] newX={newX}, newY={newY}, place.Width={place.Width}, place.Height={place.Height}");
-                Console.WriteLine($"[OffMap] exitDx={exitDx}, exitDy={exitDy}");
-                
                 ExitToParentPlace(exitDx, exitDy);
                 
                 return true;
@@ -1278,33 +1275,57 @@ public class Character : Being
         return (int)Math.Ceiling(cost);
     }
     
-    public void Kill()
+    public override void Kill()
     {
-        // Only NPCs (characters not in player party) drop their items.
+        Console.WriteLine($"[Kill] Character.Kill() called for {GetName()}");
+        Console.WriteLine($"[Kill] Species.SleepSprite: {Species.SleepSprite?.Tag ?? "NULL"}");
+        Console.WriteLine($"[Kill] IsOnMap before OnDeath: {IsOnMap()}");
+        
         bool isInPlayerParty = IsPlayer || (Party != null && Party.IsPlayerParty);
         
-        // NPCs drop their items.
-        if (!isInPlayerParty  && IsOnMap())
+        if (!isInPlayerParty && IsOnMap())
         {
             DropReadyArms();
             DropItems();
         }
         
-        if (isInPlayerParty )
+        if (isInPlayerParty)
         {
-            Console.WriteLine($"{GetName()} has fallen!!");
+            //Log($"{GetName()} has fallen!!");
         }
         
         HP = 0;
         
-        // Run species on-death procedure.
+        // Run species on-death procedure (spawns corpse, plays sound, etc.).
         if (Species.OnDeath != null)
         {
-            // Execute closure: closure_exec(species->on_death, "p", this).
+            Console.WriteLine($"[Kill] Executing OnDeath closure...");
+            if (Species.OnDeath is Callable callable)
+            {
+                callable.Call(this);
+            }
+            Console.WriteLine($"[Kill] IsOnMap after OnDeath: {IsOnMap()}");
         }
         
-        // Remove from map (careful - can delete this object).
-        Remove();
+        // Change to sleep/dead sprite if available.
+        Console.WriteLine($"[Kill] Current Sprite before change: {Sprite?.Tag ?? "NULL"}");
+        Console.WriteLine($"[Kill] CurrentSprite before change: {CurrentSprite?.Tag ?? "NULL"}");
+        
+        // Change to sleep/dead sprite if available.
+        if (Species.SleepSprite != null)
+        {
+            Sprite = Species.SleepSprite;
+            CurrentSprite = Species.SleepSprite;
+            Console.WriteLine($"[Kill] Set Sprite to: {Sprite?.Tag ?? "NULL"}");
+            Console.WriteLine($"[Kill] Set CurrentSprite to: {CurrentSprite?.Tag ?? "NULL"}");
+        }
+        
+        // Corpse is passable and doesn't block LOS.
+        PassabilityClass = 0;
+        IsOpaque = false;
+        
+        Console.WriteLine($"[Kill] IsOnMap at end: {IsOnMap()}");
+        Console.WriteLine($"[Kill] Position: ({GetX()}, {GetY()})");
     }
     
     public void Resurrect()
@@ -1352,7 +1373,7 @@ public class Character : Being
         int x = Position.X;
         int y = Position.Y;
     
-        for (int i = 0; i < Species.NSlots; i++)
+        for (int i = 0; i < Species.NSlots && i < readiedArms.Length; i++)
         {
             // Anything in this slot?
             if (readiedArms[i] == null)

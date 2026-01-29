@@ -50,11 +50,8 @@ public partial class Kernel
         
         if (width <= 0 || height <= 0)
         {
-            Console.WriteLine($"[kern-blit-map] Nothing to blit (clipped to 0)");
             return dstMap;
         }
-        
-        Console.WriteLine($"[kern-blit-map] Blitting {width}x{height} from ({sx},{sy}) to ({dx},{dy})");
         
         // Copy terrain tiles
         for (int y = 0; y < height; y++)
@@ -97,8 +94,6 @@ public partial class Kernel
         
         if (deg == 0)
             return map;
-        
-        Console.WriteLine($"[kern-map-rotate] Rotating map by {deg} degrees");
         
         // For 90/270 degrees, width and height swap
         int oldW = map.Width;

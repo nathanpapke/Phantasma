@@ -656,8 +656,6 @@ public class Party : Object
                 
                 // Update party position to match leader.
                 Position = leader.Position;
-                
-                Console.WriteLine($"[Synchronize] Party '{Tag}' moved to ({targetX}, {targetY}) for {appointment.Activity}");
             }
         }
     }

@@ -28,46 +28,45 @@ public partial class Command
         if (session.Party == null || session.Player == null)
             return;
         
-        ShowPrompt("Get-<direction>");
+        ShowPrompt("Get-<target>");
         
-        // Request direction - callback will complete the command
-        RequestDirection(dir => CompleteGet(dir, scoopAll));
+        var player = session.Player;
+        int playerX = player.GetX();
+        int playerY = player.GetY();
+    
+        // Capture for closure.
+        bool scoop = scoopAll;
+    
+        session.BeginTargeting(
+            playerX, playerY, 1, playerX, playerY,
+            (targetX, targetY, cancelled) => CompleteGet(targetX, targetY, cancelled, scoop)
+        );
     }
     
     /// <summary>
     /// Complete the Get command after direction is received.
     /// </summary>
-    private void CompleteGet(Direction? dir, bool scoopAll)
+    private void CompleteGet(int targetX, int targetY, bool cancelled, bool scoopAll)
     {
-        if (dir == null)
+        if (cancelled)
         {
             ShowPrompt("Get-none!");
             return;
         }
         
-        ShowPrompt($"Get-{DirectionToString(dir.Value)}");
-        
         var player = session.Player;
         var place = player?.GetPlace();
-        if (place == null)
-        {
-            return;
-        }
-        
-        int dx = Common.DirectionToDx(dir.Value);
-        int dy = Common.DirectionToDy(dir.Value);
-        int targetX = player.GetX() + dx;
-        int targetY = player.GetY() + dy;
+        if (place == null) return;
         
         // Find first gettable item at location.
         var item = place.GetFilteredObject(targetX, targetY, obj => obj.IsGettable());
-        
+        /* Commented out to debug Handle.
         if (item.Type?.Layer != ObjectLayer.Item)
         {
             Console.WriteLine("You can't pick that up!");
             return;
         }
-        
+        */
         if (item == null)
         {
             Log("Get - nothing there!");
@@ -75,11 +74,8 @@ public partial class Command
         }
         
         LogBeginGroup();
-        
-        // Get the first item
         GetItem(item);
         
-        // If scooping all, get remaining items
         if (scoopAll)
         {
             while ((item = place.GetFilteredObject(targetX, targetY, 
@@ -92,7 +88,7 @@ public partial class Command
         LogEndGroup();
         
         // Deduct action points
-        // TODO: player.DecActionPoints(Common.NAZGHUL_BASE_ACTION_POINTS);
+        player.DecreaseActionPoints(Common.NAZGHUL_BASE_ACTION_POINTS);
     }
     
     /// <summary>
@@ -265,9 +261,11 @@ public partial class Command
     /// <param name="pc">Character handling, or null to prompt</param>
     public void Handle(Character? pc = null)
     {
+        if (session.Player == null || session.CurrentPlace == null)
+            return;
+        
         ShowPrompt("Handle-");
         
-        // Get the party member.
         if (pc == null)
         {
             pc = SelectPartyMember();
@@ -278,39 +276,35 @@ public partial class Command
             }
         }
         
-        ShowPrompt($"Handle-{pc.GetName()}-<direction>");
+        ShowPrompt($"Handle-{pc.GetName()}-<target>");
         
-        // Capture pc in closure.
+        int playerX = pc.GetX();
+        int playerY = pc.GetY();
         var actor = pc;
         
-        // Request direction.
-        RequestDirection(dir => CompleteHandle(actor, dir));
+        session.BeginTargeting(
+            playerX, playerY, 1, playerX, playerY,
+            (targetX, targetY, cancelled) => CompleteHandle(actor, targetX, targetY, cancelled)
+        );
     }
     
     /// <summary>
     /// Complete the Handle command after direction is received.
     /// </summary>
-    private void CompleteHandle(Character pc, Direction? dir)
+    private void CompleteHandle(Character pc, int targetX, int targetY, bool cancelled)
     {
-        if (dir == null)
+        if (cancelled)
         {
             ShowPrompt($"Handle-{pc.GetName()}-none!");
             return;
         }
         
-        ShowPrompt($"Handle-{pc.GetName()}-{DirectionToString(dir.Value)}");
-
-        int dx = Common.DirectionToDx(dir.Value);
-        int dy = Common.DirectionToDy(dir.Value);
-        
         var place = pc.GetPlace();
-        if (place == null)
-            return ;
+        if (place == null) return;
         
-        int x = place.WrapX(pc.GetX() + dx);
-        int y = place.WrapY(pc.GetY() + dy);
+        int x = place.WrapX(targetX);
+        int y = place.WrapY(targetY);
         
-        // Check for a mechanism.
         var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
         
         if (mech == null)
@@ -325,14 +319,11 @@ public partial class Command
             return;
         }
         
-        // Call mechanism's handle handler.
         var gifc = mech.Type?.InteractionHandler;
         if (gifc is IronScheme.Runtime.Callable callable)
         {
             ShowPrompt($"Handle-{pc.GetName()}-{mech.Name}!");
             Log($"{mech.Name}!");
-            
-            Console.WriteLine($"[Handle] Sending 'handle signal to {mech.Name}");
             
             try
             {

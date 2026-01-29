@@ -423,9 +423,6 @@ public class Place
     /// </summary>
     public void Enter()
     {
-        Console.WriteLine($"[Place.Enter] ===== ENTERING PLACE: {Name} =====");
-        Console.WriteLine($"[Place.Enter] Object count: {Objects.Count}");
-        
         // Synchronize all objects to current game time.
         // This positions scheduled NPCs at their correct locations.
         SynchronizeAllObjects();
@@ -433,13 +430,11 @@ public class Place
         // Execute pre-entry hook if defined and callable.
         if (PreEntryHook is Callable callable)
         {
-            Console.WriteLine($"[Place.Enter] Running pre-entry hook");
             callable.Call();
         }
     
         // Mark as dirty for rendering.
         Dirty = true;
-        Console.WriteLine($"[Place.Enter] ===== ENTER COMPLETE =====");
     }
 
     /// <summary>
@@ -449,29 +444,13 @@ public class Place
     public void SynchronizeAllObjects()
     {
         var clock = Phantasma.MainSession?.Clock;
-        Console.WriteLine($"[SynchronizeAllObjects] Current time: {clock?.Hour ?? -1}:{clock?.Min ?? -1:D2}");
-        Console.WriteLine($"[SynchronizeAllObjects] Synchronizing {Objects.Count} objects...");
         
         int syncCount = 0;
         foreach (var obj in Objects.ToList())
         {
-            // Check if this is a Character with a schedule.
-            if (obj is Character ch)
-            {
-                Console.WriteLine($"[SynchronizeAllObjects] Found Character: {ch.GetName()}");
-                Console.WriteLine($"[SynchronizeAllObjects]   Has Schedule: {ch.Schedule != null}");
-                if (ch.Schedule != null)
-                {
-                    Console.WriteLine($"[SynchronizeAllObjects]   Schedule Tag: {ch.Schedule.Tag}");
-                    Console.WriteLine($"[SynchronizeAllObjects]   Appointment Count: {ch.Schedule.Appointments.Count}");
-                }
-            }
-            
             obj.Synchronize();
             syncCount++;
         }
-        
-        Console.WriteLine($"[SynchronizeAllObjects] Synchronized {syncCount} objects");
     }
 
     /// <summary>

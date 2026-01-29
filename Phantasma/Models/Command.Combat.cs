@@ -34,38 +34,32 @@ public partial class Command
     public void Attack(Direction? direction = null)
     {
         var player = session.Player;
-        if (player == null)
-        {
-            return;
-        }
+        if (player == null) return;
         
-        ShowPrompt("Attack-<direction>");
-        
-        // Get the player's ready weapon.
         var weapon = player.GetCurrentWeapon();
         int range = weapon?.Range ?? 1;
         
+        int playerX = player.GetX();
+        int playerY = player.GetY();
+        
         if (range <= 1)
         {
-            // Melee attack - just need direction
-            RequestDirection(dir => CompleteMeleeAttack(player, dir));
+            // Melee attack - range 1, auto-confirm on direction.
+            ShowPrompt("Attack-<target>");
+            
+            session.BeginTargeting(
+                playerX, playerY, 1, playerX, playerY,
+                (targetX, targetY, cancelled) => CompleteMeleeAttack(player, targetX, targetY, cancelled)
+            );
         }
         else
         {
-            // Ranged attack - use targeting
+            // Ranged attack - requires Enter to confirm.
             ShowPrompt("Attack-<select target>");
-            
-            // Note: BeginTargeting callback is (targetX, targetY, cancelled)
+        
             session.BeginTargeting(
-                player.GetX(),
-                player.GetY(),
-                range,
-                player.GetX(),
-                player.GetY(),
-                (targetX, targetY, cancelled) =>
-                {
-                    CompleteRangedAttack(player, weapon, !cancelled, targetX, targetY);
-                }
+                playerX, playerY, range, playerX, playerY,
+                (targetX, targetY, cancelled) => CompleteRangedAttack(player, weapon, !cancelled, targetX, targetY)
             );
         }
     }
@@ -73,29 +67,17 @@ public partial class Command
     /// <summary>
     /// Complete a melee attack after direction received.
     /// </summary>
-    private void CompleteMeleeAttack(Character attacker, Direction? dir)
+    private void CompleteMeleeAttack(Character attacker, int targetX, int targetY, bool cancelled)
     {
-        if (dir == null)
+        if (cancelled)
         {
             ShowPrompt("Attack-none!");
             return;
         }
         
-        ShowPrompt($"Attack-{DirectionToString(dir.Value)}");
-        
-        int dx = Common.DirectionToDx(dir.Value);
-        int dy = Common.DirectionToDy(dir.Value);
-        
         var place = attacker.GetPlace();
-        if (place == null)
-        {
-            return;
-        }
+        if (place == null) return;
         
-        int targetX = place.WrapX(attacker.GetX() + dx);
-        int targetY = place.WrapY(attacker.GetY() + dy);
-        
-        // Find target at location.
         var target = place.GetBeingAt(targetX, targetY);
         
         if (target == null)
@@ -104,7 +86,20 @@ public partial class Command
             return;
         }
         
-        // Execute the attack.
+        // Check if target is already dead.
+        if (target.IsDead)
+        {
+            Log("Attack - already dead!");
+            return;
+        }
+        
+        if (target == attacker)
+        {
+            Log("You can't attack yourself!");
+            return;
+        }
+        
+        // Execute the attack with current weapon.
         ExecuteAttack(attacker, target, attacker.GetCurrentWeapon());
     }
     
@@ -150,6 +145,13 @@ public partial class Command
     /// </summary>
     private void ExecuteAttack(Character attacker, Being target, ArmsType? weapon)
     {
+        // Check if target is already dead.
+        if (target.IsDead)
+        {
+            Log("already dead!");
+            return;
+        }
+        
         // Use natural weapon if none provided.
         if (weapon == null)
         {
@@ -213,6 +215,8 @@ public partial class Command
             attacker.AddExperience(xp);
             Log($"{attacker.GetName()} gains {xp} XP!");
         }
+        
+        session.CheckAndProcessTurnEnd();
     }
     /*
     /// <summary>
