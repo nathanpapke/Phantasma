@@ -42,7 +42,7 @@ public abstract class Being : Object
         get => isDead || HP <= 0;
         set => isDead = value;
     }
-    public bool IsAsleep { get; protected set; } = false;
+    public bool IsAsleep { get; set; } = false;
     public bool IsCharmed
     { get { return false; } }
     

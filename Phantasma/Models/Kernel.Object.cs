@@ -1153,4 +1153,58 @@ public partial class Kernel
         
         return "idle";
     }
+    
+    /// <summary>
+    /// (kern-obj-heal object amount)
+    /// Heals a being by the specified amount.
+    /// </summary>
+    public static object ObjectHeal(object obj, object amount)
+    {
+        // Handle case where both args come bundled in obj as array.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            obj = arr[0];
+            amount = arr[1];
+        }
+        
+        int healAmount = Convert.ToInt32(amount);
+        
+        if (obj is Being being)
+        {
+            being.Heal(healAmount);
+            return "nil".Eval();
+        }
+        
+        // Try tag resolution.
+        if (obj is string)
+        {
+            string tag = ToTag(obj);
+            if (!string.IsNullOrEmpty(tag))
+            {
+                var resolved = Phantasma.GetRegisteredObject(tag);
+                if (resolved is Being resolvedBeing)
+                {
+                    resolvedBeing.Heal(healAmount);
+                    return "nil".Eval();
+                }
+            }
+        }
+        
+        Console.WriteLine($"[ERROR] kern-obj-heal: not a being (got {obj?.GetType().Name ?? "null"})");
+        return "nil".Eval();
+    }
+    
+    /// <summary>
+    /// (kern-obj-is-char? obj)
+    /// Returns #t if the object is a Character/Being.
+    /// </summary>
+    public static object ObjectIsChar(object objArg)
+    {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
+        // Same check as ObjectIsBeing — it's a being-layer check.
+        return objArg is Being;
+    }
 }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using IronScheme;
 using IronScheme.Runtime;
+using IronScheme.Scripting;
 
 namespace Phantasma.Models;
 
@@ -35,14 +37,40 @@ public class Behavior
         {
             try
             {
-                if (character.AIBehavior is Callable callable)
+                object toCall = character.AIBehavior;
+                
+                // Resolve symbol to closure if needed (deferred resolution).
+                // This handles quoted symbols like 'spider-ai that weren't resolved at creation.
+                if (toCall is SymbolId symbolId)
                 {
+                    var symbolName = SymbolTable.IdToString(symbolId);
+                    Console.WriteLine($"[Behavior.Execute] Resolving AI symbol '{symbolName}'...");
+                    toCall = symbolName.Eval();
+                    
+                    // Cache the resolved closure for future calls.
+                    character.AIBehavior = toCall;
+                }
+                
+                if (toCall is Callable callable)
+                {
+                    Console.WriteLine($"[Behavior.Execute] {character.GetName()} calling custom AI closure...");
                     callable.Call(character);
+                }
+                else
+                {
+                    Console.WriteLine($"[Behavior.Execute] {character.GetName()}'s AI is not callable: {toCall?.GetType().Name}");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[NpcAI] Custom AI error for {character.GetName()}: {ex.Message}");
+                // Try to get more details from SchemeException.
+                var message = ex.Message;
+                if (ex.InnerException != null)
+                    message += $" Inner: {ex.InnerException.Message}";
+                
+                // IronScheme exceptions often have useful info in Data or ToString.
+                Console.WriteLine($"[NpcAI] Custom AI error for {character.GetName()}: {message}");
+                Console.WriteLine($"[NpcAI] Full exception: {ex}");
             }
             return;
         }
@@ -83,6 +111,7 @@ public class Behavior
     {
         // Find a target.
         var target = SelectTarget(character);
+        Console.WriteLine($"[Idle] {character.GetName()} - Target: {target?.GetName() ?? "none"}");
         
         if (target == null)
         {
@@ -123,7 +152,12 @@ public class Behavior
     {
         var place = attacker.GetPlace();
         if (place == null)
+        {
+            Console.WriteLine($"[SelectTarget] {attacker.GetName()}: No place!");
             return null;
+        }
+        
+        Console.WriteLine($"[SelectTarget] {attacker.GetName()} scanning {place.GetAllBeings().Count} beings...");
         
         Character? bestTarget = null;
         int bestDistance = int.MaxValue;
@@ -131,18 +165,31 @@ public class Behavior
         // Search all beings in the place.
         foreach (var obj in place.GetAllBeings())
         {
-            if (!IsValidTarget(attacker, obj))
-                continue;
+            if (obj == attacker) continue;
             
-            // Compute distance.
-            int distance = place.GetFlyingDistance(
-                attacker.GetX(), attacker.GetY(),
-                obj.GetX(), obj.GetY());
-            
-            if (distance < bestDistance)
+            // Add detailed logging.
+            if (obj is Character target)
             {
-                bestDistance = distance;
-                bestTarget = obj as Character;
+                bool isHostile = AreHostile(attacker, target);
+                bool canSee = attacker.CanSee(target);
+                bool isDead = target.IsDead;
+                bool isOnMap = target.IsOnMap();
+                
+                Console.WriteLine($"  Checking {target.GetName()}: hostile={isHostile}, canSee={canSee}, dead={isDead}, onMap={isOnMap}");
+                
+                if (!IsValidTarget(attacker, obj))
+                    continue;
+                
+                // Compute distance.
+                int distance = place.GetFlyingDistance(
+                    attacker.GetX(), attacker.GetY(),
+                    obj.GetX(), obj.GetY());
+                
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestTarget = obj as Character;
+                }
             }
         }
         
@@ -224,16 +271,15 @@ public class Behavior
         if (session?.DiplomacyTable != null)
         {
             int relation = session.DiplomacyTable.Get(factionA, factionB);
+            Console.WriteLine($"[AreHostile] {a.GetName()}(f{factionA}) vs {b.GetName()}(f{factionB}): relation={relation}");
             return relation < 0;  // Negative = hostile
         }
         
-        // Default: different factions with no diplomacy = hostile
-        // Exception: faction 0 (player) vs faction > 0 (NPCs) check.
-        // For simplicity, assume player faction (usually 0) is hostile to monsters.
-        
-        // Player faction is typically 0, friendly NPCs might share it.
-        // Hostile monsters typically have different factions.
-        return factionA != factionB && (factionA == 0 || factionB == 0);
+        // Different factions without diplomacy table = hostile by default
+        // This matches Nazghul's behavior where different factions are enemies
+        // unless the diplomacy table explicitly says otherwise.
+        Console.WriteLine($"[AreHostile] No diplomacy table! Fallback check.");
+        return true;
     }
     
     // ===================================================================
@@ -433,41 +479,46 @@ public class Behavior
         var place = character.GetPlace();
         if (place == null)
         {
-            character.EndTurn();
+            character.DecreaseActionPoints(1);
             return;
         }
         
-        // Roll for direction.
-        int dx = random.Next(3) - 1;  // -1, 0, or 1
-        int dy = 0;
-        if (dx == 0)
-            dy = random.Next(3) - 1;
+        // Roll for direction.  Ensure at least one is non-zero.
+        int dx = random.Next(3) - 1;
+        int dy = random.Next(3) - 1;
         
-        if (dx != 0 || dy != 0)
+        // If both are zero, pick a random non-zero direction.
+        if (dx == 0 && dy == 0)
         {
-            int newX = character.GetX() + dx;
-            int newY = character.GetY() + dy;
-            
-            // Don't wander off map.
-            if (place.IsOffMap(newX, newY))
-            {
-                character.EndTurn();
-                return;
-            }
-            
-            // Don't wander into hazards.
-            if (place.IsHazardous(newX, newY))
-            {
-                character.EndTurn();
-                return;
-            }
-            
-            // Try to move.
-            character.Move(dx, dy);
+            if (random.Next(2) == 0)
+                dx = random.Next(2) == 0 ? -1 : 1;
+            else
+                dy = random.Next(2) == 0 ? -1 : 1;
         }
         
-        // End turn after wandering.
-        character.EndTurn();
+        int newX = character.GetX() + dx;
+        int newY = character.GetY() + dy;
+        
+        // Don't wander off map.
+        if (place.IsOffMap(newX, newY))
+        {
+            character.DecreaseActionPoints(1);
+            return;
+        }
+        
+        // Don't wander into hazards.
+        if (place.IsHazardous(newX, newY))
+        {
+            character.DecreaseActionPoints(1);
+            return;
+        }
+        
+        // Try to move (Move() consumes AP on success).
+        if (!character.Move(dx, dy))
+        {
+            // Consume 1 AP for the attempt.
+            character.DecreaseActionPoints(1);
+        }
     }
     
     /// <summary>

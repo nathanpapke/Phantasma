@@ -244,6 +244,8 @@ public partial class Kernel
         DefineFunction("kern-obj-set-light", ObjectSetLight);
         DefineFunction("kern-obj-get-activity", ObjectGetActivity);
         DefineFunction("kern-obj-set-activity", ObjectSetActivity);
+        DefineFunction("kern-obj-heal", ObjectHeal);
+        DefineFunction("kern-obj-is-char?", ObjectIsChar);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions
@@ -279,6 +281,9 @@ public partial class Kernel
         DefineFunction("kern-char-get-mana", CharacterGetMana);
         DefineFunction("kern-char-dec-mana", CharacterDecreaseMana);
         DefineFunction("kern-char-attack", CharacterAttack);
+        DefineFunction("kern-char-get-species", CharacterGetSpecies);
+        DefineFunction("kern-char-is-asleep?", CharacterIsAsleep);
+        DefineFunction("kern-char-set-sleep", CharacterSetSleep);
         
         // ===================================================================
         // KERN-CHAR API - Character Equipment Functions
@@ -355,6 +360,7 @@ public partial class Kernel
         DefineFunction("kern-tag", Tag);
         DefineFunction("kern-dice-roll", DiceRoll);
         DefineFunction("kern-log-msg", LogMessage);
+        DefineFunction("kern-fold-rect", FoldRect);
         
         // TODO: Add remaining kern-* functions as needed.
         // The full Nazghul kern.c has ~150 functions.
@@ -603,6 +609,79 @@ public partial class Kernel
         
         Console.WriteLine($"[GAME] {sb.ToString().TrimEnd('\n')}");
         return "nil".Eval();
+    }
+
+    /// <summary>
+    /// (kern-fold-rect place x y w h proc initial-value)
+    /// Folds a procedure over every tile in a rectangle.
+    /// For each tile, calls (proc accumulated-value location).
+    /// Returns the final accumulated value.
+    /// </summary>
+    // Note: Nazghul iterates y then x, clipping to map bounds.
+    public static object FoldRect(object[] args)
+    {
+        if (args == null || args.Length < 7)
+        {
+            Console.WriteLine($"[ERROR] kern-fold-rect: expected 7 args, got {args?.Length ?? 0}");
+            return "nil".Eval();
+        }
+        
+        // Unpack: place, x, y, w, h, proc, initial-value
+        object placeArg = args[0];
+        int ulcX = Convert.ToInt32(args[1]);
+        int ulcY = Convert.ToInt32(args[2]);
+        int w    = Convert.ToInt32(args[3]);
+        int h    = Convert.ToInt32(args[4]);
+        object proc = args[5];
+        object val  = args[6];
+        
+        // Resolve place.
+        Place place = placeArg as Place;
+        if (place == null && placeArg is string tag)
+        {
+            place = Phantasma.GetRegisteredObject(tag.TrimStart('\'').Trim('"')) as Place;
+        }
+        
+        if (place == null)
+        {
+            Console.WriteLine("[ERROR] kern-fold-rect: null place");
+            return "nil".Eval();
+        }
+        
+        // Get the callable procedure.
+        if (proc is not Callable callable)
+        {
+            Console.WriteLine($"[ERROR] kern-fold-rect: proc is not callable (got {proc?.GetType().Name ?? "null"})");
+            return "nil".Eval();
+        }
+        
+        // Clip rectangle to map bounds.
+        int lrcX = Math.Min(place.Width,  ulcX + w);
+        int lrcY = Math.Min(place.Height, ulcY + h);
+        ulcX = Math.Max(0, ulcX);
+        ulcY = Math.Max(0, ulcY);
+        
+        // Iterate over tiles, calling (proc val loc) for each.
+        for (int y = ulcY; y < lrcY; y++)
+        {
+            for (int x = ulcX; x < lrcX; x++)
+            {
+                // Build location as Scheme list: (place x y)
+                var loc = new Cons(place, new Cons(x, new Cons(y, null)));
+                
+                try
+                {
+                    val = callable.Call(val, loc);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] kern-fold-rect: callback error at ({x},{y}): {ex.Message}");
+                    return val;
+                }
+            }
+        }
+        
+        return val;
     }
     
     // ===================================================================

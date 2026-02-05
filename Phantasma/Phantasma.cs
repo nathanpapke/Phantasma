@@ -340,6 +340,26 @@ public class Phantasma
         // Create session with loaded objects.
         mainSession = new Session(place, player, party);
         
+        // Apply diplomacy table from registry.
+        var dtable = GetRegisteredObject("dtable") as DiplomacyTable;
+        if (dtable != null)
+        {
+            mainSession.DiplomacyTable = dtable;
+            Console.WriteLine("[CreateMainSession] Applied diplomacy table");
+        }
+        else
+        {
+            Console.WriteLine("[CreateMainSession] WARNING: No diplomacy table found!");
+        }
+        
+        // Apply passability table from registry.
+        var ptable = GetRegisteredObject("ptable") as PassabilityTable;
+        if (ptable != null)
+        {
+            mainSession.PassabilityTable = ptable;
+            Console.WriteLine("[CreateMainSession] Applied passability table");
+        }
+        
         // Apply pending clock data if we have it.
         if (pendingClockData.HasValue)
         {

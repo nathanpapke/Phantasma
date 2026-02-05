@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using IronScheme;
 using IronScheme.Runtime;
 
@@ -56,8 +57,32 @@ public partial class Kernel
     /// <summary>
     /// (kern-get-objects-at place x y)
     /// </summary>
-    public static object GetObjectsAt(object placeObj, object xObj, object yObj)
+    public static object GetObjectsAt(object[] args)
     {
+        Console.WriteLine($"[kern-get-objects-at] Called with {args.Length} args");
+        
+        object placeObj, xObj, yObj;
+        
+        if (args.Length >= 3)
+        {
+            placeObj = args[0];
+            xObj = args[1];
+            yObj = args[2];
+        }
+        else if (args.Length == 1 && args[0] is Cons list)
+        {
+            var items = list.ToList();
+            if (items.Count < 3) { /* error */ }
+            placeObj = items[0];
+            xObj = items[1];
+            yObj = items[2];
+        }
+        else
+        {
+            Console.WriteLine($"[kern-get-objects-at] Expected 3 args, got {args.Length}");
+            return Cons.FromList(new List<object>());
+        }
+        
         if (placeObj is not Place place) return Cons.FromList(new List<object>());
         var objects = new List<object>(place.GetObjectsAt(Convert.ToInt32(xObj), Convert.ToInt32(yObj)));
         return Cons.FromList(objects);

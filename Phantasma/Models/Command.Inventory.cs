@@ -61,7 +61,6 @@ public partial class Command
         // Debug Filter Function
         Func<Object, bool> gettableFilter = obj => {
             bool gettable = obj.IsGettable();
-            Console.WriteLine($"[Get Filter] {obj.Name} Layer={obj.Layer} IsGettable={gettable} Type={obj.GetType().Name}");
             return gettable;
         };
     
@@ -100,24 +99,17 @@ public partial class Command
         if (session.Party == null)
             return;
         
-        Console.WriteLine($"[GetItem] Processing: {item.Name} (type: {item.Type?.Tag ?? "no type"})");
-        Console.WriteLine($"[GetItem] CanGet: {item.Type?.CanGet}, HasGifc: {item.Type?.InteractionHandler != null}");
-        
         // Check if type has a custom 'get' handler via InteractionHandler (gifc).
         var gifc = item.Type?.InteractionHandler;
         if (gifc is IronScheme.Runtime.Callable callable && item.Type?.CanGet == true)
         {
             try
             {
-                Console.WriteLine($"[GetItem] Calling gifc 'get handler...");
                 callable.Call("get", item, session.Player);
                 
                 // If handler removed the item, it fully handled the get - we're done.
                 if (!item.IsOnMap())
                     return;
-                
-                // Handler didn't remove item - fall through to default handling.
-                Console.WriteLine($"[GetItem] WARNING: gifc didn't handle item, using default");
             }
             catch (Exception ex)
             {

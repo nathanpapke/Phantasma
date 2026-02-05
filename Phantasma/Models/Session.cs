@@ -877,8 +877,12 @@ public class Session
             .Where(c => c != playerCharacter && !c.IsDead)
             .ToList();
         
+        Console.WriteLine($"[HandleOtherBeings] Found {characters.Count} NPCs to process");
+        
         foreach (var npc in characters)
         {
+            Console.WriteLine($"[NPC Turn] {npc.GetName()} - Faction: {npc.GetCurrentFaction()}, AP: {npc.ActionPoints}");
+            
             if (npc.IsDead)
                 continue;
         

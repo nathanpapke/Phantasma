@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using IronScheme;
 using IronScheme.Runtime;
 
@@ -12,23 +13,62 @@ public partial class Kernel
     /// Pathfind toward destination and take one step.
     /// Returns #t if moved, #f otherwise.
     /// </summary>
-    public static object BeingPathfindTo(object beingObj, object placeObj, object xObj, object yObj)
+    public static object BeingPathfindTo(object[] args)
     {
+        // Unpack arguments - handle both direct calls and apply
+        object beingObj, placeObj, xObj, yObj;
+        
+        if (args.Length >= 4)
+        {
+            beingObj = args[0];
+            placeObj = args[1];
+            xObj = args[2];
+            yObj = args[3];
+        }
+        else if (args.Length == 1 && args[0] is Cons list)
+        {
+            // Called via apply with a single list argument
+            var items = list.ToList();
+            if (items.Count < 4)
+            {
+                Console.WriteLine($"[kern-being-pathfind-to] Expected 4 args in list, got {items.Count}");
+                return "#f".Eval();
+            }
+            beingObj = items[0];
+            placeObj = items[1];
+            xObj = items[2];
+            yObj = items[3];
+        }
+        else
+        {
+            Console.WriteLine($"[kern-being-pathfind-to] Expected 4 args, got {args.Length}");
+            return "#f".Eval();
+        }
+        
+        // Handle array wrapper from IronScheme.
+        if (beingObj is object[] arr && arr.Length > 0)
+            beingObj = arr[0];
+        
         if (beingObj is not Being being)
         {
-            Console.WriteLine("[kern-being-pathfind-to] Invalid being");
+            Console.WriteLine($"[kern-being-pathfind-to] Invalid being: {beingObj?.GetType().Name}");
             return "#f".Eval();
         }
-
+        
         if (placeObj is not Place place)
         {
-            Console.WriteLine("[kern-being-pathfind-to] Invalid place");
-            return "#f".Eval();
+            // Try to resolve by tag.
+            place = Phantasma.GetRegisteredObject(placeObj?.ToString() ?? "") as Place;
+            if (place == null)
+            {
+                Console.WriteLine($"[kern-being-pathfind-to] Invalid place: {placeObj?.GetType().Name}");
+                return "#f".Eval();
+            }
         }
-
+        
         int x = Convert.ToInt32(xObj);
         int y = Convert.ToInt32(yObj);
-
+        
         return being.PathFindTo(place, x, y);
     }
     
@@ -46,13 +86,13 @@ public partial class Kernel
         }
 
         var dtable = Phantasma.MainSession?.DiplomacyTable;
-        if (dtable == null)
-            return "#f".Eval();
-
         int f1 = being1.GetCurrentFaction();
         int f2 = being2.GetCurrentFaction();
-
-        return dtable.AreHostile(f1, f2);
+        
+        if (dtable != null)
+            return dtable.AreHostile(f1, f2);
+        else
+            return (f1 != f2);
     }
     
     /// <summary>
@@ -63,49 +103,50 @@ public partial class Kernel
     public static object BeingGetVisibleHostiles(object beingObj)
     {
         if (beingObj is not Being being)
-        {
-            Console.WriteLine("[kern-being-get-visible-hostiles] Invalid being");
             return Cons.FromList(new List<object>());
-        }
-
+        
         var place = being.GetPlace();
         if (place == null)
             return Cons.FromList(new List<object>());
-
+        
         var dtable = Phantasma.MainSession?.DiplomacyTable;
-        if (dtable == null)
-            return Cons.FromList(new List<object>());
-
+        
         var hostiles = new List<object>();
         int myFaction = being.GetCurrentFaction();
         int visionRadius = being.GetVisionRadius();
-
+        
         foreach (var obj in place.Objects)
         {
             if (obj is not Being other || other == being)
                 continue;
-
-            // Check faction hostility.
+            
+            // Check faction hostility (with fallback when no dtable).
             int otherFaction = other.GetCurrentFaction();
-            if (!dtable.AreHostile(myFaction, otherFaction))
+            bool hostile;
+            if (dtable != null)
+                hostile = dtable.AreHostile(myFaction, otherFaction);
+            else
+                hostile = (myFaction != otherFaction);  // Fallback: different faction = hostile
+            
+            if (!hostile)
                 continue;
-
+            
             // Check visibility.
             if (!other.IsVisible())
                 continue;
-
+            
             // Check distance (within vision radius).
             int dist = place.GetFlyingDistance(being.GetX(), being.GetY(), other.GetX(), other.GetY());
             if (dist > visionRadius)
                 continue;
-
+            
             // Check line of sight.
             if (!place.IsInLineOfSight(being.GetX(), being.GetY(), other.GetX(), other.GetY()))
                 continue;
-
+            
             hostiles.Add(other);
         }
-
+        
         return Cons.FromList(hostiles);
     }
     
