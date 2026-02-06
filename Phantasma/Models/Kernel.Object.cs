@@ -375,6 +375,61 @@ public partial class Kernel
         gameObj.AddEffect(eff, gob);
         return true;
     }
+
+    /// <summary>
+    /// (kern-obj-get-effects obj)
+    /// Returns a Scheme list of all Effect objects attached to this object,
+    /// across all hook types (start-of-turn, add-hook, damage, keystroke).
+    /// </summary>
+    public static object ObjectGetEffect(object objArg)
+    {
+        // Handle varargs unwrapping (IronScheme passes object[] for -1 arity).
+        if (objArg is object[] args)
+            objArg = args.Length > 0 ? args[0] : null;
+        
+        // Accept any Object (Being, Character, Item, etc.).
+        var obj = objArg as Object;
+        if (obj == null)
+        {
+            // Try resolving by tag if it's a string.
+            if (objArg is string tag)
+                obj = Phantasma.GetRegisteredObject(tag) as Object;
+            
+            if (obj == null)
+            {
+                RuntimeError("kern-obj-get-effects: not a valid object");
+                return "'()".Eval();
+            }
+        }
+        
+        // Collect all effects across all hook types.
+        var effects = new List<object>();
+        
+        for (int hookId = 0; hookId < (int)HookId.NumHooks; hookId++)
+        {
+            obj.HookForEach((HookId)hookId, hook =>
+            {
+                if (hook.Effect != null)
+                {
+                    effects.Add(hook.Effect);
+                }
+            });
+        }
+        
+        // Build Scheme list (right-fold to preserve order).
+        // Return null/'() for empty, proper Cons chain for results.
+        if (effects.Count == 0)
+            return "'()".Eval();
+        
+        // Build the list from back to front.
+        object result = "'()".Eval();
+        for (int i = effects.Count - 1; i >= 0; i--)
+        {
+            result = new Cons(effects[i], result);
+        }
+        
+        return result;
+    }
     
     /// <summary>
     /// (kern-obj-remove-effect object effect)

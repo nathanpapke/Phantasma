@@ -199,7 +199,7 @@ public partial class Kernel
         DefineFunction("kern-place-get-location", PlaceGetLocation);
         DefineFunction("kern-place-get-neighbor", PlaceGetNeighbor);
         DefineFunction("kern-place-is-wilderness", PlaceIsWilderness);
-        DefineFunction("kern-place-is-wrapping", PlaceIsWrapping);
+        DefineFunction("kern-place-is-wrapping?", PlaceIsWrapping);
         DefineFunction("kern-place-get-beings", PlaceGetBeings);
         DefineFunction("kern-place-is-passable", PlaceIsPassable);
         DefineFunction("kern-place-is-hazardous", PlaceIsHazardous);
@@ -222,6 +222,7 @@ public partial class Kernel
         DefineFunction("kern-obj-get-conversation", ObjectGetConversation);
         DefineFunction("kern-obj-apply-damage", ObjectApplyDamage);
         DefineFunction("kern-obj-add-effect", ObjectAddEffect);
+        DefineFunction("kern-obj-get-effects", ObjectGetEffect);
         DefineFunction("kern-obj-remove-effect", ObjectRemoveEffect);
         DefineFunction("kern-obj-has-effect?", ObjectHasEffect);
         DefineFunction("kern-obj-remove", ObjectRemove);

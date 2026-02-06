@@ -102,52 +102,78 @@ public partial class Kernel
     /// </summary>
     public static object BeingGetVisibleHostiles(object beingObj)
     {
-        if (beingObj is not Being being)
-            return Cons.FromList(new List<object>());
+        // Unwrap varargs array from IronScheme.
+        if (beingObj is object[] args)
+            beingObj = args[0];
+
+        var being = beingObj as Being;
+        if (being == null || being.Position?.Place == null)
+        {
+            RuntimeError("kern-being-get-visible-hostiles: null being or place");
+            return "'()".Eval();
+        }
         
-        var place = being.GetPlace();
-        if (place == null)
-            return Cons.FromList(new List<object>());
-        
+        var place = being.Position.Place;
         var dtable = Phantasma.MainSession?.DiplomacyTable;
+        // NOTE: dtable CAN be null — we handle it in the loop with fallback.
+        
+        int myFaction = being.GetCurrentFaction();
+        int visionRadius = being is Character ch ? ch.GetVisionRadius() : 10;
+        int myX = being.GetX();
+        int myY = being.GetY();
         
         var hostiles = new List<object>();
-        int myFaction = being.GetCurrentFaction();
-        int visionRadius = being.GetVisionRadius();
         
         foreach (var obj in place.Objects)
         {
             if (obj is not Being other || other == being)
                 continue;
             
-            // Check faction hostility (with fallback when no dtable).
+            // Check hostility.
             int otherFaction = other.GetCurrentFaction();
-            bool hostile;
+            bool isHostile;
             if (dtable != null)
-                hostile = dtable.AreHostile(myFaction, otherFaction);
+            {
+                isHostile = dtable.AreHostile(myFaction, otherFaction);
+            }
             else
-                hostile = (myFaction != otherFaction);  // Fallback: different faction = hostile
+            {
+                // Fallback to no diplomacy table: different faction = hostile.
+                // This matches the behavior default AI already uses.
+                isHostile = (myFaction != otherFaction);
+            }
             
-            if (!hostile)
+            if (!isHostile)
                 continue;
             
             // Check visibility.
             if (!other.IsVisible())
                 continue;
-            
-            // Check distance (within vision radius).
-            int dist = place.GetFlyingDistance(being.GetX(), being.GetY(), other.GetX(), other.GetY());
+
+            // Check distance.
+            int dist = place.GetFlyingDistance(myX, myY, other.GetX(), other.GetY());
             if (dist > visionRadius)
                 continue;
-            
+
             // Check line of sight.
-            if (!place.IsInLineOfSight(being.GetX(), being.GetY(), other.GetX(), other.GetY()))
+            if (!place.IsInLineOfSight(myX, myY, other.GetX(), other.GetY()))
                 continue;
             
             hostiles.Add(other);
         }
         
-        return Cons.FromList(hostiles);
+        if (hostiles.Count == 0)
+            return "'()".Eval();
+        
+        // Build Cons list (right-fold).
+        object result = "'()".Eval();
+        for (int i = hostiles.Count - 1; i >= 0; i--)
+        {
+            result = new Cons(hostiles[i], result);
+        }
+        
+        Console.WriteLine(result.ToString());
+        return result;
     }
     
     /// <summary>
