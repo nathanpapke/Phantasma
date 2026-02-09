@@ -37,6 +37,17 @@ public partial class Kernel
     /// </summary>
     public static object InLineOfSight(object p1, object x1, object y1, object p2, object x2, object y2)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (p1 is object[] arr && arr.Length >= 6)
+        {
+            y2 = arr[5];
+            x2 = arr[4];
+            p2 = arr[3];
+            y1 = arr[2];
+            x1 = arr[1];
+            p1 = arr[0];
+        }
+        
         if (p1 is not Place place1 || p2 is not Place place2) return false;
         if (place1 != place2) return false;
         return place1.IsInLineOfSight(Convert.ToInt32(x1), Convert.ToInt32(y1), 
@@ -48,6 +59,17 @@ public partial class Kernel
     /// </summary>
     public static object GetDistance(object p1, object x1, object y1, object p2, object x2, object y2)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (p1 is object[] arr && arr.Length >= 6)
+        {
+            y2 = arr[5];
+            x2 = arr[4];
+            p2 = arr[3];
+            y1 = arr[2];
+            x1 = arr[1];
+            p1 = arr[0];
+        }
+        
         if (p1 is not Place place1 || p2 is not Place place2) return -1;
         if (place1 != place2) return -1;
         return place1.GetFlyingDistance(Convert.ToInt32(x1), Convert.ToInt32(y1),

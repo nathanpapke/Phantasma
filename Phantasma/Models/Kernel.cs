@@ -152,6 +152,7 @@ public partial class Kernel
         // KERN-SET API - Session Configuration Functions
         // ===================================================================
         
+        DefineFunction("kern-set-player", SetPlayer);
         DefineFunction("kern-set-crosshair", SetCrosshair);
         DefineFunction("kern-set-cursor", SetCursor);
         DefineFunction("kern-set-frame", SetFrame);
@@ -408,6 +409,10 @@ public partial class Kernel
     /// </summary>
     public static object Print(object args)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (args is object[] arr && arr.Length > 0)
+            args = arr[0];
+        
         // Handle both direct calls and cons lists.
         string message = args?.ToString() ?? "(null)";
     
@@ -427,6 +432,10 @@ public partial class Kernel
     /// </summary>
     public static object Include(object args)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (args is object[] arr && arr.Length > 0)
+            args = arr[0];
+        
         string rawPath = ExtractFilename(args);
     
         if (string.IsNullOrEmpty(rawPath))
@@ -504,6 +513,10 @@ public partial class Kernel
     /// </example>
     public static object SoundPlay(object sound)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (sound is object[] arr && arr.Length > 0)
+            sound = arr[0];
+        
         Sound? soundObj = null;
         
         // Handle different input types.

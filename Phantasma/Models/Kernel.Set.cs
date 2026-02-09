@@ -18,6 +18,10 @@ public partial class Kernel
     /// </summary>
     public static object SetPlayer(object character)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (character is object[] arr && arr.Length > 0)
+            character = arr[0];
+        
         if (character is Character c)
         {
             Phantasma.RegisterObject(KEY_PLAYER_CHARACTER, c);
@@ -142,6 +146,17 @@ public partial class Kernel
     public static object SetClock(object yearObj, object monthObj, object weekObj, 
         object dayObj, object hourObj, object minObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (yearObj is object[] arr && arr.Length >= 6)
+        {
+            minObj = arr[5];
+            hourObj = arr[4];
+            dayObj = arr[3];
+            weekObj = arr[2];
+            monthObj = arr[1];
+            yearObj = arr[0];
+        }
+        
         int year = Convert.ToInt32(yearObj ?? 0);
         int month = Convert.ToInt32(monthObj ?? 0);
         int week = Convert.ToInt32(weekObj ?? 0);
@@ -173,6 +188,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object SetTimeAcceleration(object accelObj)
     {
+        // Unwrap varargs array from IronScheme.
+        if (accelObj is object[] args)
+            accelObj = args[0];
+        
         int accel = Convert.ToInt32(accelObj ?? 1);
         accel = Math.Max(1, accel);  // Minimum 1x speed
     
@@ -225,6 +244,13 @@ public partial class Kernel
     /// <returns></returns>
     public static object SetWind(object dirObj, object durObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (dirObj is object[] arr && arr.Length >= 2)
+        {
+            durObj = arr[1];
+            dirObj = arr[0];
+        }
+        
         int direction = Convert.ToInt32(dirObj ?? Common.NORTH);
         int duration = Convert.ToInt32(durObj ?? 0);
         

@@ -9,6 +9,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object SpeciesGetHpMod(object species)
     {
+        // Unwrap varargs array from IronScheme.
+        if (species is object[] args)
+            species = args[0];
+        
         if (species == null || IsNil(species))
             return 0;
     
@@ -31,6 +35,10 @@ public partial class Kernel
     /// </summary>
     public static object SpeciesGetHpMult(object species)
     {
+        // Unwrap varargs array from IronScheme.
+        if (species is object[] args)
+            species = args[0];
+        
         if (species == null || IsNil(species))
             return 0;
         
@@ -53,6 +61,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object SpeciesGetMpMod(object species)
     {
+        // Unwrap varargs array from IronScheme.
+        if (species is object[] args)
+            species = args[0];
+        
         if (species == null || IsNil(species))
             return 0;
         
@@ -75,6 +87,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object SpeciesGetMpMult(object species)
     {
+        // Unwrap varargs array from IronScheme.
+        if (species is object[] args)
+            species = args[0];
+        
         if (species == null || IsNil(species))
             return 0;
         

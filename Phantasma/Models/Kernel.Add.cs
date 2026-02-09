@@ -12,10 +12,18 @@ public partial class Kernel
     // These add status effects to characters.
     // ===================================================================
     
+    /// <summary>
+    /// (kern-add-reveal character duration)
+    /// Grants ability to see invisible/hidden entities for duration turns.
+    /// </summary>
     public static object AddReveal(object characterObj, object durationObj)
     {
-        // (kern-add-reveal character duration)
-        // Grants ability to see invisible/hidden entities for duration turns.
+        // Handle variadic array wrapper from IronScheme.
+        if (characterObj is object[] arr && arr.Length >= 2)
+        {
+            durationObj = arr[1];
+            characterObj = arr[0];
+        }
         
         try
         {
@@ -40,10 +48,18 @@ public partial class Kernel
         }
     }
     
+    /// <summary>
+    /// (kern-add-quicken character duration)
+    /// Grants extra actions per turn for duration turns.
+    /// </summary>
     public static object AddQuicken(object characterObj, object durationObj)
     {
-        // (kern-add-quicken character duration)
-        // Grants extra actions per turn for duration turns.
+        // Handle variadic array wrapper from IronScheme.
+        if (characterObj is object[] arr && arr.Length >= 2)
+        {
+            durationObj = arr[1];
+            characterObj = arr[0];
+        }
         
         try
         {
@@ -68,10 +84,18 @@ public partial class Kernel
         }
     }
     
+    /// <summary>
+    /// (kern-add-time-stop character duration)
+    /// Freezes other entities while this character can act for duration turns.
+    /// </summary>
     public static object AddTimeStop(object characterObj, object durationObj)
     {
-        // (kern-add-time-stop character duration)
-        // Freezes other entities while this character can act for duration turns.
+        // Handle variadic array wrapper from IronScheme.
+        if (characterObj is object[] arr && arr.Length >= 2)
+        {
+            durationObj = arr[1];
+            characterObj = arr[0];
+        }
         
         try
         {
@@ -96,10 +120,18 @@ public partial class Kernel
         }
     }
     
+    /// <summary>
+    /// (kern-add-magic-negated character duration)
+    /// Prevents character from casting spells for duration turns.
+    /// </summary>
     public static object AddMagicNegated(object characterObj, object durationObj)
     {
-        // (kern-add-magic-negated character duration)
-        // Prevents character from casting spells for duration turns.
+        // Handle variadic array wrapper from IronScheme.
+        if (characterObj is object[] arr && arr.Length >= 2)
+        {
+            durationObj = arr[1];
+            characterObj = arr[0];
+        }
         
         try
         {
@@ -124,10 +156,18 @@ public partial class Kernel
         }
     }
     
+    /// <summary>
+    /// (kern-add-xray-vision character duration)
+    /// Grants ability to see through walls for duration turns.
+    /// </summary>
     public static object AddXrayVision(object characterObj, object durationObj)
     {
-        // (kern-add-xray-vision character duration)
-        // Grants ability to see through walls for duration turns.
+        // Handle variadic array wrapper from IronScheme.
+        if (characterObj is object[] arr && arr.Length >= 2)
+        {
+            durationObj = arr[1];
+            characterObj = arr[0];
+        }
         
         try
         {
@@ -214,6 +254,14 @@ public partial class Kernel
     /// </summary>
     public static object AddTickJob(object ticksArg, object proc, object data)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (ticksArg is object[] arr && arr.Length >= 3)
+        {
+            data = arr[2];
+            proc = arr[1];
+            ticksArg = arr[0];
+        }
+        
         int ticks = ToInt(ticksArg, 1);
         
         if (proc == null || IsNil(proc))

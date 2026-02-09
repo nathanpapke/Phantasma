@@ -308,6 +308,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectGetConversation(object obj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length > 0)
+            obj = arr[0];
+        
         if (obj is Character character)
         {
             return character.Conversation ?? "#f".Eval();
@@ -325,6 +329,14 @@ public partial class Kernel
     /// </summary>
     public static object ObjectApplyDamage(object obj, object desc, object amount)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 3)
+        {
+            amount = arr[2];
+            desc = arr[1];
+            obj = arr[0];
+        }
+        
         if (obj == null)
         {
             Console.WriteLine("[ERROR] kern-obj-apply-damage: null object");
@@ -360,6 +372,14 @@ public partial class Kernel
     /// </summary>
     public static object ObjectAddEffect(object obj, object effect, object gob)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 3)
+        {
+            gob = arr[2];
+            effect = arr[1];
+            obj = arr[0];
+        }
+        
         if (obj is not Object gameObj)
         {
             RuntimeError("kern-obj-add-effect: not a game object");
@@ -383,9 +403,9 @@ public partial class Kernel
     /// </summary>
     public static object ObjectGetEffect(object objArg)
     {
-        // Handle varargs unwrapping (IronScheme passes object[] for -1 arity).
-        if (objArg is object[] args)
-            objArg = args.Length > 0 ? args[0] : null;
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
         
         // Accept any Object (Being, Character, Item, etc.).
         var obj = objArg as Object;
@@ -437,20 +457,27 @@ public partial class Kernel
     /// </summary>
     public static object ObjectRemoveEffect(object obj, object effect)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            effect = arr[1];
+            obj = arr[0];
+        }
+        
         if (obj is not Object gameObj)
         {
             RuntimeError("kern-obj-remove-effect: not a game object");
-            return false;
+            return "#f".Eval();
         }
         
         if (effect is not Effect eff)
         {
             RuntimeError("kern-obj-remove-effect: not an effect");
-            return false;
+            return "#f".Eval();
         }
         
         gameObj.RemoveEffect(eff);
-        return true;
+        return "#t".Eval();
     }
     
     /// <summary>
@@ -459,19 +486,26 @@ public partial class Kernel
     /// </summary>
     public static object ObjectHasEffect(object obj, object effect)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            effect = arr[1];
+            obj = arr[0];
+        }
+        
         if (obj is not Object gameObj)
         {
             RuntimeError("kern-obj-has-effect?: not a game object");
-            return false;
+            return "#f".Eval();
         }
         
         if (effect is not Effect eff)
         {
             RuntimeError("kern-obj-has-effect?: not an effect");
-            return false;
+            return "#f".Eval();
         }
-        
-        return gameObj.HasEffect(eff);
+
+        return gameObj.HasEffect(eff) ? "#t".Eval() : "#f".Eval();
     }
     
     /// <summary>
@@ -510,6 +544,14 @@ public partial class Kernel
     /// </summary>
     public static object ObjectRelocate(object obj, object location, object cutscene)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 3)
+        {
+            cutscene = arr[2];
+            location = arr[1];
+            obj = arr[0];
+        }
+        
         if (obj is not Object gameObj)
         {
             Console.WriteLine("[WARNING] kern-obj-relocate: null or invalid object");
@@ -552,23 +594,32 @@ public partial class Kernel
     /// </summary>
     public static object ObjectFindPath(object objArg, object placeArg, object xArg, object yArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length >= 4)
+        {
+            yArg = arr[3];
+            xArg = arr[2];
+            placeArg = arr[1];
+            objArg = arr[0];
+        }
+        
         if (objArg is not Object obj)
         {
             Console.WriteLine("[kern-obj-find-path] Invalid object");
-            return false;
+            return "#f".Eval();
         }
 
         if (placeArg is not Place place)
         {
             Console.WriteLine("[kern-obj-find-path] Invalid place");
-            return false;
+            return "#f".Eval();
         }
 
         // Can't pathfind between places.
         if (obj.GetPlace() != place)
         {
             Console.WriteLine("[kern-obj-find-path] Object not in target place");
-            return false;
+            return "#f".Eval();
         }
 
         int destX = Convert.ToInt32(xArg);
@@ -583,25 +634,10 @@ public partial class Kernel
         );
 
         if (path == null || path.Count == 0)
-            return false;
+            return "#f".Eval();
 
         // Convert to Scheme list of (x y) pairs.
         return ConvertPathToSchemeList(path);
-    }
-
-    /// <summary>
-    /// (kern-obj-is-visible? obj)
-    /// Check if object is visible.
-    /// </summary>
-    public static object ObjIsVisible(object objArg)
-    {
-        if (objArg is not Object obj)
-        {
-            Console.WriteLine("[kern-obj-is-visible?] Invalid object");
-            return false;
-        }
-
-        return obj.IsVisible();
     }
 
     // ============================================================
@@ -609,6 +645,13 @@ public partial class Kernel
     // ============================================================
     public static object ObjectSetVisible(object obj, object visible)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (obj is object[] arr && arr.Length >= 2)
+        {
+            visible = arr[1];
+            obj = arr[0];
+        }
+        
         if (obj == null || IsNil(obj))
         {
             return "nil".Eval();
@@ -662,7 +705,7 @@ public partial class Kernel
         if (objArg is not Being being)
         {
             Console.WriteLine("[kern-obj-wander] Object is not a being");
-            return false;
+            return "#f".Eval();
         }
 
         var random = new Random();
@@ -680,11 +723,11 @@ public partial class Kernel
             if (being.CanWanderTo(newX, newY))
             {
                 being.Move(dx[dir], dy[dir]);
-                return true;
+                return "#t".Eval();
             }
         }
 
-        return false;
+        return "#f".Eval();
     }
 
     /// <summary>
@@ -954,6 +997,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectGetSprite(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
         // Handle null object argument.
         if (objArg == null)
         {
@@ -1017,6 +1064,13 @@ public partial class Kernel
     /// </summary>
     public static object ObjectSetSprite(object objArg, object spriteArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length >= 2)
+        {
+            spriteArg = arr[1];
+            objArg = arr[0];
+        }
+        
         // Handle null object argument.
         if (objArg == null)
         {
@@ -1111,6 +1165,7 @@ public partial class Kernel
     /// <param name="opacityArg">Opacity #t or #f</param>
     public static object ObjectSetOpacity(object objArg, object opacityArg)
     {
+        // Handle variadic array wrapper from IronScheme.
         if (objArg is object[] arr && arr.Length >= 2)
         {
             objArg = arr[0];
@@ -1163,6 +1218,10 @@ public partial class Kernel
     /// </summary>
     public static object ObjectGetActivity(object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length > 0)
+            objArg = arr[0];
+        
         Activity activity = Activity.Idle;
         
         if (objArg is Character ch)
@@ -1189,6 +1248,13 @@ public partial class Kernel
     /// </summary>
     public static object ObjectSetActivity(object objArg, object activityArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (objArg is object[] arr && arr.Length >= 2)
+        {
+            activityArg = arr[1];
+            objArg = arr[0];
+        }
+        
         string name = activityArg?.ToString()?.ToLower() ?? "idle";
         
         Activity activity = name switch

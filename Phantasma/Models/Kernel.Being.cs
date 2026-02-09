@@ -79,6 +79,12 @@ public partial class Kernel
     /// </summary>
     public static object BeingIsHostile(object being1Obj, object being2Obj)
     {
+        if (being1Obj is object[] arr && arr.Length >= 2)
+        {
+            being1Obj = arr[0];
+            being2Obj = arr[1];
+        }
+        
         if (being1Obj is not Being being1 || being2Obj is not Being being2)
         {
             Console.WriteLine("[kern-being-is-hostile?] Invalid being(s)");
@@ -183,6 +189,12 @@ public partial class Kernel
     /// </summary>
     public static object BeingSetBaseFaction(object beingObj, object factionObj)
     {
+        if (beingObj is object[] arr && arr.Length >= 2)
+        {
+            beingObj = arr[0];
+            factionObj = arr[1];
+        }
+        
         if (beingObj is not Being being)
         {
             Console.WriteLine("[kern-being-set-base-faction] Invalid being");
@@ -202,6 +214,10 @@ public partial class Kernel
     /// </summary>
     public static object BeingGetBaseFaction(object beingObj)
     {
+        // Unwrap varargs array from IronScheme.
+        if (beingObj is object[] args)
+            beingObj = args[0];
+        
         if (beingObj is not Being being)
         {
             Console.WriteLine("[kern-being-get-base-faction] Invalid being");
@@ -218,6 +234,10 @@ public partial class Kernel
     /// </summary>
     public static object BeingGetCurrentFaction(object beingObj)
     {
+        // Unwrap varargs array from IronScheme.
+        if (beingObj is object[] args)
+            beingObj = args[0];
+        
         if (beingObj is not Being being)
         {
             Console.WriteLine("[kern-being-get-current-faction] Invalid being");

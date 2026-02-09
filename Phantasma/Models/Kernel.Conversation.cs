@@ -59,6 +59,10 @@ public partial class Kernel
     
     private static string GetSpeakerName(object speaker)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (speaker is object[] arr && arr.Length > 0)
+            speaker = arr[0];
+        
         if (speaker is Character ch)
             return ch.GetName();
         if (speaker is Being b)
@@ -109,6 +113,10 @@ public partial class Kernel
     /// </summary>
     public static object ConversationGetReply(object pc)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (pc is object[] arr && arr.Length > 0)
+            pc = arr[0];
+        
         Console.WriteLine("[kern-conv-get-reply] Blocking for input...");
         
         string reply = ConversationAsync.RequestReplyAsync().Result;
@@ -129,6 +137,10 @@ public partial class Kernel
     /// </summary>
     public static object ConversationGetYesNo(object pc)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (pc is object[] arr && arr.Length > 0)
+            pc = arr[0];
+        
         Console.WriteLine("[kern-conv-get-yes-no?] Blocking for input...");
         
         // BLOCKING call - safe because we're on background thread
@@ -149,6 +161,10 @@ public partial class Kernel
     /// </summary>
     public static object ConversationGetAmount(object pc)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (pc is object[] arr && arr.Length > 0)
+            pc = arr[0];
+        
         Console.WriteLine("[kern-conv-get-amount] Blocking for input...");
         
         int amount = ConversationAsync.RequestAmountAsync().Result;
@@ -167,6 +183,14 @@ public partial class Kernel
     /// </summary>
     public static object ConversationTrade(object npc, object pc, object tradeList)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (npc is object[] arr && arr.Length >= 3)
+        {
+            tradeList = arr[2];
+            pc = arr[1];
+            npc = arr[0];
+        }
+        
         Console.WriteLine("[kern-conv-trade] Trade requested");
         
         // TODO: Implement trade UI

@@ -13,6 +13,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object AstralBodyGetPhase(object bodyObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (bodyObj is object[] arr && arr.Length > 0)
+            bodyObj = arr[0];
+        
         if (bodyObj is not AstralBody body)
         {
             Console.WriteLine("[AstralBodyGetPhase] Error: not an astral body");
@@ -30,6 +34,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object AstralBodyGetGob(object bodyObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (bodyObj is object[] arr && arr.Length > 0)
+            bodyObj = arr[0];
+        
         if (bodyObj is not AstralBody body)
         {
             Console.WriteLine("[AstralBodyGetGob] Error: not an astral body");
@@ -54,6 +62,13 @@ public partial class Kernel
     /// <returns></returns>
     public static object AstralBodySetGob(object bodyObj, object gobObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (bodyObj is object[] arr && arr.Length >= 2)
+        {
+            gobObj = arr[1];
+            bodyObj = arr[0];
+        }
+        
         if (bodyObj is not AstralBody body)
         {
             Console.WriteLine("[AstralBodySetGob] Error: not an astral body");

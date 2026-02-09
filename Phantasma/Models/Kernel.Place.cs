@@ -13,18 +13,35 @@ public partial class Kernel
     
     public static object PlaceGetWidth(object place)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (place is object[] arr && arr.Length > 0)
+            place = arr[0];
+        
         var p = place as Place;
         return p?.Width ?? 0;
     }
     
     public static object PlaceGetHeight(object place)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (place is object[] arr && arr.Length > 0)
+            place = arr[0];
+        
         var p = place as Place;
         return p?.Height ?? 0;
     }
     
     public static object PlaceSetTerrain(object place, object x, object y, object terrain)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (place is object[] arr && arr.Length >= 4)
+        {
+            terrain = arr[3];
+            y = arr[2];
+            x = arr[1];
+            place = arr[0];
+        }
+        
         var p = place as Place;
         var t = terrain as Terrain;
         
@@ -36,9 +53,6 @@ public partial class Kernel
             if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
             {
                 p.TerrainGrid[xPos, yPos] = t;
-                // Only log occasionally to avoid spam.
-                if (xPos % 10 == 0 && yPos % 10 == 0)
-                    Console.WriteLine($"  Set terrain at ({xPos},{yPos})");
             }
         }
         
@@ -47,6 +61,14 @@ public partial class Kernel
     
     public static object PlaceGetTerrain(object place, object x, object y)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (place is object[] arr && arr.Length >= 3)
+        {
+            y = arr[2];
+            x = arr[1];
+            place = arr[0];
+        }
+        
         var p = place as Place;
         if (p != null)
         {
@@ -69,6 +91,10 @@ public partial class Kernel
     /// </summary>
     public static object PlaceSetCurrent(object place)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (place is object[] arr && arr.Length > 0)
+            place = arr[0];
+        
         if (place is Place p)
         {
             Phantasma.RegisterObject(KEY_CURRENT_PLACE, p);
@@ -86,6 +112,10 @@ public partial class Kernel
     /// </summary>
     public static object PlaceGetName(object placeObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length > 0)
+            placeObj = arr[0];
+        
         if (placeObj is Place place)
         {
             return place.Name ?? "";
@@ -101,6 +131,10 @@ public partial class Kernel
     /// </summary>
     public static object PlaceGetLocation(object placeObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length > 0)
+            placeObj = arr[0];
+        
         if (placeObj is not Place place)
         {
             Console.WriteLine("[WARNING] kern-place-get-location: null or invalid place");
@@ -127,6 +161,13 @@ public partial class Kernel
     /// </summary>
     public static object PlaceGetNeighbor(object placeObj, object dirObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length >= 2)
+        {
+            dirObj = arr[1];
+            placeObj = arr[0];
+        }
+        
         if (placeObj is not Place place)
         {
             Console.WriteLine("[WARNING] kern-place-get-neighbor: null or invalid place");
@@ -154,6 +195,10 @@ public partial class Kernel
     /// </summary>
     public static object PlaceIsWilderness(object placeObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length > 0)
+            placeObj = arr[0];
+        
         if (placeObj is Place place)
         {
             return place.Wilderness ? "#t".Eval() : "#f".Eval();
@@ -169,6 +214,10 @@ public partial class Kernel
     /// </summary>
     public static object PlaceIsWrapping(object placeObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length > 0)
+            placeObj = arr[0];
+        
         if (placeObj is Place place)
         {
             return place.Wraps ? "#t".Eval() : "#f".Eval();
@@ -183,6 +232,10 @@ public partial class Kernel
     /// </summary>
     public static object PlaceGetBeings(object placeObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length > 0)
+            placeObj = arr[0];
+        
         if (placeObj is not Place place) return Cons.FromList(new List<object>());
         var beings = new List<object>();
         foreach (var obj in place.Objects)
@@ -195,6 +248,15 @@ public partial class Kernel
     /// </summary>
     public static object PlaceIsPassable(object placeObj, object xObj, object yObj, object objArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length >= 4)
+        {
+            objArg = arr[3];
+            yObj = arr[2];
+            xObj = arr[1];
+            placeObj = arr[0];
+        }
+        
         if (placeObj is not Place place) return false;
         return place.IsPassable(Convert.ToInt32(xObj), Convert.ToInt32(yObj), objArg as Object);
     }
@@ -204,10 +266,19 @@ public partial class Kernel
     /// </summary>
     public static object PlaceIsHazardous(object placeObj, object xObj, object yObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length >= 3)
+        {
+            yObj = arr[2];
+            xObj = arr[1];
+            placeObj = arr[0];
+        }
+        
         if (placeObj is not Place place) return false;
         var terrain = place.GetTerrain(Convert.ToInt32(xObj), Convert.ToInt32(yObj));
         return terrain?.IsHazardous ?? false;
     }
+    
     /// <summary>
     /// (kern-terrain-set-combat-map terrain map)
     /// Sets the combat map used when combat occurs on this terrain type.
@@ -220,6 +291,13 @@ public partial class Kernel
     /// <returns>The terrain object (for chaining).</returns>
     public static object TerrainSetCombatMap(object terrain, object map)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (terrain is object[] arr && arr.Length >= 2)
+        {
+            map = arr[1];
+            terrain = arr[0];
+        }
+        
         // Resolve terrain.
         Terrain? t = null;
         if (terrain is Terrain ter)
@@ -258,6 +336,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object PlaceMap(object placeArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeArg is object[] arr && arr.Length > 0)
+            placeArg = arr[0];
+        
         var place = ResolveObject<Place>(placeArg);
         
         if (place == null || place.TerrainGrid == null)
@@ -280,6 +362,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object PlaceSynch(object placeArg)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeArg is object[] arr && arr.Length > 0)
+            placeArg = arr[0];
+        
         var place = ResolveObject<Place>(placeArg);
         
         if (place == null)
@@ -301,6 +387,10 @@ public partial class Kernel
     /// <returns></returns>
     public static object PlaceGetObjects(object placeObj)
     {
+        // Handle variadic array wrapper from IronScheme.
+        if (placeObj is object[] arr && arr.Length > 0)
+            placeObj = arr[0];
+        
         if (placeObj is not Place place) 
             return Cons.FromList(new List<object>());
     
@@ -314,6 +404,16 @@ public partial class Kernel
     /// </summary>
     public static object PlaceAddSubplace(object parentObj, object subplaceObj, object xObj, object yObj)
     {
+        
+        // Handle variadic array wrapper from IronScheme.
+        if (parentObj is object[] arr && arr.Length >= 2)
+        {
+            yObj = arr[3];
+            xObj = arr[2];
+            subplaceObj = arr[1];
+            parentObj = arr[0];
+        }
+        
         if (parentObj is not Place parent)
         {
             Console.WriteLine("[WARNING] kern-place-add-subplace: invalid parent place");
