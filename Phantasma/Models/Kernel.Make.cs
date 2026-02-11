@@ -2183,8 +2183,11 @@ public partial class Kernel
     /// </summary>
     /// <param name="tag">Symbol identifier (e.g., 'sch_blacksmith)</param>
     /// <param name="appointments">Variable number of appointment definitions, each being</param>
-    public static object MakeSchedule(object tag, params object[] appointments)
+    public static object MakeSchedule(object[] args)
     {
+        if (args.Length < 1) { Console.WriteLine("[ERROR] kern-mk-sched: missing tag"); return "#f".Eval(); }
+    
+        object tag = args[0];
         string tagStr = ToCleanString(tag) ?? $"sched_{Guid.NewGuid():N}";
         
         if (string.IsNullOrEmpty(tagStr))
@@ -2195,8 +2198,10 @@ public partial class Kernel
         
         var schedule = new Schedule(tagStr);
         
-        foreach (var apptObj in appointments)
+        // Appointments start at args[1].
+        for (int i = 1; i < args.Length; i++)
         {
+            var apptObj = args[i];
             if (apptObj == null) continue;
             
             // Each appointment is in (hour minute (list x y w h) activity) format.

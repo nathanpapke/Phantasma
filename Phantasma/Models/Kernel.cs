@@ -374,6 +374,20 @@ public partial class Kernel
     /// </summary>
     private void DefineFunction(string schemeName, Delegate csharpMethod)
     {
+        CallTargetN wrapper = (object[] args) =>
+        {
+            var methodParams = csharpMethod.Method.GetParameters();
+    
+            if (methodParams.Length == 1 && methodParams[0].ParameterType == typeof(object[]))
+                return csharpMethod.DynamicInvoke(new object[] { ConvertArgs(args) });
+    
+            var callArgs = new object[methodParams.Length];
+            for (int i = 0; i < methodParams.Length && i < args.Length; i++)
+                callArgs[i] = ConvertArg(args[i], methodParams[i].ParameterType);
+    
+            return csharpMethod.DynamicInvoke(callArgs);
+        };
+        
         var closure = Closure.Create(csharpMethod, -1);
         $"(define {schemeName} {{0}})".Eval(closure);
     }
@@ -835,6 +849,33 @@ public partial class Kernel
         }
     
         return result;
+    }
+    
+    private object ConvertArg(object arg, Type targetType)
+    {
+        if (arg is Cons cons && targetType == typeof(object[]))
+            return ConsToArray(cons);
+        return arg;
+    }
+    
+    private object[] ConvertArgs(object[] args)
+    {
+        var result = new object[args.Length];
+        for (int i = 0; i < args.Length; i++)
+            result[i] = (args[i] is Cons c) ? ConsToArray(c) : args[i];
+        return result;
+    }
+    
+    private object[] ConsToArray(Cons cons)
+    {
+        var list = new List<object>();
+        object current = cons;
+        while (current is Cons pair)
+        {
+            list.Add(pair.car);
+            current = pair.cdr;
+        }
+        return list.ToArray();
     }
     
     /// <summary>

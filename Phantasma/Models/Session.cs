@@ -881,33 +881,30 @@ public class Session
         
         foreach (var npc in characters)
         {
-            Console.WriteLine($"[NPC Turn] {npc.GetName()} - Faction: {npc.GetCurrentFaction()}, AP: {npc.ActionPoints}");
-            
             if (npc.IsDead)
-                continue;
-        
-            // Skip incapacitated NPCs.
-            if (npc.IsIncapacitated())
                 continue;
             
             npc.StartTurn();
-        
-            // Execute AI until turn is ended or action points are exhausted.
-            int maxIterations = 20;  // Safety limit
-            int iterations = 0;
-        
-            while (!npc.IsTurnEnded() && npc.ActionPoints > 0 && iterations < maxIterations)
+            
+            if (npc.HasAI)
             {
-                int pointsBefore = npc.ActionPoints;
-            
-                // Execute the AI controller.
+                // Scheme AI is called ONCE per turn — it manages its own action.
+                // This matches Nazghul's place_exec: one exec() call per object.
                 Behavior.Execute(npc);
-            
-                iterations++;
-            
-                // If no action points were consumed, break to avoid infinite loop.
-                if (npc.ActionPoints == pointsBefore)
-                    break;
+            }
+            else
+            {
+                // C# default AI loops until AP exhausted.
+                int maxIterations = 20;
+                int iterations = 0;
+                while (!npc.IsTurnEnded() && npc.ActionPoints > 0 && iterations < maxIterations)
+                {
+                    int pointsBefore = npc.ActionPoints;
+                    Behavior.Execute(npc);
+                    iterations++;
+                    if (npc.ActionPoints == pointsBefore)
+                        break;
+                }
             }
             
             // Ensure turn is ended.
