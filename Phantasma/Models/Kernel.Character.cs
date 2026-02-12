@@ -350,13 +350,15 @@ public partial class Kernel
     /// <summary>
     /// (kern-char-get-species char)
     /// </summary>
-    public static object CharacterGetSpecies(object charObj)
+    public static object CharacterGetSpecies(object[] args)
     {
-        // Handle apply wrapping.
-        if (charObj is object[] args && args.Length >= 1)
+        if (args == null || args.Length < 1)
         {
-            charObj = args[0];
+            Console.WriteLine("[kern-char-get-species] No args");
+            return "#f".Eval();
         }
+    
+        object charObj = args[0];
         
         if (charObj is Character character)
         {
@@ -387,11 +389,11 @@ public partial class Kernel
     /// (kern-char-is-asleep? character)
     /// Returns #t if the character is sleeping, #f otherwise.
     /// </summary>
-    public static object CharacterIsAsleep(object character)
+    public static object CharacterIsAsleep(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (character is object[] arr && arr.Length > 0)
-            character = arr[0];
+        if (args == null || args.Length < 1) return "#f".Eval();
+        
+        object character = args[0];
         
         if (character is Being being)
         {

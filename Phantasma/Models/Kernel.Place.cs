@@ -31,57 +31,53 @@ public partial class Kernel
         return p?.Height ?? 0;
     }
     
-    public static object PlaceSetTerrain(object place, object x, object y, object terrain)
+    public static object PlaceSetTerrain(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (place is object[] arr && arr.Length >= 4)
+        if (args == null || args.Length < 2)
         {
-            terrain = arr[3];
-            y = arr[2];
-            x = arr[1];
-            place = arr[0];
+            Console.WriteLine($"[kern-place-set-terrain] Expected 2 args (loc terrain), got {args?.Length ?? 0}");
+            return "nil".Eval();
         }
         
-        var p = place as Place;
-        var t = terrain as Terrain;
-        
-        if (p != null && t != null)
+        if (!UnpackLocation(args[0], out var place, out int x, out int y))
         {
-            int xPos = Convert.ToInt32(x ?? 0);
-            int yPos = Convert.ToInt32(y ?? 0);
-            
-            if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
+            Console.WriteLine("[kern-place-set-terrain] Invalid location list");
+            return "nil".Eval();
+        }
+        
+        var t = args[1] as Terrain;
+        
+        if (place != null && t != null)
+        {
+            if (x >= 0 && x < place.Width && y >= 0 && y < place.Height)
             {
-                p.TerrainGrid[xPos, yPos] = t;
+                place.TerrainGrid[x, y] = t;
             }
         }
         
         return "nil".Eval();
     }
     
-    public static object PlaceGetTerrain(object place, object x, object y)
+    public static object PlaceGetTerrain(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (place is object[] arr && arr.Length >= 3)
+        if (args == null || args.Length < 1)
         {
-            y = arr[2];
-            x = arr[1];
-            place = arr[0];
+            Console.WriteLine($"[kern-place-get-terrain] Expected 1 arg (loc), got {args?.Length ?? 0}");
+            return "nil".Eval();
         }
         
-        var p = place as Place;
-        if (p != null)
+        if (!UnpackLocation(args[0], out var place, out int x, out int y))
         {
-            int xPos = Convert.ToInt32(x ?? 0);
-            int yPos = Convert.ToInt32(y ?? 0);
-        
-            if (xPos >= 0 && xPos < p.Width && yPos >= 0 && yPos < p.Height)
-            {
-                var terrain = p.TerrainGrid[xPos, yPos];
-                return terrain ?? "nil".Eval();
-            }
+            Console.WriteLine("[kern-place-get-terrain] Invalid location list");
+            return "nil".Eval();
         }
-    
+        
+        if (x >= 0 && x < place.Width && y >= 0 && y < place.Height)
+        {
+            var terrain = place.TerrainGrid[x, y];
+            return terrain ?? "nil".Eval();
+        }
+        
         return "nil".Eval();
     }
     
@@ -212,11 +208,11 @@ public partial class Kernel
     /// (kern-place-is-wrapping place)
     /// Returns #t if place wraps at edges, #f otherwise.
     /// </summary>
-    public static object PlaceIsWrapping(object placeObj)
+    public static object PlaceIsWrapping(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length > 0)
-            placeObj = arr[0];
+        if (args == null || args.Length < 1) return "#f".Eval();
+        
+        object placeObj = args[0];
         
         if (placeObj is Place place)
         {
@@ -246,36 +242,42 @@ public partial class Kernel
     /// <summary>
     /// (kern-place-is-passable place x y obj)
     /// </summary>
-    public static object PlaceIsPassable(object placeObj, object xObj, object yObj, object objArg)
+    public static object PlaceIsPassable(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length >= 4)
+        if (args == null || args.Length < 2)
         {
-            objArg = arr[3];
-            yObj = arr[2];
-            xObj = arr[1];
-            placeObj = arr[0];
+            Console.WriteLine($"[kern-place-is-passable] Expected 2 args, got {args?.Length ?? 0}");
+            return false;
         }
         
-        if (placeObj is not Place place) return false;
-        return place.IsPassable(Convert.ToInt32(xObj), Convert.ToInt32(yObj), objArg as Object);
+        if (!UnpackLocation(args[0], out var place, out int x, out int y))
+        {
+            Console.WriteLine("[kern-place-is-passable] Invalid location list");
+            return false;
+        }
+        
+        var obj = args[1] as Object;
+        return place.IsPassable(x, y, obj);
     }
 
     /// <summary>
     /// (kern-place-is-hazardous place x y)
     /// </summary>
-    public static object PlaceIsHazardous(object placeObj, object xObj, object yObj)
+    public static object PlaceIsHazardous(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length >= 3)
+        if (args == null || args.Length < 1)
         {
-            yObj = arr[2];
-            xObj = arr[1];
-            placeObj = arr[0];
+            Console.WriteLine($"[kern-place-is-hazardous] Expected 2 args (loc obj), got {args?.Length ?? 0}");
+            return false;
         }
         
-        if (placeObj is not Place place) return false;
-        var terrain = place.GetTerrain(Convert.ToInt32(xObj), Convert.ToInt32(yObj));
+        if (!UnpackLocation(args[0], out var place, out int x, out int y))
+        {
+            Console.WriteLine("[kern-place-is-hazardous] Invalid location list");
+            return false;
+        }
+        
+        var terrain = place.GetTerrain(x, y);
         return terrain?.IsHazardous ?? false;
     }
     
@@ -402,17 +404,18 @@ public partial class Kernel
     /// Adds a subplace (town, dungeon, etc.) to a parent place at the given coordinates.
     /// This sets up the parent-child relationship so characters can enter/exit.
     /// </summary>
-    public static object PlaceAddSubplace(object parentObj, object subplaceObj, object xObj, object yObj)
+    public static object PlaceAddSubplace(object[] args)
     {
-        
-        // Handle variadic array wrapper from IronScheme.
-        if (parentObj is object[] arr && arr.Length >= 2)
+        if (args == null || args.Length < 4)
         {
-            yObj = arr[3];
-            xObj = arr[2];
-            subplaceObj = arr[1];
-            parentObj = arr[0];
+            Console.WriteLine($"[kern-place-add-subplace] Expected 4 args, got {args?.Length ?? 0}");
+            return "nil".Eval();
         }
+        
+        object parentObj = args[0];
+        object subplaceObj = args[1];
+        int x = ToInt(args[2], 0);
+        int y = ToInt(args[3], 0);
         
         if (parentObj is not Place parent)
         {
@@ -425,9 +428,6 @@ public partial class Kernel
             Console.WriteLine("[WARNING] kern-place-add-subplace: invalid subplace");
             return "nil".Eval();
         }
-        
-        int x = ToInt(xObj, 0);
-        int y = ToInt(yObj, 0);
         
         // Set up the subplace's location (its position on the parent map).
         subplace.Location = new Location(parent, x, y);

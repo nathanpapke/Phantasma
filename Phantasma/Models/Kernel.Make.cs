@@ -1424,28 +1424,48 @@ public partial class Kernel
     /// (kern-fire-missile missile-type origin-loc dest-loc)
     /// Fire a missile from origin to destination.
     /// </summary>
-    public static object FireMissile(object missileTypeObj, object originLocObj, object destLocObj)
+    public static object FireMissile(object[] args)
     {
-        var missileType = missileTypeObj as ArmsType;
-        var originLoc = originLocObj as Location;
-        var destLoc = destLocObj as Location;
-        
-        // Fire the missile using the ArmsType's Fire method.
-        bool hit = missileType.Fire(originLoc.Place,
-            originLoc.X, originLoc.Y,
-            destLoc.X, destLoc.Y);
-        /*
-        // Run hit-location procedure if it hit.
-        if (hit && missileType.CanHitLocation)
+        if (args == null || args.Length < 3)
         {
-            var missile = missileType.GetMissile();
-            if (missile != null)
-            {
-                missileType.HitLocation(missile, destLoc.Place, destLoc.X, destLoc.Y);
-            }
+            Console.WriteLine($"[kern-fire-missile] Expected 3 args, got {args?.Length ?? 0}");
+            return "nil".Eval();
         }
-        */
-        return hit ? "#t".Eval() : "#f".Eval();
+        
+        // Arg 0: missile type
+        var missileType = args[0] as ArmsType;  // or MissileType depending on your impl
+        if (missileType == null)
+        {
+            Console.WriteLine("[kern-fire-missile] Invalid missile type");
+            return "nil".Eval();
+        }
+        
+        // Arg 1: origin location list (place x y)
+        if (!UnpackLocation(args[1], out var oPlace, out int ox, out int oy))
+        {
+            Console.WriteLine("[kern-fire-missile] Invalid origin location");
+            return "nil".Eval();
+        }
+        
+        // Arg 2: destination location list (place x y)
+        if (!UnpackLocation(args[2], out var dPlace, out int dx, out int dy))
+        {
+            Console.WriteLine("[kern-fire-missile] Invalid destination location");
+            return "nil".Eval();
+        }
+        
+        // Create the missile with trajectory info — Screen will animate it.
+        var missile = new Missile(missileType);
+        missile.SetPosition(dPlace, ox, oy);
+        missile.TargetX = dx;
+        missile.TargetY = dy;
+        
+        // Add to the place so Screen can find it.
+        dPlace.AddObject(missile, ox, oy);
+        
+        Console.WriteLine($"[kern-fire-missile] {missileType.Name} from ({ox},{oy}) to ({dx},{dy}) hit={missile.HitTarget()}");
+        
+        return "nil".Eval();
     }
     
     /// <summary>
@@ -1856,8 +1876,6 @@ public partial class Kernel
         var tag = args[0];
         var filename = args[1];
         
-        Console.WriteLine($"[DIAG MakeSound] tag type={tag?.GetType().Name} val={tag}, filename type={filename?.GetType().Name} val={filename}");
-        
         // Extract tag string.
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown-sound";
         
@@ -1872,8 +1890,6 @@ public partial class Kernel
         
         // Load the sound.
         var sound = SoundManager.Instance.LoadSound(tagStr, filenameStr);
-        Console.WriteLine($"[DIAG MakeSound] LoadSound result: {(sound != null ? "OK" : "NULL")} for '{tagStr}' from '{filenameStr}'");
-        
         if (sound == null)
         {
             Console.WriteLine($"[kern-mk-sound] {tagStr}: failed to load '{filenameStr}'");

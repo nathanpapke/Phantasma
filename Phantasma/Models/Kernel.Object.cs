@@ -16,21 +16,18 @@ public partial class Kernel
     /// (kern-obj-put-at obj (place x y))
     /// Places an object at a location. Location is a list.
     /// </summary>
-    public static object ObjectPutAt(object obj, object location)
+    public static object ObjectPutAt(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 2)
+        if (args == null || args.Length < 2)
         {
-            location = arr[1];
-            obj = arr[0];
-        }
-        else if (obj is object[] singleArr && singleArr.Length == 1)
-        {
-            obj = singleArr[0];
+            Console.WriteLine($"[kern-obj-put-at] Expected 2 args (obj loc), got {args?.Length ?? 0}");
+            return "nil".Eval();
         }
         
+        object obj = args[0];
+        object location = args[1];
+        
         Console.WriteLine($"[kern-obj-put-at] Received obj type: {obj?.GetType().FullName ?? "NULL"}");
-        Console.WriteLine($"[kern-obj-put-at] Received obj value: {obj}");
         
         // Resolve the object (might be a Character, Object, etc.).
         var gameObj = obj as Object;
@@ -40,9 +37,7 @@ public partial class Kernel
             // Try to resolve from tag if it's a string.
             if (obj is string objTag)
             {
-                Console.WriteLine($"[kern-obj-put-at] Looking up tag: '{objTag}'");
                 gameObj = Phantasma.GetRegisteredObject(objTag) as Object;
-                Console.WriteLine($"[kern-obj-put-at] Lookup result: {gameObj?.GetType().Name ?? "NULL"}");
             }
         }
         
@@ -52,73 +47,15 @@ public partial class Kernel
             return "nil".Eval();
         }
         
-        Console.WriteLine($"[kern-obj-put-at] gameObj is Being: {gameObj is Being}");
-        if (gameObj is Being b)
-            Console.WriteLine($"[kern-obj-put-at] Being name: {b.GetName()}");
+        if (!UnpackLocation(location, out var place, out int x, out int y))
+        {
+            Console.WriteLine($"[kern-obj-put-at] Error: invalid location (type: {location?.GetType().Name ?? "NULL"})");
+            return "nil".Eval();
+        }
         
-        if (location is Cons locList)
-        {
-            // The place might be a Place object directly, or a string tag.
-            Place place = null;
-            
-            if (locList.car is Place p)
-            {
-                place = p;
-            }
-            else if (locList.car is string placeTag)
-            {
-                // Look up the place by its tag.
-                place = Phantasma.GetRegisteredObject(placeTag) as Place;
-                
-                if (place == null)
-                {
-                    // Try with quote prefix stripped.
-                    string cleanTag = placeTag.TrimStart('\'').Trim('"');
-                    place = Phantasma.GetRegisteredObject(cleanTag) as Place;
-                }
-                
-                if (place == null)
-                {
-                    Console.WriteLine($"[kern-obj-put-at] Error: could not resolve place tag '{placeTag}'");
-                    return "nil".Eval();
-                }
-            }
-            else
-            {
-                Console.WriteLine($"[kern-obj-put-at] Error: place is neither Place nor string (type: {locList.car?.GetType().Name ?? "NULL"})");
-                return "nil".Eval();
-            }
-            
-            // Extract coordinates.
-            var rest = locList.cdr as Cons;
-            
-            if (rest == null)
-            {
-                Console.WriteLine($"[kern-obj-put-at] Error: missing coordinates in location list");
-                return "nil".Eval();
-            }
-            
-            int x = Convert.ToInt32(rest.car ?? 0);
-            var rest2 = rest.cdr as Cons;
-            int y = rest2 != null ? Convert.ToInt32(rest2.car ?? 0) : 0;
-            
-            // Place the object.
-            string objName = gameObj is Being being ? being.GetName() : (gameObj.Name ?? "(unnamed)");
-            Console.WriteLine($"[kern-obj-put-at] Placing {objName} at {place.Name} ({x}, {y})");
-            
-            place.AddObject(gameObj, x, y);
-            
-            // Verify placement worked.
-            var posAfter = gameObj.GetPosition();
-            if (posAfter?.Place == null)
-            {
-                Console.WriteLine($"[kern-obj-put-at] WARNING: Object position not set after AddObject!");
-            }
-        }
-        else
-        {
-            Console.WriteLine($"[kern-obj-put-at] Error: location is not a list (type: {location?.GetType().Name ?? "NULL"})");
-        }
+        // Set position and add to place.
+        gameObj.SetPosition(place, x, y);
+        place.AddObject(gameObj, x, y);
         
         // After successfully placing the object, send 'init signal.
         if (gameObj != null)
@@ -204,12 +141,9 @@ public partial class Kernel
     /// Gets the location of an object as a list: (place x y)
     /// Returns nil if object has no location.
     /// </summary>
-    public static object ObjectGetLocation(object args)
+    public static object ObjectGetLocation(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        object objArg = args;
-        if (args is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        object objArg = args != null && args.Length > 0 ? args[0] : null;
         
         // Handle Cons list wrapping.
         if (objArg is Cons cons)
@@ -327,15 +261,17 @@ public partial class Kernel
     /// For other objects, runs the damage hook if present.
     /// Matches Nazghul's kern-obj-apply-damage.
     /// </summary>
-    public static object ObjectApplyDamage(object obj, object desc, object amount)
+    public static object ObjectApplyDamage(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 3)
+        if (args == null || args.Length < 3)
         {
-            amount = arr[2];
-            desc = arr[1];
-            obj = arr[0];
+            Console.WriteLine($"[kern-obj-apply-damage] Expected 3 args, got {args?.Length ?? 0}");
+            return null;
         }
+        
+        object obj = args[0];
+        object desc = args[1];
+        object amount = args[2];
         
         if (obj == null)
         {
@@ -542,45 +478,29 @@ public partial class Kernel
     /// Location is a list: (place x y)
     /// Cutscene can be a closure or #f/nil for no cutscene.
     /// </summary>
-    public static object ObjectRelocate(object obj, object location, object cutscene)
+    public static object ObjectRelocate(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 3)
+        if (args == null || args.Length < 2)
         {
-            cutscene = arr[2];
-            location = arr[1];
-            obj = arr[0];
+            Console.WriteLine($"[kern-obj-relocate] Expected 2-3 args, got {args?.Length ?? 0}");
+            return "#f".Eval();
         }
         
-        if (obj is not Object gameObj)
+        if (args[0] is not Object gameObj)
         {
             Console.WriteLine("[WARNING] kern-obj-relocate: null or invalid object");
             return "#f".Eval();
         }
-    
-        // Unpack location list: (place x y)
-        if (location is not Cons locList)
+        
+        if (!UnpackLocation(args[1], out var place, out int x, out int y))
         {
-            Console.WriteLine("[WARNING] kern-obj-relocate: location must be a list");
+            Console.WriteLine("[WARNING] kern-obj-relocate: invalid location list");
             return "#f".Eval();
         }
-    
-        var place = locList.car as Place;
-        var rest = locList.cdr as Cons;
-    
-        if (place == null || rest == null)
-        {
-            Console.WriteLine("[WARNING] kern-obj-relocate: invalid location format");
-            return "#f".Eval();
-        }
-    
-        int x = Convert.ToInt32(rest.car);
-        var rest2 = rest.cdr as Cons;
-        int y = rest2 != null ? Convert.ToInt32(rest2.car) : 0;
     
         // Get cutscene closure if provided (ignore #f, nil, etc.).
-        Callable? cutsceneCallable = cutscene as Callable;
-    
+        Callable? cutsceneCallable = args.Length >= 3 ? args[2] as Callable : null;
+        
         // Perform the relocation.
         gameObj.Relocate(place, x, y, cutsceneCallable);
         
@@ -592,45 +512,39 @@ public partial class Kernel
     /// Find path from object's current location to destination.
     /// Returns Scheme list of (x y) pairs, or nil if no path.
     /// </summary>
-    public static object ObjectFindPath(object objArg, object placeArg, object xArg, object yArg)
+    public static object ObjectFindPath(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length >= 4)
+        if (args == null || args.Length < 2)
         {
-            yArg = arr[3];
-            xArg = arr[2];
-            placeArg = arr[1];
-            objArg = arr[0];
+            Console.WriteLine($"[kern-obj-find-path] Expected 2 args (obj loc), got {args?.Length ?? 0}");
+            return "#f".Eval();
         }
         
-        if (objArg is not Object obj)
+        if (args[0] is not Object obj)
         {
             Console.WriteLine("[kern-obj-find-path] Invalid object");
             return "#f".Eval();
         }
-
-        if (placeArg is not Place place)
+        
+        if (!UnpackLocation(args[1], out var place, out int x, out int y))
         {
-            Console.WriteLine("[kern-obj-find-path] Invalid place");
+            Console.WriteLine("[kern-obj-find-path] Invalid location list");
             return "#f".Eval();
         }
-
+        
         // Can't pathfind between places.
         if (obj.GetPlace() != place)
         {
             Console.WriteLine("[kern-obj-find-path] Object not in target place");
             return "#f".Eval();
         }
-
-        int destX = Convert.ToInt32(xArg);
-        int destY = Convert.ToInt32(yArg);
-
+        
         // Find the path.
         var path = AStar.Search(
             obj.GetX(), obj.GetY(),
-            destX, destY,
+            x, y,
             place.Width, place.Height,
-            (x, y) => place.IsPassable(x, y, obj)
+            (px, py) => place.IsPassable(px, py, obj)
         );
 
         if (path == null || path.Count == 0)
@@ -746,64 +660,50 @@ public partial class Kernel
     /// <summary>
     /// (kern-obj-move obj dx dy)
     /// </summary>
-    public static object ObjectMove(object objArg, object dxArg, object dyArg)
+    public static object ObjectMove(object[] args)
     {
-        // Handle case where all args come bundled in objArg as array.
-        if (objArg is object[] arr && arr.Length >= 3)
+        if (args == null || args.Length < 3)
         {
-            objArg = arr[0];
-            dxArg = arr[1];
-            dyArg = arr[2];
+            Console.WriteLine($"[kern-obj-move] Expected 3 args, got {args?.Length ?? 0}");
+            return false;
         }
         
-        if (objArg is not Being being) return false;
-        return being.Move(Convert.ToInt32(dxArg), Convert.ToInt32(dyArg));
+        if (args[0] is not Being being) return false;
+        return being.Move(Convert.ToInt32(args[1]), Convert.ToInt32(args[2]));
     }
 
     /// <summary>
     /// (kern-obj-get-ap obj)
     /// </summary>
-    public static object ObjectGetActionPoints(object objArg)
+    public static object ObjectGetActionPoints(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        if (args == null || args.Length < 1) return 0;
         
-        if (objArg is not Being being) return 0;
+        if (args[0] is not Being being) return 0;
         return being.ActionPoints;
     }
 
     /// <summary>
     /// (kern-obj-set-ap obj ap)
     /// </summary>
-    public static object ObjectSetActionPoints(object objArg, object apArg)
+    public static object ObjectSetActionPoints(object[] args)
     {
-        // Handle case where both args come bundled in objArg as array.
-        if (objArg is object[] arr && arr.Length >= 2)
-        {
-            objArg = arr[0];
-            apArg = arr[1];
-        }
+        if (args == null || args.Length < 2) return false;
         
-        if (objArg is not Being being) return false;
-        being.ActionPoints = Convert.ToInt32(apArg);
+        if (args[0] is not Being being) return false;
+        being.ActionPoints = Convert.ToInt32(args[1]);
         return being;
     }
 
     /// <summary>
     /// (kern-obj-dec-ap obj amount)
     /// </summary>
-    public static object ObjectDecreaseActionPoints(object objArg, object amountArg)
+    public static object ObjectDecreaseActionPoints(object[] args)
     {
-        // Handle case where both args come bundled in objArg as array.
-        if (objArg is object[] arr && arr.Length >= 2)
-        {
-            objArg = arr[0];
-            amountArg = arr[1];
-        }
+        if (args == null || args.Length < 2) return false;
         
-        if (objArg is not Being being) return false;
-        being.ActionPoints = Math.Max(0, being.ActionPoints - Convert.ToInt32(amountArg));
+        if (args[0] is not Being being) return false;
+        being.ActionPoints = Math.Max(0, being.ActionPoints - Convert.ToInt32(args[1]));
         return being;
     }
 
@@ -1279,21 +1179,26 @@ public partial class Kernel
     /// (kern-obj-heal object amount)
     /// Heals a being by the specified amount.
     /// </summary>
-    public static object ObjectHeal(object obj, object amount)
+    public static object ObjectHeal(object[] args)
     {
-        // Handle case where both args come bundled in obj as array.
-        if (obj is object[] arr && arr.Length >= 2)
+        if (args == null || args.Length < 2)
         {
-            obj = arr[0];
-            amount = arr[1];
+            Console.WriteLine($"[kern-obj-heal] Expected 2 args, got {args?.Length ?? 0}");
+            return "nil".Eval();
         }
         
-        int healAmount = Convert.ToInt32(amount);
+        object obj = args[0];
+        int amount = Convert.ToInt32(args[1]);
         
-        if (obj is Being being)
+        if (obj is Character character)
         {
-            being.Heal(healAmount);
-            return "nil".Eval();
+            character.HP = Math.Min(character.HP + amount, character.MaxHP);
+            Console.WriteLine($"{character.GetName()} heals {amount} HP (now {character.HP}/{character.MaxHP})");
+        }
+        else if (obj is Being being)
+        {
+            // Generic being heal.
+            Console.WriteLine($"[kern-obj-heal] Being heals {amount}");
         }
         
         // Try tag resolution.
@@ -1305,7 +1210,7 @@ public partial class Kernel
                 var resolved = Phantasma.GetRegisteredObject(tag);
                 if (resolved is Being resolvedBeing)
                 {
-                    resolvedBeing.Heal(healAmount);
+                    resolvedBeing.Heal(amount);
                     return "nil".Eval();
                 }
             }

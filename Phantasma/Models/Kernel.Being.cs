@@ -15,35 +15,13 @@ public partial class Kernel
     /// </summary>
     public static object BeingPathfindTo(object[] args)
     {
-        // Unpack arguments - handle both direct calls and apply
-        object beingObj, placeObj, xObj, yObj;
-        
-        if (args.Length >= 4)
+        if (args == null || args.Length < 2)
         {
-            beingObj = args[0];
-            placeObj = args[1];
-            xObj = args[2];
-            yObj = args[3];
-        }
-        else if (args.Length == 1 && args[0] is Cons list)
-        {
-            // Called via apply with a single list argument
-            var items = list.ToList();
-            if (items.Count < 4)
-            {
-                Console.WriteLine($"[kern-being-pathfind-to] Expected 4 args in list, got {items.Count}");
-                return "#f".Eval();
-            }
-            beingObj = items[0];
-            placeObj = items[1];
-            xObj = items[2];
-            yObj = items[3];
-        }
-        else
-        {
-            Console.WriteLine($"[kern-being-pathfind-to] Expected 4 args, got {args.Length}");
+            Console.WriteLine($"[kern-being-pathfind-to] Expected 2 args (being loc), got {args?.Length ?? 0}");
             return "#f".Eval();
         }
+        
+        object beingObj = args[0];
         
         // Handle array wrapper from IronScheme.
         if (beingObj is object[] arr && arr.Length > 0)
@@ -55,19 +33,11 @@ public partial class Kernel
             return "#f".Eval();
         }
         
-        if (placeObj is not Place place)
+        if (!UnpackLocation(args[1], out var place, out int x, out int y))
         {
-            // Try to resolve by tag.
-            place = Phantasma.GetRegisteredObject(placeObj?.ToString() ?? "") as Place;
-            if (place == null)
-            {
-                Console.WriteLine($"[kern-being-pathfind-to] Invalid place: {placeObj?.GetType().Name}");
-                return "#f".Eval();
-            }
+            Console.WriteLine("[kern-being-pathfind-to] Invalid location list");
+            return "#f".Eval();
         }
-        
-        int x = Convert.ToInt32(xObj);
-        int y = Convert.ToInt32(yObj);
         
         return being.PathFindTo(place, x, y);
     }
@@ -77,20 +47,20 @@ public partial class Kernel
     /// Check if two beings are hostile to each other.
     /// Returns #t if hostile, #f otherwise.
     /// </summary>
-    public static object BeingIsHostile(object being1Obj, object being2Obj)
+    public static object BeingIsHostile(object[] args)
     {
-        if (being1Obj is object[] arr && arr.Length >= 2)
+        if (args == null || args.Length < 2)
         {
-            being1Obj = arr[0];
-            being2Obj = arr[1];
+            Console.WriteLine($"[kern-being-is-hostile?] Expected 2 args, got {args?.Length ?? 0}");
+            return false;
         }
         
-        if (being1Obj is not Being being1 || being2Obj is not Being being2)
+        if (args[0] is not Being being1 || args[1] is not Being being2)
         {
             Console.WriteLine("[kern-being-is-hostile?] Invalid being(s)");
             return "#f".Eval();
         }
-
+        
         var dtable = Phantasma.MainSession?.DiplomacyTable;
         int f1 = being1.GetCurrentFaction();
         int f2 = being2.GetCurrentFaction();

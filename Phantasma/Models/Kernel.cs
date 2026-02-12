@@ -527,12 +527,9 @@ public partial class Kernel
     /// </example>
     public static object SoundPlay(object sound)
     {
-        Console.WriteLine($"[DIAG SoundPlay] arg type={sound?.GetType().Name} val={sound}");
-
         // Handle variadic array wrapper from IronScheme.
         if (sound is object[] arr && arr.Length > 0)
         {
-            Console.WriteLine($"[DIAG SoundPlay] Unwrapped arr[{arr.Length}], now type={arr[0]?.GetType().Name} val={arr[0]}");
             sound = arr[0];
         }
 
@@ -553,8 +550,6 @@ public partial class Kernel
                 soundObj = Phantasma.GetRegisteredObject(tag) as Sound;
             }
         }
-        
-        Console.WriteLine($"[DIAG SoundPlay] resolved={soundObj?.Tag ?? "NULL"}, IsLoaded={soundObj?.IsLoaded}");
         
         if (soundObj == null)
         {
@@ -1406,5 +1401,45 @@ public partial class Kernel
         }
         
         return null;
+    }
+    
+    /// <summary>
+    /// Unpacks a Scheme location list (place x y) into its components.
+    /// </summary>
+    private static bool UnpackLocation(object locArg, out Place? place, out int x, out int y)
+    {
+        place = null;
+        x = 0;
+        y = 0;
+        
+        if (locArg is not Cons locList)
+            return false;
+        
+        // car = place
+        place = locList.car as Place;
+        if (place == null)
+        {
+            // Try tag resolution.
+            string tag = ToTag(locList.car);
+            if (!string.IsNullOrEmpty(tag))
+                place = Phantasma.GetRegisteredObject(tag) as Place;
+        }
+        
+        if (place == null)
+            return false;
+        
+        // cadr = x
+        var rest = locList.cdr as Cons;
+        if (rest == null)
+            return false;
+        x = Convert.ToInt32(rest.car);
+        
+        // caddr = y
+        var rest2 = rest.cdr as Cons;
+        if (rest2 == null)
+            return false;
+        y = Convert.ToInt32(rest2.car);
+        
+        return true;
     }
 }

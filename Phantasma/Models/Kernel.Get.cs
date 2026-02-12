@@ -35,45 +35,55 @@ public partial class Kernel
     /// <summary>
     /// (kern-in-los? place1 x1 y1 place2 x2 y2)
     /// </summary>
-    public static object InLineOfSight(object p1, object x1, object y1, object p2, object x2, object y2)
+    public static object InLineOfSight(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (p1 is object[] arr && arr.Length >= 6)
+        if (args == null || args.Length < 2)
         {
-            y2 = arr[5];
-            x2 = arr[4];
-            p2 = arr[3];
-            y1 = arr[2];
-            x1 = arr[1];
-            p1 = arr[0];
+            Console.WriteLine($"[kern-in-los?] Expected 2 args (loc1 loc2), got {args?.Length ?? 0}");
+            return false;
         }
         
-        if (p1 is not Place place1 || p2 is not Place place2) return false;
+        if (!UnpackLocation(args[0], out var place1, out int x1, out int y1))
+        {
+            Console.WriteLine("[kern-in-los?] Invalid location list 1");
+            return false;
+        }
+        
+        if (!UnpackLocation(args[1], out var place2, out int x2, out int y2))
+        {
+            Console.WriteLine("[kern-in-los?] Invalid location list 2");
+            return false;
+        }
+        
         if (place1 != place2) return false;
-        return place1.IsInLineOfSight(Convert.ToInt32(x1), Convert.ToInt32(y1), 
-            Convert.ToInt32(x2), Convert.ToInt32(y2));
+        return place1.IsInLineOfSight(x1, y1, x2, y2);
     }
 
     /// <summary>
     /// (kern-get-distance place1 x1 y1 place2 x2 y2)
     /// </summary>
-    public static object GetDistance(object p1, object x1, object y1, object p2, object x2, object y2)
+    public static object GetDistance(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (p1 is object[] arr && arr.Length >= 6)
+        if (args == null || args.Length < 2)
         {
-            y2 = arr[5];
-            x2 = arr[4];
-            p2 = arr[3];
-            y1 = arr[2];
-            x1 = arr[1];
-            p1 = arr[0];
+            Console.WriteLine($"[kern-get-distance] Expected 2 args (loc1 loc2), got {args?.Length ?? 0}");
+            return -1;
         }
         
-        if (p1 is not Place place1 || p2 is not Place place2) return -1;
+        if (!UnpackLocation(args[0], out var place1, out int x1, out int y1))
+        {
+            Console.WriteLine("[kern-get-distance] Invalid location list 1");
+            return -1;
+        }
+        
+        if (!UnpackLocation(args[1], out var place2, out int x2, out int y2))
+        {
+            Console.WriteLine("[kern-get-distance] Invalid location list 2");
+            return -1;
+        }
+        
         if (place1 != place2) return -1;
-        return place1.GetFlyingDistance(Convert.ToInt32(x1), Convert.ToInt32(y1),
-            Convert.ToInt32(x2), Convert.ToInt32(y2));
+        return place1.GetFlyingDistance(x1, y1, x2, y2);
     }
 
     /// <summary>
@@ -81,32 +91,19 @@ public partial class Kernel
     /// </summary>
     public static object GetObjectsAt(object[] args)
     {
-        Console.WriteLine($"[kern-get-objects-at] Called with {args.Length} args");
-        
-        object placeObj, xObj, yObj;
-        
-        if (args.Length >= 3)
+        if (args == null || args.Length < 1)
         {
-            placeObj = args[0];
-            xObj = args[1];
-            yObj = args[2];
-        }
-        else if (args.Length == 1 && args[0] is Cons list)
-        {
-            var items = list.ToList();
-            if (items.Count < 3) { /* error */ }
-            placeObj = items[0];
-            xObj = items[1];
-            yObj = items[2];
-        }
-        else
-        {
-            Console.WriteLine($"[kern-get-objects-at] Expected 3 args, got {args.Length}");
+            Console.WriteLine($"[kern-get-objects-at] Expected 1 arg (loc), got {args?.Length ?? 0}");
             return Cons.FromList(new List<object>());
         }
         
-        if (placeObj is not Place place) return Cons.FromList(new List<object>());
-        var objects = new List<object>(place.GetObjectsAt(Convert.ToInt32(xObj), Convert.ToInt32(yObj)));
+        if (!UnpackLocation(args[0], out var place, out int x, out int y))
+        {
+            Console.WriteLine("[kern-get-objects-at] Invalid location list");
+            return Cons.FromList(new List<object>());
+        }
+        
+        var objects = new List<object>(place.GetObjectsAt(x, y));
         return Cons.FromList(objects);
     }
     
