@@ -245,6 +245,8 @@ public class SoundManager
     /// <param name="volume">Volume level (0 to MaxVolume).</param>
     public void Play(Sound? sound, int volume = MaxVolume)
     {
+        Console.WriteLine($"[DIAG Play] sound={sound?.Tag}, loaded={sound?.IsLoaded}, enabled={_isEnabled}, mixer={_mixer != null}");
+        
         if (sound == null || !sound.IsLoaded)
             return;
         

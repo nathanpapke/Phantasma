@@ -513,7 +513,7 @@ public partial class Kernel
         kernel.LoadSchemeFile(path);
         return "nil".Eval();
     }
-    
+
     /// <summary>
     /// (kern-sound-play sound)
     /// Plays a sound at maximum volume.
@@ -527,10 +527,15 @@ public partial class Kernel
     /// </example>
     public static object SoundPlay(object sound)
     {
+        Console.WriteLine($"[DIAG SoundPlay] arg type={sound?.GetType().Name} val={sound}");
+
         // Handle variadic array wrapper from IronScheme.
         if (sound is object[] arr && arr.Length > 0)
+        {
+            Console.WriteLine($"[DIAG SoundPlay] Unwrapped arr[{arr.Length}], now type={arr[0]?.GetType().Name} val={arr[0]}");
             sound = arr[0];
-        
+        }
+
         Sound? soundObj = null;
         
         // Handle different input types.
@@ -548,6 +553,8 @@ public partial class Kernel
                 soundObj = Phantasma.GetRegisteredObject(tag) as Sound;
             }
         }
+        
+        Console.WriteLine($"[DIAG SoundPlay] resolved={soundObj?.Tag ?? "NULL"}, IsLoaded={soundObj?.IsLoaded}");
         
         if (soundObj == null)
         {

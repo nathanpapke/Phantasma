@@ -779,6 +779,10 @@ public class Character : Being
     
         // Check if weapon fires (for missiles/projectiles).
         bool miss = !weapon.Fire(target, Position.X, Position.Y);
+        
+        // Play weapon fire sound.
+        if (weapon.FireSound != null)
+            SoundManager.Instance.Play(weapon.FireSound);
     
         // Consume action points and ammo.
         DecreaseActionPoints(weapon.RequiredActionPoints);
@@ -812,6 +816,10 @@ public class Character : Being
     
         // Apply damage.
         target.Damage(damage);
+        
+        // Play damage sound.
+        if (target.Species.DamageSound != null)
+            SoundManager.Instance.Play(target.Species.DamageSound);
     
         Console.WriteLine($"{target.GetWoundDescription()}!");
     

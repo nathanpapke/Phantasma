@@ -102,6 +102,10 @@ public abstract class Being : Object
         Position.X = newX;
         Position.Y = newY;
         
+        // Play movement sound.
+        if (Species.MovementSound != null)
+            SoundManager.Instance.Play(Species.MovementSound);
+        
         return true;
     }
 

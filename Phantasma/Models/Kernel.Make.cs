@@ -1845,8 +1845,19 @@ public partial class Kernel
     /// Scheme usage:
     /// (define snd-footstep (kern-mk-sound 'snd-footstep "sounds/footstep.wav"))
     /// </example>
-    public static object MakeSound(object tag, object filename)
+    public static object MakeSound(object[] args)
     {
+        if (args == null || args.Length < 2)
+        {
+            Console.WriteLine("[LOAD ERROR] kern-mk-sound: expected 2 args (tag, filename)");
+            return "nil".Eval();
+        }
+
+        var tag = args[0];
+        var filename = args[1];
+        
+        Console.WriteLine($"[DIAG MakeSound] tag type={tag?.GetType().Name} val={tag}, filename type={filename?.GetType().Name} val={filename}");
+        
         // Extract tag string.
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown-sound";
         
@@ -1861,6 +1872,7 @@ public partial class Kernel
         
         // Load the sound.
         var sound = SoundManager.Instance.LoadSound(tagStr, filenameStr);
+        Console.WriteLine($"[DIAG MakeSound] LoadSound result: {(sound != null ? "OK" : "NULL")} for '{tagStr}' from '{filenameStr}'");
         
         if (sound == null)
         {

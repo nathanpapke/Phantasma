@@ -356,6 +356,10 @@ public class Behavior
         // Fire the weapon (handles missile animation).
         bool miss = !weapon.Fire(target, attacker.GetX(), attacker.GetY());
         
+        // Play weapon fire sound.
+        if (weapon.FireSound != null)
+            SoundManager.Instance.Play(weapon.FireSound);
+        
         // Consume action points and ammo.
         attacker.DecreaseActionPoints(weapon.RequiredActionPoints);
         attacker.UseAmmo(weapon);
@@ -389,6 +393,10 @@ public class Behavior
         
         // Apply damage.
         target.Damage(damage);
+        
+        // Play damage sound.
+        if (target.Species.DamageSound != null)
+            SoundManager.Instance.Play(target.Species.DamageSound);
         
         string woundMsg = $"{target.GetWoundDescription()}!";
         Console.WriteLine(woundMsg);

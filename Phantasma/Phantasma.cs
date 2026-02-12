@@ -749,7 +749,7 @@ public class Phantasma
     {
         if (configuration.GetValueOrDefault("sound-enabled", "yes") == "yes")
         {
-            // TODO: Load sound files
+            SoundManager.Instance.Initialize();
         }
     }
 

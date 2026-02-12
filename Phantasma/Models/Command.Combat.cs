@@ -173,6 +173,10 @@ public partial class Command
         // Returns false if projectile missed (e.g., hit terrain).
         bool hit = weapon.Fire(target, attacker.GetX(), attacker.GetY());
         
+        // Play weapon fire sound.
+        if (weapon.FireSound != null)
+            SoundManager.Instance.Play(weapon.FireSound);
+        
         // Consume action points and ammo.
         attacker.DecreaseActionPoints(weapon.RequiredActionPoints);
         attacker.UseAmmo(weapon);
@@ -205,6 +209,10 @@ public partial class Command
         
         // Apply damage.
         target.Damage(damage);
+        
+        // Play damage sound.
+        if (target is Character tc && tc.Species.DamageSound != null)
+            SoundManager.Instance.Play(tc.Species.DamageSound);
         
         Log($"{target.GetWoundDescription()}!");
         
