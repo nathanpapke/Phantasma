@@ -10,8 +10,10 @@ public partial class Kernel
     /// (kern-arms-type-get-range arms-type)
     /// Returns the range value of an arms type.
     /// </summary>
-    public static object ArmsTypeGetRange(object armsType)
+    public static object ArmsTypeGetRange(object[] args)
     {
+        var armsType = args.Length > 0 ? args[0] : null;
+        
         if (armsType is not ArmsType arms)
         {
             Console.WriteLine("[ERROR] kern-arms-type-get-range: not an arms type");
@@ -25,8 +27,10 @@ public partial class Kernel
     /// (kern-arms-type-get-ammo-type arms-type)
     /// Returns the ammo type for a missile weapon, or nil if none.
     /// </summary>
-    public static object ArmsTypeGetAmmoType(object armsType)
+    public static object ArmsTypeGetAmmoType(object[] args)
     {
+        var armsType = args.Length > 0 ? args[0] : null;
+        
         if (armsType is not ArmsType arms)
         {
             Console.WriteLine("[ERROR] kern-arms-type-get-ammo-type: not an arms type");

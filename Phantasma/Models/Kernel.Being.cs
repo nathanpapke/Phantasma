@@ -76,12 +76,10 @@ public partial class Kernel
     /// Get list of visible hostile beings.
     /// Returns Scheme list of beings.
     /// </summary>
-    public static object BeingGetVisibleHostiles(object beingObj)
+    public static object BeingGetVisibleHostiles(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (beingObj is object[] args)
-            beingObj = args[0];
-
+        var beingObj = args.Length > 0 ? args[0] : null;
+        
         var being = beingObj as Being;
         if (being == null || being.Position?.Place == null)
         {
@@ -123,6 +121,7 @@ public partial class Kernel
                 continue;
             
             // Check visibility.
+            bool visible = other.IsVisible();
             if (!other.IsVisible())
                 continue;
 
@@ -132,6 +131,7 @@ public partial class Kernel
                 continue;
 
             // Check line of sight.
+            bool inLos = place.IsInLineOfSight(myX, myY, other.GetX(), other.GetY());
             if (!place.IsInLineOfSight(myX, myY, other.GetX(), other.GetY()))
                 continue;
             
@@ -157,13 +157,10 @@ public partial class Kernel
     /// Set the being's base faction.
     /// Returns the being.
     /// </summary>
-    public static object BeingSetBaseFaction(object beingObj, object factionObj)
+    public static object BeingSetBaseFaction(object[] args)
     {
-        if (beingObj is object[] arr && arr.Length >= 2)
-        {
-            beingObj = arr[0];
-            factionObj = arr[1];
-        }
+        var beingObj = args.Length > 0 ? args[0] : null;
+        var factionObj = args.Length > 1 ? args[1] : null;
         
         if (beingObj is not Being being)
         {
@@ -182,11 +179,9 @@ public partial class Kernel
     /// Get the being's base faction.
     /// Returns faction ID as integer.
     /// </summary>
-    public static object BeingGetBaseFaction(object beingObj)
+    public static object BeingGetBaseFaction(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (beingObj is object[] args)
-            beingObj = args[0];
+        var beingObj = args.Length > 0 ? args[0] : null;
         
         if (beingObj is not Being being)
         {
@@ -202,11 +197,9 @@ public partial class Kernel
     /// Get the being's current faction (may differ from base if charmed, etc.).
     /// Returns faction ID as integer.
     /// </summary>
-    public static object BeingGetCurrentFaction(object beingObj)
+    public static object BeingGetCurrentFaction(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (beingObj is object[] args)
-            beingObj = args[0];
+        var beingObj = args.Length > 0 ? args[0] : null;
         
         if (beingObj is not Being being)
         {

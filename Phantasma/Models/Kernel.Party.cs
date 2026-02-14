@@ -15,8 +15,11 @@ public partial class Kernel
     /// (kern-party-add-member party character)
     /// Adds a character to a party.
     /// </summary>
-    public static object PartyAddMember(object party, object character)
+    public static object PartyAddMember(object[] args)
     {
+        var party = args.Length > 0 ? args[0] : null;
+        var character = args.Length > 1 ? args[1] : null;
+        
         var group = ResolveObject<Party>(party);
         
         // Fallback: if "player" was passed and not found, try the global player party.
@@ -41,10 +44,14 @@ public partial class Kernel
         return group.AddMember(member);
     }
     
-    public static object PartySetWandering(object party, object wandering)
+    /// <summary>
+    /// (kern-party-set-wandering party wandering)
+    /// Sets whether a party wanders randomly.
+    /// </summary>
+    public static object PartySetWandering(object[] args)
     {
-        // kern-party-set-wandering <party> <bool>
-        // Sets whether a party wanders randomly.
+        var party = args.Length > 0 ? args[0] : null;
+        var wandering = args.Length > 1 ? args[1] : null;
         
         bool isWandering = wandering is bool b ? b : Convert.ToBoolean(wandering);
         var group = party as Party;

@@ -85,18 +85,29 @@ public partial class Kernel
     /// (kern-obj-get-name object)
     /// Gets the name of an object.
     /// </summary>
-    public static object ObjectGetName(object obj)
+    public static object ObjectGetName(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length > 0)
-            obj = arr[0];
+        var obj = args.Length > 0 ? args[0] : null;
         
         if (obj is Character character)
             return character.GetName();
-        else if (obj is Object gameObj)
+        if (obj is Object gameObj)
             return gameObj.Name;
-        else if (obj is ObjectType objType)
+        if (obj is ObjectType objType)
             return objType.Name;
+        
+        // Try tag resolution.
+        string tag = ToTag(obj);
+        if (!string.IsNullOrEmpty(tag))
+        {
+            var resolved = Phantasma.GetRegisteredObject(tag);
+            if (resolved is Character rch)
+                return rch.GetName();
+            if (resolved is Being rb)
+                return rb.GetName();
+            if (resolved is Object ro)
+                return ro.Name ?? "";
+        }
     
         return "(unnamed)";
     }
@@ -104,36 +115,34 @@ public partial class Kernel
     // ============================================================
     // kern-obj-get-type - Gets the ObjectType of an object
     // ============================================================
-    public static object ObjectGetType(object obj)
+    public static object ObjectGetType(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length > 0)
-            obj = arr[0];
+        var obj = args.Length > 0 ? args[0] : null;
         
         if (obj == null || IsNil(obj))
-            return RuntimeHelpers.False;
+            return "#f".Eval();
         
         // Characters don't have ObjectTypes in Nazghul.
         if (obj is Character)
-            return RuntimeHelpers.False;
+            return "#f".Eval();
         
         // Beings also don't have ObjectTypes (they have Species instead).
         if (obj is Being)
-            return RuntimeHelpers.False;
+            return "#f".Eval();
         
         // Handle other Objects (Mechanism, Item, TerrainFeature, etc.).
         if (obj is Object gameObj)
-            return (object?)gameObj.Type ?? RuntimeHelpers.False;
+            return (object?)gameObj.Type ?? "#f".Eval();
         
         // Try to resolve by tag.
         if (obj is string tag)
         {
             var resolved = Phantasma.GetRegisteredObject(tag);
             if (resolved is Object resolvedObj && !(resolvedObj is Being))
-                return (object?)resolvedObj.Type ?? RuntimeHelpers.False;
+                return (object?)resolvedObj.Type ?? "#f".Eval();
         }
         
-        return RuntimeHelpers.False;
+        return "#f".Eval();
     }
     
     /// <summary>
@@ -240,11 +249,9 @@ public partial class Kernel
     /// (kern-obj-get-conversation obj)
     /// Get the conversation closure attached to a character.
     /// </summary>
-    public static object ObjectGetConversation(object obj)
+    public static object ObjectGetConversation(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length > 0)
-            obj = arr[0];
+        var obj = args.Length > 0 ? args[0] : null;
         
         if (obj is Character character)
         {
@@ -306,15 +313,11 @@ public partial class Kernel
     /// (kern-obj-add-effect object effect gob)
     /// Adds an effect to an object.
     /// </summary>
-    public static object ObjectAddEffect(object obj, object effect, object gob)
+    public static object ObjectAddEffect(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 3)
-        {
-            gob = arr[2];
-            effect = arr[1];
-            obj = arr[0];
-        }
+        var obj = args.Length > 0 ? args[0] : null;
+        var effect = args.Length > 1 ? args[1] : null;
+        var gob = args.Length > 2 ? args[2] : null;
         
         if (obj is not Object gameObj)
         {
@@ -337,11 +340,9 @@ public partial class Kernel
     /// Returns a Scheme list of all Effect objects attached to this object,
     /// across all hook types (start-of-turn, add-hook, damage, keystroke).
     /// </summary>
-    public static object ObjectGetEffect(object objArg)
+    public static object ObjectGetEffect(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         // Accept any Object (Being, Character, Item, etc.).
         var obj = objArg as Object;
@@ -391,14 +392,10 @@ public partial class Kernel
     /// (kern-obj-remove-effect object effect)
     /// Removes an effect from an object.
     /// </summary>
-    public static object ObjectRemoveEffect(object obj, object effect)
+    public static object ObjectRemoveEffect(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 2)
-        {
-            effect = arr[1];
-            obj = arr[0];
-        }
+        var obj = args.Length > 0 ? args[0] : null;
+        var effect = args.Length > 1 ? args[1] : null;
         
         if (obj is not Object gameObj)
         {
@@ -420,14 +417,10 @@ public partial class Kernel
     /// (kern-obj-has-effect? object effect)
     /// Checks if an object has a specific effect.
     /// </summary>
-    public static object ObjectHasEffect(object obj, object effect)
+    public static object ObjectHasEffect(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 2)
-        {
-            effect = arr[1];
-            obj = arr[0];
-        }
+        var obj = args.Length > 0 ? args[0] : null;
+        var effect = args.Length > 1 ? args[1] : null;
         
         if (obj is not Object gameObj)
         {
@@ -448,11 +441,9 @@ public partial class Kernel
     /// (kern-obj-remove object)
     /// Removes an object from the map.
     /// </summary>
-    public static object ObjectRemove(object objArg)
+    public static object ObjectRemove(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         Object? obj = objArg as Object;
 
@@ -557,14 +548,10 @@ public partial class Kernel
     // ============================================================
     // kern-obj-set-visible
     // ============================================================
-    public static object ObjectSetVisible(object obj, object visible)
+    public static object ObjectSetVisible(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (obj is object[] arr && arr.Length >= 2)
-        {
-            visible = arr[1];
-            obj = arr[0];
-        }
+        var obj = args.Length > 0 ? args[0] : null;
+        var visible = args.Length > 1 ? args[1] : null;
         
         if (obj == null || IsNil(obj))
         {
@@ -610,11 +597,9 @@ public partial class Kernel
     /// (kern-obj-wander obj)
     /// Make object wander in a random direction.
     /// </summary>
-    public static object ObjectWander(object objArg)
+    public static object ObjectWander(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         if (objArg is not Being being)
         {
@@ -647,11 +632,9 @@ public partial class Kernel
     /// <summary>
     /// (kern-obj-is-visible? obj)
     /// </summary>
-    public static object ObjectIsVisible(object objArg)
+    public static object ObjectIsVisible(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         if (objArg is not Being being) return true; // Non-beings default visible
         return being.IsVisible();
@@ -680,6 +663,9 @@ public partial class Kernel
         if (args == null || args.Length < 1) return 0;
         
         if (args[0] is not Being being) return 0;
+        
+        Console.WriteLine($"[kern-obj-get-ap] {being.GetName()}: {being.ActionPoints} AP");
+        
         return being.ActionPoints;
     }
 
@@ -710,11 +696,9 @@ public partial class Kernel
     /// <summary>
     /// (kern-obj-is-being? obj)
     /// </summary>
-    public static object ObjectIsBeing(object objArg)
+    public static object ObjectIsBeing(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
 
         return objArg is Being;
     }
@@ -729,11 +713,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="objArg">The game object to get the gob from</param>
     /// <returns>The Scheme data, or NIL if no gob attached</returns>
-    public static object ObjectGetGob(object objArg)
+    public static object ObjectGetGob(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         // Handle the object argument.
         Object? obj = objArg as Object;
@@ -785,14 +767,10 @@ public partial class Kernel
     /// <param name="objArg">The game object to attach gob to</param>
     /// <param name="gobData">The Scheme data to attach</param>
     /// <returns>Unspecified</returns>
-    public static object ObjectSetGob(object objArg, object gobData)
+    public static object ObjectSetGob(object[] args)
     {
-        // Handle case where both args come bundled in objArg as array.
-        if (objArg is object[] arr && arr.Length >= 2)
-        {
-            objArg = arr[0];
-            gobData = arr[1];
-        }
+        var objArg = args.Length > 0 ? args[0] : null;
+        var gobData = args.Length > 1 ? args[1] : null;
         
         // Handle null object argument.
         if (objArg == null)
@@ -870,14 +848,10 @@ public partial class Kernel
     /// (kern-obj-set-pclass obj pclass)
     /// Sets the passability class of an object.
     /// </summary>
-    public static object ObjectSetPassability(object obj, object pclass)
+    public static object ObjectSetPassability(object[] args)
     {
-        // Handle case where both args come bundled in obj as array.
-        if (obj is object[] arr && arr.Length >= 2)
-        {
-            obj = arr[0];
-            pclass = arr[1];
-        }
+        var obj = args.Length > 0 ? args[0] : null;
+        var pclass = args.Length > 1 ? args[1] : null;
         
         var gameObj = obj as Object;
         if (gameObj == null)
@@ -895,11 +869,9 @@ public partial class Kernel
     /// (kern-obj-get-sprite obj)
     /// Gets the sprite of an object.
     /// </summary>
-    public static object ObjectGetSprite(object objArg)
+    public static object ObjectGetSprite(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         // Handle null object argument.
         if (objArg == null)
@@ -962,14 +934,10 @@ public partial class Kernel
     /// (kern-obj-set-sprite obj sprite)
     /// Sets the sprite of an object.
     /// </summary>
-    public static object ObjectSetSprite(object objArg, object spriteArg)
+    public static object ObjectSetSprite(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length >= 2)
-        {
-            spriteArg = arr[1];
-            objArg = arr[0];
-        }
+        var objArg = args.Length > 0 ? args[0] : null;
+        var spriteArg = args.Length > 1 ? args[1] : null;
         
         // Handle null object argument.
         if (objArg == null)
@@ -1063,14 +1031,10 @@ public partial class Kernel
     /// </summary>
     /// <param name="objArg">Object to set opacity</param>
     /// <param name="opacityArg">Opacity #t or #f</param>
-    public static object ObjectSetOpacity(object objArg, object opacityArg)
+    public static object ObjectSetOpacity(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length >= 2)
-        {
-            objArg = arr[0];
-            opacityArg = arr[1];
-        }
+        var objArg = args.Length > 0 ? args[0] : null;
+        var opacityArg = args.Length > 1 ? args[1] : null;
     
         var obj = objArg as Object;
         if (obj == null)
@@ -1088,14 +1052,10 @@ public partial class Kernel
     /// (kern-obj-set-light obj light)
     /// Sets the light radius emitted by an object.
     /// </summary>
-    public static object ObjectSetLight(object obj, object light)
+    public static object ObjectSetLight(object[] args)
     {
-        // Handle array wrapping.
-        if (obj is object[] arr && arr.Length >= 2)
-        {
-            light = arr[1];
-            obj = arr[0];
-        }
+        var obj = args.Length > 0 ? args[0] : null;
+        var light = args.Length > 1 ? args[1] : null;
         
         if (obj == null || IsNil(obj))
             return "nil".Eval();
@@ -1116,11 +1076,9 @@ public partial class Kernel
     /// (kern-obj-get-activity obj) -> string
     /// Returns the current activity as a string: "idle", "working", "sleeping", etc.
     /// </summary>
-    public static object ObjectGetActivity(object objArg)
+    public static object ObjectGetActivity(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         Activity activity = Activity.Idle;
         
@@ -1146,14 +1104,10 @@ public partial class Kernel
     /// (kern-obj-set-activity obj activity-string)
     /// Sets the current activity from a string name.
     /// </summary>
-    public static object ObjectSetActivity(object objArg, object activityArg)
+    public static object ObjectSetActivity(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length >= 2)
-        {
-            activityArg = arr[1];
-            objArg = arr[0];
-        }
+        var objArg = args.Length > 0 ? args[0] : null;
+        var activityArg = args.Length > 1 ? args[1] : null;
         
         string name = activityArg?.ToString()?.ToLower() ?? "idle";
         
@@ -1224,11 +1178,9 @@ public partial class Kernel
     /// (kern-obj-is-char? obj)
     /// Returns #t if the object is a Character/Being.
     /// </summary>
-    public static object ObjectIsChar(object objArg)
+    public static object ObjectIsCharacter(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objArg is object[] arr && arr.Length > 0)
-            objArg = arr[0];
+        var objArg = args.Length > 0 ? args[0] : null;
         
         // Same check as ObjectIsBeing — it's a being-layer check.
         return objArg is Being;

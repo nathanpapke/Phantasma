@@ -54,7 +54,8 @@ public class Behavior
                 if (toCall is Callable callable)
                 {
                     Console.WriteLine($"[Behavior.Execute] {character.GetName()} calling custom AI closure...");
-                    callable.Call(character);
+                    var result = callable.Call(character);
+                    Console.WriteLine($"[Behavior.Execute] {character.GetName()} AI returned: {result} ({result?.GetType().Name})");
                 }
                 else
                 {
@@ -69,8 +70,8 @@ public class Behavior
                     message += $" Inner: {ex.InnerException.Message}";
                 
                 // IronScheme exceptions often have useful info in Data or ToString.
-                Console.WriteLine($"[NpcAI] Custom AI error for {character.GetName()}: {message}");
-                Console.WriteLine($"[NpcAI] Full exception: {ex}");
+                //Console.WriteLine($"[NpcAI] Custom AI error for {character.GetName()}: {message}");
+                //Console.WriteLine($"[NpcAI] Full exception: {ex}");
             }
             return;
         }

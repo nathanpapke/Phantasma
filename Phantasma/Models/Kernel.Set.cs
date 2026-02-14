@@ -16,11 +16,9 @@ public partial class Kernel
     /// (kern-set-player party)
     /// Sets the party as the player-controlled party.
     /// </summary>
-    public static object SetPlayer(object character)
+    public static object SetPlayer(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (character is object[] arr && arr.Length > 0)
-            character = arr[0];
+        var character = args.Length > 0 ? args[0] : null;
         
         if (character is Character c)
         {
@@ -33,11 +31,9 @@ public partial class Kernel
         return "nil".Eval();
     }
     
-    public static object SetCrosshair(object objTypeRef)
+    public static object SetCrosshair(object[] args )
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (objTypeRef is object[] arr && arr.Length > 0)
-            objTypeRef = arr[0];
+        var objTypeRef = args.Length > 0 ? args[0] : null;
         
         ObjectType? objType = ResolveObject<ObjectType>(objTypeRef);
 
@@ -57,22 +53,20 @@ public partial class Kernel
     /// Set the text input cursor sprite for the command window.
     /// This is the blinking cursor when typing, NOT the targeting crosshair.
     /// </summary>
-    public static object SetCursor(object spriteRef)
+    public static object SetCursor(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (spriteRef is object[] arr && arr.Length > 0)
-            spriteRef = arr[0];
+        var spriteRef = args.Length > 0 ? args[0] : null;
         
         Sprite? sprite = ResolveObject<Sprite>(spriteRef);
-
+        
         if (sprite == null)
         {
             return "nil".Eval();
         }
-
+        
         // Store with well-known "cursor-sprite" key.
         Phantasma.RegisterObject("cursor-sprite", sprite);
-
+        
         return sprite;
     }
     
@@ -82,7 +76,7 @@ public partial class Kernel
         {
             return "nil".Eval();
         }
-    
+        
         // Store as anonymous object - access via dynamic later.
         var frameSprites = new
         {
@@ -101,7 +95,7 @@ public partial class Kernel
             EndR = ResolveObject<Sprite>(args[12])  // End right
         };
     
-        // Register for lookup
+        // Register for lookup.
         Phantasma.RegisterObject("frame-sprites", frameSprites);
         
         return "nil".Eval();
@@ -143,26 +137,19 @@ public partial class Kernel
     /// <param name="hourObj"></param>
     /// <param name="minObj"></param>
     /// <returns></returns>
-    public static object SetClock(object yearObj, object monthObj, object weekObj, 
-        object dayObj, object hourObj, object minObj)
+    public static object SetClock(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (yearObj is object[] arr && arr.Length >= 6)
+        if (args.Length < 6)
         {
-            minObj = arr[5];
-            hourObj = arr[4];
-            dayObj = arr[3];
-            weekObj = arr[2];
-            monthObj = arr[1];
-            yearObj = arr[0];
+            return "nil".Eval();
         }
         
-        int year = Convert.ToInt32(yearObj ?? 0);
-        int month = Convert.ToInt32(monthObj ?? 0);
-        int week = Convert.ToInt32(weekObj ?? 0);
-        int day = Convert.ToInt32(dayObj ?? 0);
-        int hour = Convert.ToInt32(hourObj ?? 0);
-        int min = Convert.ToInt32(minObj ?? 0);
+        int year = args.Length > 0 ? Convert.ToInt32(args[0]) : 0;
+        int month = args.Length > 1 ? Convert.ToInt32(args[1]) : 0;
+        int week = args.Length > 2 ? Convert.ToInt32(args[2]) : 0;
+        int day = args.Length > 3 ? Convert.ToInt32(args[3]) : 0;
+        int hour = args.Length > 4 ? Convert.ToInt32(args[4]) : 0;
+        int min = args.Length > 5 ? Convert.ToInt32(args[5]) : 0;
         
         var session = Phantasma.MainSession;
         if (session == null)
@@ -186,24 +173,22 @@ public partial class Kernel
     /// </summary>
     /// <param name="accelObj"></param>
     /// <returns></returns>
-    public static object SetTimeAcceleration(object accelObj)
+    public static object SetTimeAcceleration(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (accelObj is object[] args)
-            accelObj = args[0];
+        var val = args.Length > 0 ? args[0] : null;
         
-        int accel = Convert.ToInt32(accelObj ?? 1);
+        int accel = Convert.ToInt32(val ?? 1);
         accel = Math.Max(1, accel);  // Minimum 1x speed
-    
+        
         var session = Phantasma.MainSession;
         if (session == null)
         {
             Console.WriteLine("[SetTimeAccel] Warning: No main session.");
             return "nil".Eval();
         }
-    
+        
         session.TimeAcceleration = accel;
-    
+        
         return "nil".Eval();
     }
 
@@ -242,14 +227,10 @@ public partial class Kernel
     /// <param name="dirObj"></param>
     /// <param name="durObj"></param>
     /// <returns></returns>
-    public static object SetWind(object dirObj, object durObj)
+    public static object SetWind(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (dirObj is object[] arr && arr.Length >= 2)
-        {
-            durObj = arr[1];
-            dirObj = arr[0];
-        }
+        var dirObj = args.Length > 0 ? args[0] : null;
+        var durObj = args.Length > 1 ? args[1] : null;
         
         int direction = Convert.ToInt32(dirObj ?? Common.NORTH);
         int duration = Convert.ToInt32(durObj ?? 0);

@@ -10,7 +10,7 @@ public partial class Kernel
 {
     // (kern-get-player)
     // Returns the player character from the main session.
-    public static object GetPlayer()
+    public static object GetPlayer(object[] args)
     {
         try
         {
@@ -83,6 +83,7 @@ public partial class Kernel
         }
         
         if (place1 != place2) return -1;
+
         return place1.GetFlyingDistance(x1, y1, x2, y2);
     }
 
@@ -108,7 +109,7 @@ public partial class Kernel
     }
     
     // Implementation
-    public static object GetTicks(object args)
+    public static object GetTicks(object[] args)
     {
         // Return game ticks/turns elapsed.
         return Environment.TickCount;
@@ -119,13 +120,9 @@ public partial class Kernel
     /// Gets the game interface closure (gifc) for an object type.
     /// Returns the interaction handler closure, or nil if none.
     /// </summary>
-    public static object TypeGetGameInterface(object type)
+    public static object TypeGetGameInterface(object[] args)
     {
-        // Handle array wrapping.  IronScheme sometimes passes args as Object[] type.
-        if (type is object[] arr && arr.Length > 0)
-        {
-            type = arr[0];
-        }
+        var type = args.Length > 0 ? args[0] : null;
         
         // Handle null - not necessarily an error per Nazghul comment:
         // "Some objects (like characters) have no type"

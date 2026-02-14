@@ -11,11 +11,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="bodyObj"></param>
     /// <returns></returns>
-    public static object AstralBodyGetPhase(object bodyObj)
+    public static object AstralBodyGetPhase(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (bodyObj is object[] arr && arr.Length > 0)
-            bodyObj = arr[0];
+        var bodyObj = args.Length > 0 ? args[0] : null;
         
         if (bodyObj is not AstralBody body)
         {
@@ -32,11 +30,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="bodyObj"></param>
     /// <returns></returns>
-    public static object AstralBodyGetGob(object bodyObj)
+    public static object AstralBodyGetGob(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (bodyObj is object[] arr && arr.Length > 0)
-            bodyObj = arr[0];
+        var bodyObj = args.Length > 0 ? args[0] : null;
         
         if (bodyObj is not AstralBody body)
         {
@@ -60,14 +56,10 @@ public partial class Kernel
     /// <param name="bodyObj"></param>
     /// <param name="gobObj"></param>
     /// <returns></returns>
-    public static object AstralBodySetGob(object bodyObj, object gobObj)
+    public static object AstralBodySetGob(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (bodyObj is object[] arr && arr.Length >= 2)
-        {
-            gobObj = arr[1];
-            bodyObj = arr[0];
-        }
+        var bodyObj = args.Length > 0 ? args[0] : null;
+        var gobObj = args.Length > 1 ? args[1] : null;
         
         if (bodyObj is not AstralBody body)
         {

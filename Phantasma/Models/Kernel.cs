@@ -247,7 +247,7 @@ public partial class Kernel
         DefineFunction("kern-obj-get-activity", ObjectGetActivity);
         DefineFunction("kern-obj-set-activity", ObjectSetActivity);
         DefineFunction("kern-obj-heal", ObjectHeal);
-        DefineFunction("kern-obj-is-char?", ObjectIsChar);
+        DefineFunction("kern-obj-is-char?", ObjectIsCharacter);
         
         // ===================================================================
         // KERN-SPECIES API - Species Functions

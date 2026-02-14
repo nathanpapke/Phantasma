@@ -7,11 +7,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="species"></param>
     /// <returns></returns>
-    public static object SpeciesGetHpMod(object species)
+    public static object SpeciesGetHpMod(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (species is object[] args)
-            species = args[0];
+        var species = args.Length > 0 ? args[0] : null;
         
         if (species == null || IsNil(species))
             return 0;
@@ -33,11 +31,9 @@ public partial class Kernel
     /// (kern-species-get-hp-mult species) -> int
     /// Gets the HP multiplier per level for a species.
     /// </summary>
-    public static object SpeciesGetHpMult(object species)
+    public static object SpeciesGetHpMult(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (species is object[] args)
-            species = args[0];
+        var species = args.Length > 0 ? args[0] : null;
         
         if (species == null || IsNil(species))
             return 0;
@@ -59,11 +55,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="species"></param>
     /// <returns></returns>
-    public static object SpeciesGetMpMod(object species)
+    public static object SpeciesGetMpMod(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (species is object[] args)
-            species = args[0];
+        var species = args.Length > 0 ? args[0] : null;
         
         if (species == null || IsNil(species))
             return 0;
@@ -83,13 +77,9 @@ public partial class Kernel
     /// <summary>
     /// (kern-species-get-mp-mult species)
     /// </summary>
-    /// <param name="species"></param>
-    /// <returns></returns>
-    public static object SpeciesGetMpMult(object species)
+    public static object SpeciesGetMpMult(object[] args)
     {
-        // Unwrap varargs array from IronScheme.
-        if (species is object[] args)
-            species = args[0];
+        var species = args.Length > 0 ? args[0] : null;
         
         if (species == null || IsNil(species))
             return 0;

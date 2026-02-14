@@ -18,10 +18,17 @@ public partial class Kernel
     /// <param name="w"></param>
     /// <param name="h"></param>
     /// <returns></returns>
-    public static object BlitMap(object dst, object dstX, object dstY,
-        object src, object srcX, object srcY,
-        object w, object h)
+    public static object BlitMap(object[] args)
     {
+        var dst = args.Length > 0 ? args[0] : null;
+        var dstX = args.Length > 1 ? args[1] : null;
+        var dstY = args.Length > 2 ? args[2] : null;
+        var src = args.Length > 3 ? args[3] : null;
+        var srcX = args.Length > 4 ? args[4] : null;
+        var srcY = args.Length > 5 ? args[5] : null;
+        var w = args.Length > 6 ? args[6] : null;
+        var h = args.Length > 7 ? args[7] : null;
+        
         var dstMap = ResolveObject<TerrainMap>(dst);
         var srcMap = ResolveObject<TerrainMap>(src);
         
@@ -44,7 +51,7 @@ public partial class Kernel
         int width = ToInt(w, srcMap.Width);
         int height = ToInt(h, srcMap.Height);
         
-        // Clip dimensions to valid ranges
+        // Clip dimensions to valid ranges.
         width = Math.Min(width, Math.Min(dstMap.Width - dx, srcMap.Width - sx));
         height = Math.Min(height, Math.Min(dstMap.Height - dy, srcMap.Height - sy));
         
@@ -53,7 +60,7 @@ public partial class Kernel
             return dstMap;
         }
         
-        // Copy terrain tiles
+        // Copy terrain tiles.
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -76,8 +83,11 @@ public partial class Kernel
     /// <param name="mapArg"></param>
     /// <param name="degrees"></param>
     /// <returns></returns>
-    public static object MapRotate(object mapArg, object degrees)
+    public static object MapRotate(object[] args)
     {
+        var mapArg = args.Length > 0 ? args[0] : null;
+        var degrees = args.Length > 1 ? args[1] : null;
+        
         var map = ResolveObject<TerrainMap>(mapArg);
         
         if (map == null)

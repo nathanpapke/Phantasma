@@ -1472,8 +1472,13 @@ public partial class Kernel
     /// (kern-mk-reagent-type tag name sprite char)
     /// Create a reagent type.
     /// </summary>
-    public static object MakeReagentType(object tag, object name, object sprite, object displayChar)
+    public static object MakeReagentType(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var sprite = args.Length > 2 ? args[2] : null;
+        var displayChar = args.Length > 3 ? args[3] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         string nameStr = name?.ToString() ?? "Unnamed Reagent";
         char charVal = displayChar?.ToString().FirstOrDefault() ?? '?';

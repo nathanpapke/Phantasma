@@ -11,22 +11,16 @@ public partial class Kernel
     // KERN-PLACE API IMPLEMENTATIONS
     // ===================================================================
     
-    public static object PlaceGetWidth(object place)
+    public static object PlaceGetWidth(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (place is object[] arr && arr.Length > 0)
-            place = arr[0];
-        
+        var place = args.Length > 0 ? args[0] : null;
         var p = place as Place;
         return p?.Width ?? 0;
     }
     
-    public static object PlaceGetHeight(object place)
+    public static object PlaceGetHeight(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (place is object[] arr && arr.Length > 0)
-            place = arr[0];
-        
+        var place = args.Length > 0 ? args[0] : null;
         var p = place as Place;
         return p?.Height ?? 0;
     }
@@ -85,11 +79,9 @@ public partial class Kernel
     /// (kern-place-set-current place)
     /// Sets the place as the current game place.
     /// </summary>
-    public static object PlaceSetCurrent(object place)
+    public static object PlaceSetCurrent(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (place is object[] arr && arr.Length > 0)
-            place = arr[0];
+        var place = args.Length > 0 ? args[0] : null;
         
         if (place is Place p)
         {
@@ -106,11 +98,9 @@ public partial class Kernel
     /// (kern-place-get-name place)
     /// Returns the display name of a place.
     /// </summary>
-    public static object PlaceGetName(object placeObj)
+    public static object PlaceGetName(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length > 0)
-            placeObj = arr[0];
+        var placeObj = args.Length > 0 ? args[0] : null;
         
         if (placeObj is Place place)
         {
@@ -125,11 +115,9 @@ public partial class Kernel
     /// (kern-place-get-location place)
     /// Returns the parent location of a place as (parent-place x y), or nil if none.
     /// </summary>
-    public static object PlaceGetLocation(object placeObj)
+    public static object PlaceGetLocation(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length > 0)
-            placeObj = arr[0];
+        var placeObj = args.Length > 0 ? args[0] : null;
         
         if (placeObj is not Place place)
         {
@@ -155,14 +143,10 @@ public partial class Kernel
     /// (kern-place-get-neighbor place direction)
     /// Returns the neighboring place in the given direction (UP or DOWN only).
     /// </summary>
-    public static object PlaceGetNeighbor(object placeObj, object dirObj)
+    public static object PlaceGetNeighbor(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length >= 2)
-        {
-            dirObj = arr[1];
-            placeObj = arr[0];
-        }
+        var placeObj = args.Length > 0 ? args[0] : null;
+        var dirObj = args.Length > 1 ? args[1] : null;
         
         if (placeObj is not Place place)
         {
@@ -189,11 +173,9 @@ public partial class Kernel
     /// (kern-place-is-wilderness place)
     /// Returns #t if place is wilderness, #f otherwise.
     /// </summary>
-    public static object PlaceIsWilderness(object placeObj)
+    public static object PlaceIsWilderness(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length > 0)
-            placeObj = arr[0];
+        var placeObj = args.Length > 0 ? args[0] : null;
         
         if (placeObj is Place place)
         {
@@ -226,11 +208,9 @@ public partial class Kernel
     /// <summary>
     /// (kern-place-get-beings place)
     /// </summary>
-    public static object PlaceGetBeings(object placeObj)
+    public static object PlaceGetBeings(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length > 0)
-            placeObj = arr[0];
+        var placeObj = args.Length > 0 ? args[0] : null;
         
         if (placeObj is not Place place) return Cons.FromList(new List<object>());
         var beings = new List<object>();
@@ -291,14 +271,10 @@ public partial class Kernel
     /// <param name="terrain">Terrain object to modify</param>
     /// <param name="map">TerrainMap to use for combat on this terrain</param>
     /// <returns>The terrain object (for chaining).</returns>
-    public static object TerrainSetCombatMap(object terrain, object map)
+    public static object TerrainSetCombatMap(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (terrain is object[] arr && arr.Length >= 2)
-        {
-            map = arr[1];
-            terrain = arr[0];
-        }
+        var terrain = args.Length > 0 ? args[0] : null;
+        var map = args.Length > 1 ? args[1] : null;
         
         // Resolve terrain.
         Terrain? t = null;
@@ -336,11 +312,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="placeArg"></param>
     /// <returns></returns>
-    public static object PlaceMap(object placeArg)
+    public static object PlaceMap(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeArg is object[] arr && arr.Length > 0)
-            placeArg = arr[0];
+        var placeArg = args.Length > 0 ? args[0] : null;
         
         var place = ResolveObject<Place>(placeArg);
         
@@ -362,11 +336,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="placeArg"></param>
     /// <returns></returns>
-    public static object PlaceSynch(object placeArg)
+    public static object PlaceSynch(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeArg is object[] arr && arr.Length > 0)
-            placeArg = arr[0];
+        var placeArg = args.Length > 0 ? args[0] : null;
         
         var place = ResolveObject<Place>(placeArg);
         
@@ -387,11 +359,9 @@ public partial class Kernel
     /// </summary>
     /// <param name="placeObj"></param>
     /// <returns></returns>
-    public static object PlaceGetObjects(object placeObj)
+    public static object PlaceGetObjects(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (placeObj is object[] arr && arr.Length > 0)
-            placeObj = arr[0];
+        var placeObj = args.Length > 0 ? args[0] : null;
         
         if (placeObj is not Place place) 
             return Cons.FromList(new List<object>());
@@ -434,8 +404,6 @@ public partial class Kernel
         
         // Register the subplace with the parent.
         parent.AddSubplace(subplace, x, y);
-        
-        Console.WriteLine($"[kern-place-add-subplace] Added '{subplace.Name}' to '{parent.Name}' at ({x}, {y})");
         
         return subplace;
     }

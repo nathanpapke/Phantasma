@@ -13,10 +13,11 @@ public partial class Kernel
     /// (kern-char-get-hp character)
     /// Gets current HP.
     /// </summary>
-    public static object CharacterGetHp(object character)
+    public static object CharacterGetHp(object[] args)
     {
-        var c = character as Character;
-        if (c == null)
+        var character = args.Length > 0 ? args[0] : null;
+        
+        if (character is not Character c)
         {
             LoadError("kern-char-get-hp: invalid character");
             return 0;
@@ -28,10 +29,11 @@ public partial class Kernel
     /// (kern-char-get-max-hp character)
     /// Gets maximum HP.
     /// </summary>
-    public static object CharacterGetMaxHp(object character)
+    public static object CharacterGetMaxHp(object[] args)
     {
-        var c = character as Character;
-        if (c == null)
+        var character = args.Length > 0 ? args[0] : null;
+        
+        if (character is not Character c)
         {
             LoadError("kern-char-get-max-hp: invalid character");
             return 0;
@@ -43,10 +45,11 @@ public partial class Kernel
     /// (kern-char-get-level character)
     /// Gets character level.
     /// </summary>
-    public static object CharacterGetLevel(object character)
+    public static object CharacterGetLevel(object[] args)
     {
-        var c = character as Character;
-        if (c == null)
+        var character = args.Length > 0 ? args[0] : null;
+        
+        if (character is not Character c)
         {
             LoadError("kern-char-get-level: invalid character");
             return 0;
@@ -58,10 +61,12 @@ public partial class Kernel
     /// (kern-char-set-hp character value)
     /// Sets the character's HP to the specified value.
     /// Clamps to [0, MaxHP] and triggers kill() if HP reaches 0.
-    /// Matches Nazghul's Character::setHp() behavior.
     /// </summary>
-    public static object CharacterSetHp(object character, object value)
+    public static object CharacterSetHp(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        var value = args.Length > 1 ? args[1] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-set-hp: not a character");
@@ -89,8 +94,10 @@ public partial class Kernel
     /// (kern-char-get-weapons character)
     /// Returns a Scheme list of the character's readied weapons.
     /// </summary>
-    public static object CharacterGetWeapons(object character)
+    public static object CharacterGetWeapons(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-get-weapons: not a character");
@@ -104,6 +111,10 @@ public partial class Kernel
         {
             weapons.Add(weapon);
         }
+        
+        Console.WriteLine($"[kern-char-get-weapons] {ch.GetName()}: {weapons.Count} weapons" +
+                          (weapons.Count > 0 ? $" ({string.Join(", ", weapons.Select(w => (w as ArmsType)?.Name ?? "?"))})" : "") +
+                          $" Species.Weapon={ch.Species.Weapon?.Name ?? "NULL"}");
         
         // Convert to Scheme list.
         return ListToScheme(weapons);
@@ -138,8 +149,10 @@ public partial class Kernel
     /// (kern-char-get-inventory character)
     /// Returns a Scheme list of (type . count) pairs for inventory contents.
     /// </summary>
-    public static object CharacterGetInventory(object character)
+    public static object CharacterGetInventory(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-get-inventory: not a character");
@@ -166,8 +179,11 @@ public partial class Kernel
     /// (kern-char-has-ammo? character weapon)
     /// Returns #t if character has ammo for the weapon, #f otherwise.
     /// </summary>
-    public static object CharacterHasAmmo(object character, object weapon)
+    public static object CharacterHasAmmo(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        var weapon = args.Length > 1 ? args[1] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-has-ammo?: not a character");
@@ -188,8 +204,11 @@ public partial class Kernel
     /// Ready an arms type for a character.
     /// Returns #t on success, #f on failure.
     /// </summary>
-    public static object CharacterReady(object character, object armsType)
+    public static object CharacterReady(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        var armsType = args.Length > 1 ? args[1] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-ready: not a character");
@@ -211,8 +230,11 @@ public partial class Kernel
     /// Unready an arms type from a character.
     /// Returns #t on success, #f on failure.
     /// </summary>
-    public static object CharacterUnready(object character, object armsType)
+    public static object CharacterUnready(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        var armsType = args.Length > 1 ? args[1] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-unready: not a character");
@@ -232,8 +254,10 @@ public partial class Kernel
     /// (kern-char-kill character)
     /// Kills the character.
     /// </summary>
-    public static object CharacterKill(object character)
+    public static object CharacterKill(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-kill: not a character");
@@ -248,8 +272,10 @@ public partial class Kernel
     /// (kern-char-resurrect character)
     /// Resurrects a dead character.
     /// </summary>
-    public static object CharacterResurrect(object character)
+    public static object CharacterResurrect(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        
         if (character is not Character ch)
         {
             Console.WriteLine("[ERROR] kern-char-resurrect: not a character");
@@ -263,8 +289,11 @@ public partial class Kernel
     /// <summary>
     /// (kern-char-set-ai char closure)
     /// </summary>
-    public static object CharacterSetAI(object charArg, object closureArg)
+    public static object CharacterSetAI(object[] args)
     {
+        var charArg = args.Length > 0 ? args[0] : null;
+        var closureArg = args.Length > 1 ? args[1] : null;
+        
         if (charArg is not Character character) return false;
         character.AIBehavior = (closureArg == null || (closureArg is bool b && !b)) ? null : closureArg;
         return "#t".Eval();
@@ -273,8 +302,10 @@ public partial class Kernel
     /// <summary>
     /// (kern-char-get-mana char)
     /// </summary>
-    public static object CharacterGetMana(object charArg)
+    public static object CharacterGetMana(object[] args)
     {
+        var charArg = args.Length > 0 ? args[0] : null;
+        
         if (charArg is not Character character) return 0;
         return character.MP;
     }
@@ -282,8 +313,11 @@ public partial class Kernel
     /// <summary>
     /// (kern-char-dec-mana char amount)
     /// </summary>
-    public static object CharacterDecreaseMana(object charArg, object amountArg)
+    public static object CharacterDecreaseMana(object[] args)
     {
+        var charArg = args.Length > 0 ? args[0] : null;
+        var amountArg = args.Length > 1 ? args[1] : null;
+        
         if (charArg is not Character character) return false;
         character.MP = Math.Max(0, character.MP - Convert.ToInt32(amountArg));
         return character;
@@ -343,7 +377,6 @@ public partial class Kernel
             return "#f".Eval();
         }
         
-        Console.WriteLine($"[kern-char-attack] {attacker.GetName()} attacking {defender.GetName()} with {weapon.Name}");
         return attacker.Attack(weapon, defender) ? "#t".Eval() : "#f".Eval();
     }
     
@@ -417,8 +450,11 @@ public partial class Kernel
     /// (kern-char-set-sleep character bool)
     /// Sets or clears the sleeping state.
     /// </summary>
-    public static object CharacterSetSleep(object character, object value)
+    public static object CharacterSetSleep(object[] args)
     {
+        var character = args.Length > 0 ? args[0] : null;
+        var value = args.Length > 1 ? args[1] : null;
+        
         if (character is object[] arr && arr.Length >= 2)
         {
             character = arr[0];

@@ -16,14 +16,10 @@ public partial class Kernel
     /// (kern-add-reveal character duration)
     /// Grants ability to see invisible/hidden entities for duration turns.
     /// </summary>
-    public static object AddReveal(object characterObj, object durationObj)
+    public static object AddReveal(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (characterObj is object[] arr && arr.Length >= 2)
-        {
-            durationObj = arr[1];
-            characterObj = arr[0];
-        }
+        var characterObj = args.Length > 0 ? args[0] : null;
+        var durationObj = args.Length > 1 ? args[1] : null;
         
         try
         {
@@ -52,14 +48,10 @@ public partial class Kernel
     /// (kern-add-quicken character duration)
     /// Grants extra actions per turn for duration turns.
     /// </summary>
-    public static object AddQuicken(object characterObj, object durationObj)
+    public static object AddQuicken(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (characterObj is object[] arr && arr.Length >= 2)
-        {
-            durationObj = arr[1];
-            characterObj = arr[0];
-        }
+        var characterObj = args.Length > 0 ? args[0] : null;
+        var durationObj = args.Length > 1 ? args[1] : null;
         
         try
         {
@@ -88,14 +80,10 @@ public partial class Kernel
     /// (kern-add-time-stop character duration)
     /// Freezes other entities while this character can act for duration turns.
     /// </summary>
-    public static object AddTimeStop(object characterObj, object durationObj)
+    public static object AddTimeStop(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (characterObj is object[] arr && arr.Length >= 2)
-        {
-            durationObj = arr[1];
-            characterObj = arr[0];
-        }
+        var characterObj = args.Length > 0 ? args[0] : null;
+        var durationObj = args.Length > 1 ? args[1] : null;
         
         try
         {
@@ -124,14 +112,10 @@ public partial class Kernel
     /// (kern-add-magic-negated character duration)
     /// Prevents character from casting spells for duration turns.
     /// </summary>
-    public static object AddMagicNegated(object characterObj, object durationObj)
+    public static object AddMagicNegated(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (characterObj is object[] arr && arr.Length >= 2)
-        {
-            durationObj = arr[1];
-            characterObj = arr[0];
-        }
+        var characterObj = args.Length > 0 ? args[0] : null;
+        var durationObj = args.Length > 1 ? args[1] : null;
         
         try
         {
@@ -160,14 +144,10 @@ public partial class Kernel
     /// (kern-add-xray-vision character duration)
     /// Grants ability to see through walls for duration turns.
     /// </summary>
-    public static object AddXrayVision(object characterObj, object durationObj)
+    public static object AddXrayVision(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (characterObj is object[] arr && arr.Length >= 2)
-        {
-            durationObj = arr[1];
-            characterObj = arr[0];
-        }
+        var characterObj = args.Length > 0 ? args[0] : null;
+        var durationObj = args.Length > 1 ? args[1] : null;
         
         try
         {
@@ -196,6 +176,7 @@ public partial class Kernel
     /// (kern-add-spell type code level cost context flags range action-points (reagent-list))
     /// Adds a spell to the magic system indexed by its code (e.g., "AN" for An Nox).
     /// </summary>
+    /// <remarks>AddSpell is an example of a method that will take optional parameters.</remarks>
     public static object AddSpell(object[] args)
     {
         int i = 0;
@@ -252,15 +233,11 @@ public partial class Kernel
     /// (kern-add-tick-job ticks proc data)
     /// Schedules a Scheme procedure to be called after a number of ticks.
     /// </summary>
-    public static object AddTickJob(object ticksArg, object proc, object data)
+    public static object AddTickJob(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (ticksArg is object[] arr && arr.Length >= 3)
-        {
-            data = arr[2];
-            proc = arr[1];
-            ticksArg = arr[0];
-        }
+        var ticksArg = args.Length > 0 ? args[0] : null;
+        var proc = args.Length > 1 ? args[1] : null;
+        var data = args.Length > 2 ? args[2] : null;
         
         int ticks = ToInt(ticksArg, 1);
         

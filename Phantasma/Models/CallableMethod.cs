@@ -84,6 +84,7 @@ public class CallableMethod : Callable
         var parameters = _method.GetParameters();
         
         Console.WriteLine($"[CallableMethod] {_name}: Call(object[]) invoked, args.Length={args.Length}");
+        Console.WriteLine($"[KERN-TRACE] {_method.Name} called with {args.Length} args");
         
         if (parameters.Length == 1 && parameters[0].ParameterType == typeof(object[]))
         {

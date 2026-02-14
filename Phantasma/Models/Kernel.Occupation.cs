@@ -7,8 +7,10 @@ public partial class Kernel
     /// </summary>
     /// <param name="occ"></param>
     /// <returns></returns>
-    public static object OccupationGetHpMod(object occ)
+    public static object OccupationGetHpMod(object[] args)
     {
+        var occ = args.Length > 0 ? args[0] : null;
+        
         Occupation? occupation = occ as Occupation?;
     
         if (occupation == null && occ is string tag)
@@ -27,8 +29,10 @@ public partial class Kernel
     /// </summary>
     /// <param name="occ"></param>
     /// <returns></returns>
-    public static object OccupationGetHpMult(object occ)
+    public static object OccupationGetHpMult(object[] args)
     {
+        var occ = args.Length > 0 ? args[0] : null;
+        
         if (occ == null || IsNil(occ))
             return 0;
     
@@ -49,8 +53,10 @@ public partial class Kernel
     /// </summary>
     /// <param name="occ"></param>
     /// <returns></returns>
-    public static object OccupationGetMpMod(object occ)
+    public static object OccupationGetMpMod(object[] args)
     {
+        var occ = args.Length > 0 ? args[0] : null;
+        
         if (occ == null || IsNil(occ))
             return 0;
         
@@ -71,8 +77,10 @@ public partial class Kernel
     /// </summary>
     /// <param name="occ"></param>
     /// <returns></returns>
-    public static object OccupationGetMpMult(object occ)
+    public static object OccupationGetMpMult(object[] args)
     {
+        var occ = args.Length > 0 ? args[0] : null;
+        
         if (occ == null || IsNil(occ))
             return 0;
         
