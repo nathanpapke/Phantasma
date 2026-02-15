@@ -111,11 +111,9 @@ public partial class Kernel
     /// BLOCKS the background thread until input is received.
     /// Returns a symbol (truncated to 4 chars).
     /// </summary>
-    public static object ConversationGetReply(object pc)
+    public static object ConversationGetReply(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (pc is object[] arr && arr.Length > 0)
-            pc = arr[0];
+        var pc = args.Length > 0 ? args[0] : null;
         
         Console.WriteLine("[kern-conv-get-reply] Blocking for input...");
         
@@ -135,11 +133,9 @@ public partial class Kernel
     /// BLOCKS the background thread until input is received.
     /// Returns #t for yes, #f for no.
     /// </summary>
-    public static object ConversationGetYesNo(object pc)
+    public static object ConversationGetYesNo(object[]args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (pc is object[] arr && arr.Length > 0)
-            pc = arr[0];
+        var pc = args.Length > 0 ? args[0] : null;
         
         Console.WriteLine("[kern-conv-get-yes-no?] Blocking for input...");
         
@@ -159,11 +155,9 @@ public partial class Kernel
     /// Prompt player for a numeric amount.
     /// BLOCKS the background thread until input is received.
     /// </summary>
-    public static object ConversationGetAmount(object pc)
+    public static object ConversationGetAmount(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (pc is object[] arr && arr.Length > 0)
-            pc = arr[0];
+        var pc = args.Length > 0 ? args[0] : null;
         
         Console.WriteLine("[kern-conv-get-amount] Blocking for input...");
         
@@ -181,15 +175,11 @@ public partial class Kernel
     /// (kern-conv-trade npc pc trade-list)
     /// Handle merchant trading interface.
     /// </summary>
-    public static object ConversationTrade(object npc, object pc, object tradeList)
+    public static object ConversationTrade(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (npc is object[] arr && arr.Length >= 3)
-        {
-            tradeList = arr[2];
-            pc = arr[1];
-            npc = arr[0];
-        }
+        var npc = args.Length > 0 ? args[0] : null;
+        var pc = args.Length > 1 ? args[1] : null;
+        var tradeList = args.Length > 2 ? args[2] : null;
         
         Console.WriteLine("[kern-conv-trade] Trade requested");
         
@@ -208,7 +198,7 @@ public partial class Kernel
     /// (kern-conv-end)
     /// End the current conversation.
     /// </summary>
-    public static object ConversationEnd()
+    public static object ConversationEnd(object[] args)
     {
         Console.WriteLine("[kern-conv-end] Ending conversation");
         Conversation.End();

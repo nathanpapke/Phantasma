@@ -13,8 +13,15 @@ public partial class Kernel
     /// (kern-mk-sprite tag filename transparent-color)
     /// Creates a sprite from an image file.
     /// </summary>
-    public static object MakeSprite(object tag, object spriteSet, object nFrames, object index, object wave, object facings)
+    public static object MakeSprite(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var spriteSet = args.Length > 1 ? args[1] : null;
+        var nFrames = args.Length > 2 ? args[2] : null;
+        var index = args.Length > 3 ? args[3] : null;
+        var wave = args.Length > 4 ? args[4] : null;
+        var facings = args.Length > 5 ? args[5] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'');
         
         string ssTag = spriteSet?.ToString()?.Trim('"');
@@ -63,8 +70,17 @@ public partial class Kernel
         return sprite;
     }
     
-    public static object MakeSpriteSet(object tag, object width, object height, object rows, object cols, object offx, object offy, object filename) 
+    public static object MakeSpriteSet(object[] args) 
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var width = args.Length > 1 ? args[1] : null;
+        var height = args.Length > 2 ? args[2] : null;
+        var rows = args.Length > 3 ? args[3] : null;
+        var cols = args.Length > 4 ? args[4] : null;
+        var offx = args.Length > 5 ? args[5] : null;
+        var offy = args.Length > 6 ? args[6] : null;
+        var filename = args.Length > 7 ? args[7] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'');
     
         // Store the metadata in an anonymous object.
@@ -142,8 +158,13 @@ public partial class Kernel
     /// (kern-mk-terrain-type tag name pclass sprite)
     /// Creates a terrain type definition.
     /// </summary>
-    public static object MakeTerrainType(object tag, object name, object pclass, object sprite)
+    public static object MakeTerrainType(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var pclass = args.Length > 2 ? args[2] : null;
+        var sprite = args.Length > 3 ? args[3] : null;
+        
         string tagStr = tag?.ToString() ?? "unknown";
         string nameStr = name?.ToString() ?? tagStr;
         string pclassStr = pclass?.ToString() ?? ".g";
@@ -177,8 +198,11 @@ public partial class Kernel
     /// (kern-mk-palette tag ((glyph1 terrain1) (glyph2 terrain2) ...))
     /// Creates a terrain palette for decoding map glyphs.
     /// </summary>
-    public static object MakePalette(object tag, object mappings)
+    public static object MakePalette(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var mappings = args.Length > 1 ? args[1] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         
         var palette = new TerrainPalette(tagStr);
@@ -237,9 +261,14 @@ public partial class Kernel
     /// (kern-mk-map tag width height palette (line1 line2 line3 ...))
     /// Creates a terrain map from glyph strings using a palette.
     /// </summary>
-    public static object MakeMap(object tag, object width, object height, 
-                                 object palette, object lines)
+    public static object MakeMap(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var width = args.Length > 1 ? args[1] : null;
+        var height = args.Length > 2 ? args[2] : null;
+        var palette = args.Length > 3 ? args[3] : null;
+        var lines = args.Length > 4 ? args[4] : null;
+        
         string? tagStr = tag?.ToString()?.TrimStart('\'');
         if (tagStr == "nil") tagStr = null;
         
@@ -707,12 +736,21 @@ public partial class Kernel
     /// (kern-mk-occ tag name magic hpmod hpmult mpmod mpmult hit def dam arm xpval)
     /// Creates an occupation.
     /// </summary>
-    public static object MakeOccupation(
-        object tag, object name, object magic,
-        object hpmod, object hpmult, object mpmod, object mpmult,
-        object hit, object def, object dam, object arm,
-        object xpval)
+    public static object MakeOccupation(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var magic = args.Length > 2 ? args[2] : null;
+        var hpmod = args.Length > 3 ? args[3] : null;
+        var hpmult = args.Length > 4 ? args[4] : null;
+        var mpmod = args.Length > 5 ? args[5] : null;
+        var mpmult = args.Length > 6 ? args[6] : null;
+        var hit = args.Length > 7 ? args[7] : null;
+        var def = args.Length > 8 ? args[8] : null;
+        var dam = args.Length > 9 ? args[9] : null;
+        var arm = args.Length > 10 ? args[10] : null;
+        var xpval = args.Length > 11 ? args[11] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'');
         
         var occ = new Occupation
@@ -1046,8 +1084,11 @@ public partial class Kernel
     /// (kern-mk-obj type count)
     /// Creates an object instance from a type.
     /// </summary>
-    public static object MakeObject(object type, object count)
+    public static object MakeObject(object[] args)
     {
+        var type = args.Length > 0 ? args[0] : null;
+        var count = args.Length > 1 ? args[1] : null;
+        
         int itemCount = ToInt(count, 1);
         
         // Handle null or nil type.
@@ -1144,10 +1185,15 @@ public partial class Kernel
     /// (kern-mk-obj-type tag name sprite layer gifc-cap gifc)
     /// Creates an object type - Nazghul-compatible 6-parameter signature.
     /// </summary>
-    public static object MakeObjectType(
-        object tag, object name, object sprite, object layer,
-        object capabilities, object interactionHandler)
+    public static object MakeObjectType(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var sprite = args.Length > 2 ? args[2] : null;
+        var layer = args.Length > 3 ? args[3] : null;
+        var capabilities = args.Length > 4 ? args[4] : null;
+        var interactionHandler = args.Length > 5 ? args[5] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'');
         
         var objType = new ObjectType
@@ -1284,8 +1330,12 @@ public partial class Kernel
     /// (kern-mk-container type trap contents-list)
     /// Creates a container (inventory).
     /// </summary>
-    public static object MakeContainer(object type, object trap, object contentsList)
+    public static object MakeContainer(object[] args)
     {
+        var type = args.Length > 0 ? args[0] : null;
+        var trap = args.Length > 1 ? args[1] : null;
+        var contentsList = args.Length > 2 ? args[2] : null;
+        
         var container = new Container();
     
         // Type can be nil for player inventory.
@@ -1319,8 +1369,12 @@ public partial class Kernel
     /// (kern-mk-party type faction vehicle)
     /// Creates a party.
     /// </summary>
-    public static object MakeParty(object type, object faction, object vehicle)
-    {        
+    public static object MakeParty(object[] args)
+    {
+        var type = args.Length > 0 ? args[0] : null;
+        var faction = args.Length > 1 ? args[1] : null;
+        var vehicle = args.Length > 2 ? args[2] : null;
+        
         var party = new Party();
         // type - PartyType, ignored for now (TODO: implement PartyType)
         party.Faction = Convert.ToInt32(faction ?? 0);
@@ -1336,13 +1390,22 @@ public partial class Kernel
     ///                 (list members...))
     /// Creates the player party - full 13-parameter Nazghul signature.
     /// </summary>
-    public static object MakePlayer(
-        object tag, object sprite, object mvDesc, object mvSound,
-        object food, object gold, object ttnm,
-        object formation, object campsite, object campFormation,
-        object vehicle, object inventory,
-        object membersList)
+    public static object MakePlayer(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var sprite = args.Length > 1 ? args[1] : null;
+        var mvDesc = args.Length > 2 ? args[2] : null;
+        var mvSound = args.Length > 3 ? args[3] : null;
+        var food = args.Length > 4 ? args[4] : null;
+        var gold = args.Length > 5 ? args[5] : null;
+        var ttnm = args.Length > 6 ? args[6] : null;
+        var formation = args.Length > 7 ? args[7] : null;
+        var campsite = args.Length > 8 ? args[8] : null;
+        var campFormation = args.Length > 9 ? args[9] : null;
+        var vehicle = args.Length > 10 ? args[10] : null;
+        var inventory = args.Length > 11 ? args[11] : null;
+        var membersList = args.Length > 12 ? args[12] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'');
         
         // Create the player party.
@@ -1506,12 +1569,22 @@ public partial class Kernel
     ///               requires-los? (reagent-list) effect-closure)
     /// Create a spell type.
     /// </summary>
-    public static object MakeSpell(
-        object tag, object name, object level, object manaCost, object range,
-        object sprite, object canTargetEmpty, object canTargetAlly, 
-        object canTargetEnemy, object canTargetSelf, object requiresLos,
-        object reagents, object effect)
+    public static object MakeSpell(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var level = args.Length > 2 ? args[2] : null;
+        var manaCost = args.Length > 3 ? args[3] : null;
+        var range = args.Length > 4 ? args[4] : null;
+        var sprite = args.Length > 5 ? args[5] : null;
+        var canTargetEmpty = args.Length > 6 ? args[6] : null;
+        var canTargetAlly = args.Length > 7 ? args[7] : null;
+        var canTargetEnemy = args.Length > 8 ? args[8] : null;
+        var canTargetSelf = args.Length > 9 ? args[9] : null;
+        var requiresLos = args.Length > 10 ? args[10] : null;
+        var reagents = args.Length > 11 ? args[11] : null;
+        var effect = args.Length > 12 ? args[12] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "unknown";
         string nameStr = name?.ToString() ?? "Unnamed Spell";
         int lvl = Convert.ToInt32(level);
@@ -1661,12 +1734,18 @@ public partial class Kernel
     /// <param name="callbackObj"></param>
     /// <param name="phaseListObj"></param>
     /// <returns></returns>
-    public static object MakeAstralBody(
-        object tagObj, object nameObj, object distanceObj,
-        object minPerPhaseObj, object minPerDegreeObj,
-        object initialArcObj, object initialPhaseObj,
-        object callbackObj, object phaseListObj)
+    public static object MakeAstralBody(object[] args)
     {
+        var tagObj = args.Length > 0 ? args[0] : null;
+        var nameObj = args.Length > 1 ? args[1] : null;
+        var distanceObj = args.Length > 2 ? args[2] : null;
+        var minPerPhaseObj = args.Length > 3 ? args[3] : null;
+        var minPerDegreeObj = args.Length > 4 ? args[4] : null;
+        var initialArcObj = args.Length > 5 ? args[5] : null;
+        var initialPhaseObj = args.Length > 6 ? args[6] : null;
+        var callbackObj = args.Length > 7 ? args[7] : null;
+        var phaseListObj = args.Length > 8 ? args[8] : null;
+        
         string tag = tagObj?.ToString()?.TrimStart('\'') ?? "unknown";
         string name = nameObj?.ToString() ?? "Unknown";
         int distance = Convert.ToInt32(distanceObj ?? 0);
@@ -1756,13 +1835,25 @@ public partial class Kernel
     ///                       max-hp speed mmode)
     /// Creates a vehicle type definition.
     /// </summary>
-    public static object MakeVehicleType(
-        object tag, object name, object sprite, object map, object ordnance,
-        object vulnerable, object killsOccupants, object mustTurn,
-        object mvDesc, object mvSound,
-        object tailwindPenalty, object headwindPenalty, object crosswindPenalty,
-        object maxHp, object speed, object mmode)
+    public static object MakeVehicleType(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var sprite = args.Length > 2 ? args[2] : null;
+        var map = args.Length > 3 ? args[3] : null;
+        var ordnance = args.Length > 4 ? args[4] : null;
+        var vulnerable = args.Length > 5 ? args[5] : null;
+        var killsOccupants = args.Length > 6 ? args[6] : null;
+        var mustTurn = args.Length > 7 ? args[7] : null;
+        var mvDesc = args.Length > 8 ? args[8] : null;
+        var mvSound = args.Length > 9 ? args[9] : null;
+        var tailwindPenalty = args.Length > 10 ? args[10] : null;
+        var headwindPenalty = args.Length > 11 ? args[11] : null;
+        var crosswindPenalty = args.Length > 12 ? args[12] : null;
+        var maxHp = args.Length > 13 ? args[13] : null;
+        var speed = args.Length > 14 ? args[14] : null;
+        var mmode = args.Length > 15 ? args[15] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "";
         
         if (string.IsNullOrEmpty(tagStr))
@@ -1836,8 +1927,12 @@ public partial class Kernel
     /// <summary>
     /// (kern-mk-vehicle type facing hp)
     /// </summary>
-    public static object MakeVehicle(object type, object facing, object hp)
+    public static object MakeVehicle(object[] args)
     {
+        var type = args.Length > 0 ? args[0] : null;
+        var facing = args.Length > 1 ? args[1] : null;
+        var hp = args.Length > 2 ? args[2] : null;
+        
         // Resolve vehicle type.
         VehicleType? vehicleType = type as VehicleType;
     
@@ -2040,10 +2135,16 @@ public partial class Kernel
     /// <param name="duration">Default duration in turns (-1 = permanent)</param>
     /// <param name="pclass">Passability class (for movement costs)</param>
     /// <param name="effect-proc">Optional Scheme closure called when stepped on</param>
-    public static object MakeFieldType(object tag, object name, object sprite, 
-                                        object light, object duration, object pclass, 
-                                        object effect = null)
+    public static object MakeFieldType(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var sprite = args.Length > 2 ? args[2] : null;
+        var light = args.Length > 3 ? args[3] : null;
+        var duration = args.Length > 4 ? args[4] : null;
+        var pclass = args.Length > 5 ? args[5] : null;
+        var effect = args.Length > 6 ? args[6] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "";
         string nameStr = name?.ToString() ?? tagStr;
         
@@ -2099,9 +2200,14 @@ public partial class Kernel
     /// <param name="sprite">Sprite object for rendering on world map</param>
     /// <param name="formation">Formation object for combat positioning</param>
     /// <param name="groups">List of group definitions, each being</param>
-    public static object MakePartyType(object tag, object name, object sprite, 
-                                        object formation, object groups)
+    public static object MakePartyType(object[] args)
     {
+        var tag = args.Length > 0 ? args[0] : null;
+        var name = args.Length > 1 ? args[1] : null;
+        var sprite = args.Length > 2 ? args[2] : null;
+        var formation = args.Length > 3 ? args[3] : null;
+        var groups = args.Length > 4 ? args[4] : null;
+        
         string tagStr = tag?.ToString()?.TrimStart('\'') ?? "";
         string nameStr = name?.ToString() ?? tagStr;
         

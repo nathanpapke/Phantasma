@@ -369,9 +369,7 @@ public partial class Kernel
         // We'll add them incrementally as we need them.
     }
     
-    /// <summary>
-    /// Helps to define a Scheme function that calls a C# delegate.
-    /// </summary>
+    /*
     private void DefineFunction(string schemeName, Delegate csharpMethod)
     {
         CallTargetN wrapper = (object[] args) =>
@@ -391,6 +389,7 @@ public partial class Kernel
         var closure = Closure.Create(csharpMethod, -1);
         $"(define {schemeName} {{0}})".Eval(closure);
     }
+    */
     
     /// <summary>
     /// Registers a variadic function that can be called with 'apply' or
@@ -421,16 +420,14 @@ public partial class Kernel
     /// (kern-print string)
     /// Prints a message to the console.
     /// </summary>
-    public static object Print(object args)
+    public static object Print(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (args is object[] arr && arr.Length > 0)
-            args = arr[0];
+        var firstArg = args.Length > 0 ? args[0] : null;
         
         // Handle both direct calls and cons lists.
-        string message = args?.ToString() ?? "(null)";
+        string message = firstArg?.ToString() ?? "(null)";
     
-        if (args is Cons cons)
+        if (firstArg is Cons cons)
         {
             message = cons.car?.ToString() ?? "(null)";
         }
@@ -444,13 +441,11 @@ public partial class Kernel
     /// Registers a file for save game tracking.
     /// Does NOT actually load the file (matches Nazghul behavior).
     /// </summary>
-    public static object Include(object args)
+    public static object Include(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (args is object[] arr && arr.Length > 0)
-            args = arr[0];
+        var filename = args.Length > 0 ? args[0] : null;
         
-        string rawPath = ExtractFilename(args);
+        string rawPath = ExtractFilename(filename);
     
         if (string.IsNullOrEmpty(rawPath))
         {
@@ -525,13 +520,9 @@ public partial class Kernel
     /// Scheme usage:
     /// (kern-sound-play snd-footstep)
     /// </example>
-    public static object SoundPlay(object sound)
+    public static object SoundPlay(object[] args)
     {
-        // Handle variadic array wrapper from IronScheme.
-        if (sound is object[] arr && arr.Length > 0)
-        {
-            sound = arr[0];
-        }
+        var sound = args.Length > 0 ? args[0] : null;
 
         Sound? soundObj = null;
         

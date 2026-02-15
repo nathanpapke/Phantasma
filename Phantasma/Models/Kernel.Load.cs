@@ -189,7 +189,7 @@ public partial class Kernel
                     else
                     {
                         // kern-include or kern-load - register and optionally load.
-                        Include(nextName);
+                        Include(new object[] { nextName });
                         if (funcName == "kern-load")
                         {
                             LoadFile(new object[] { nextName });
