@@ -64,6 +64,16 @@ public class Session
     private int currentTick = 0;
     
     // ===================================================================
+    // Getters & Setters
+    // ===================================================================
+    
+    public void SetCurrentPlace(Place place)
+    {
+        currentPlace = place;
+        map?.SetPlace(currentPlace);
+    }
+    
+    // ===================================================================
     // UI EVENTS - For displaying messages to user
     // ===================================================================
     
@@ -561,8 +571,7 @@ public class Session
         var playerPlace = playerCharacter?.Position?.Place;
         if (playerPlace != null && playerPlace != currentPlace)
         {
-            currentPlace = playerPlace;
-            map?.SetPlace(currentPlace);
+            SetCurrentPlace(playerPlace);
         }
         
         // Update camera to follow player.
@@ -749,11 +758,8 @@ public class Session
                         }
                     }
                     
-                    // Update session's current place.
-                    currentPlace = parentPlace;
-                    
                     // Update the map to render the new place.
-                    map?.SetPlace(currentPlace);
+                    SetCurrentPlace(parentPlace);
                     
                     // Deduct movement cost (usually 1 for transitions).
                     playerCharacter.DecreaseActionPoints(1);
@@ -819,11 +825,8 @@ public class Session
                     }
                 }
                 
-                // Update session's current place IMMEDIATELY.
-                currentPlace = subplace;
-                
                 // Update the map to render the new place.
-                map?.SetPlace(currentPlace);
+                SetCurrentPlace(subplace);
                 
                 // Deduct movement cost.
                 playerCharacter.DecreaseActionPoints(1);

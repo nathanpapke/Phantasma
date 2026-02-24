@@ -180,7 +180,6 @@ public abstract class Object
         if (oldPlace != null)
         {
             oldPlace.RemoveObject(this);
-            oldPlace.Exit();
         }
     
         // Run cutscene if provided.
@@ -196,7 +195,16 @@ public abstract class Object
         if (newPlace != null)
         {
             newPlace.AddObject(this, newX, newY);
-            newPlace.Enter();
+        }
+        
+        // If the player character changed places, update the session view.
+        if (newPlace != null && newPlace != oldPlace)
+        {
+            var session = Phantasma.MainSession;
+            if (session != null && session.Player == this)
+            {
+                session.SetCurrentPlace(newPlace);
+            }
         }
     }
     

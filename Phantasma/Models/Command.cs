@@ -796,8 +796,42 @@ public partial class Command
     {
         ShowPrompt("Klimb-");
         
-        // TODO: Check for climbable objects at player location
-        // TODO: Implement camping
+        var place = session.CurrentPlace;
+        var player = session.Player;
+        
+        if (place == null || player == null)
+        {
+            Log("Nothing to climb here.");
+            ClearPrompt();
+            return;
+        }
+        
+        int x = player.GetX();
+        int y = player.GetY();
+        
+        // Check for a step-capable mechanism at the player's current tile.
+        var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
+        if (mech?.Type?.CanStep == true)
+        {
+            var gifc = mech.Type.InteractionHandler;
+            if (gifc is IronScheme.Runtime.Callable callable)
+            {
+                try
+                {
+                    Log($"Klimb-{mech.Name}");
+                    var stepSym = IronScheme.Scripting.SymbolTable.StringToObject("step");
+                    callable.Call(stepSym, mech, player);
+                    //session.AdvanceTurn();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Klimb] {mech.Name}: {ex.Message}");
+                    Log("Nothing to climb here.");
+                }
+            }
+            ClearPrompt();
+            return;
+        }
         
         Log("Nothing to climb here.");
         ClearPrompt();
@@ -812,34 +846,50 @@ public partial class Command
     /// </summary>
     public void Enter()
     {
-        if (session.Player == null || session.CurrentPlace == null)
-        {
+        var place = session.CurrentPlace;
+        var player = session.Player;
+        
+        if (place == null || player == null)
             return;
-        }
         
         ShowPrompt("Enter-");
         
-        int x = session.Player.GetX();
-        int y = session.Player.GetY();
+        int x = player.GetX();
+        int y = player.GetY();
         
-        // Check for portal at current location.
-        var portal = session.CurrentPlace.GetObjectAt(x, y, ObjectLayer.Portal);
-        
-        if (portal != null)
+        // Check for an enter-capable mechanism at the player's current tile.
+        // Ladders, trapdoors, dungeon entrances all use CanEnter + 'enter signal.
+        var mech = place.GetObjectAt(x, y, ObjectLayer.Mechanism);
+        if (mech?.Type?.CanEnter == true)
         {
-            Log($"Entering {portal.Name}...");
-            // TODO: Execute portal transition.
+            var gifc = mech.Type.InteractionHandler;
+            if (gifc is IronScheme.Runtime.Callable callable)
+            {
+                try
+                {
+                    Log($"Enter-{mech.Name}");
+                    var enterSym = IronScheme.Scripting.SymbolTable.StringToObject("enter");
+                    callable.Call(enterSym, mech, player);
+                    //session.AdvanceTurn();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Enter] {mech.Name}: {ex.Message}");
+                    Log("Nothing to enter here.");
+                }
+            }
             ClearPrompt();
             return;
         }
         
-        // Check for subplace.
-        var subplace = session.CurrentPlace.GetSubplace(x, y);
+        // Check for a subplace at the player's current tile (town/dungeon entry).
+        var subplace = place.GetSubplace(x, y);
         if (subplace != null)
         {
             Log($"Entering {subplace.Name}...");
-            //session.EnterPlace(subplace);
-            // TODO: Execute subplace transition.
+            player.EnterSubplace(subplace, 0, 0);
+            session.SetCurrentPlace(subplace);
+            //session.AdvanceTurn();
             ClearPrompt();
             return;
         }

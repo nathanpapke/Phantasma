@@ -1083,7 +1083,7 @@ public partial class Kernel
         Activity activity = Activity.Idle;
         
         if (objArg is Character ch)
-            activity = ch.CurrentActivity;
+            activity = ch.GetActivity();
         else if (objArg is Being being)
             activity = being.CurrentActivity;
         

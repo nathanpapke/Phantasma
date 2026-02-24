@@ -1142,6 +1142,25 @@ public class Character : Being
         // Consume action points.
         DecreaseActionPoints(apCost);
         
+        // Send the 'step signal to any mechanism at that location.
+        var stepMech = place.GetObjectAt(newX, newY, ObjectLayer.Mechanism);
+        if (stepMech != null && stepMech != this && stepMech.Type?.CanStep == true)
+        {
+            var gifc = stepMech.Type?.InteractionHandler;
+            if (gifc is IronScheme.Runtime.Callable stepCallable)
+            {
+                try
+                {
+                    var stepSym = IronScheme.Scripting.SymbolTable.StringToObject("step");
+                    stepCallable.Call(stepSym, stepMech, this);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Step] {stepMech.Name}: {ex.Message}");
+                }
+            }
+        }
+        
         if (apCost > 1)
         {
             var terrain = place.GetTerrain(newX, newY);
@@ -1712,5 +1731,9 @@ public class Character : Being
         
         // Set the activity.
         SetActivity(appointment.Activity);
+        
+        // Also update the party's activity so kern-obj-get-activity is correct.
+        if (Party != null)
+            Party.CurrentActivity = appointment.Activity;
     }
 }
