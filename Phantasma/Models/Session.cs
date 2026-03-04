@@ -31,6 +31,11 @@ public class Session
     private Map map;
     private DispatcherTimer gameTimer;
     private Status status;
+    
+    // Wilderness Combat
+    private Party? currentEnemyParty;
+    private Place? parentWildernessPlace;
+    private int wildernessReturnX, wildernessReturnY;
 
     // Clock, Sky, and Wind System
     private readonly Clock clock = new();
@@ -587,18 +592,28 @@ public class Session
     /// </summary>
     private void AdvanceTurn()
     {
+        // Check if we've left a wilderness combat map (fled combat)
+        if (currentEnemyParty != null && currentPlace != null && !currentPlace.IsWildernessCombat)
+        {
+            Console.WriteLine("[AdvanceTurn] Detected exit from wilderness combat - cleaning up");
+            ExitWildernessCombat();
+        }
+
         int placeScale = currentPlace?.Scale ?? Common.NON_WILDERNESS_SCALE;
         int ticksPerTurn = placeScale * timeAcceleration;
-        
+
         // Advance the clock.
         clock.Advance(ticksPerTurn);
-        
+
         // Advance the wind.
         wind.AdvanceTurns();
-        
+
         // Update the sky.
         bool skyVisible = currentPlace != null && !currentPlace.Underground;
         sky.Advance(skyVisible);
+
+        // Check combat state.
+        CheckCombatEnd();
     }
     
     public void CheckAndProcessTurnEnd()
@@ -760,7 +775,19 @@ public class Session
                     
                     // Update the map to render the new place.
                     SetCurrentPlace(parentPlace);
-                    
+
+                    // If returning from wilderness combat, clean up immediately so
+                    // the parent map shows correct state rather than waiting for AdvanceTurn.
+                    if (currentEnemyParty != null)
+                    {
+                        ExitWildernessCombat();
+                    }
+                    else
+                    {
+                        // Force immediate visual refresh of the parent map.
+                        map?.UpdateCamera();
+                    }
+
                     // Deduct movement cost (usually 1 for transitions).
                     playerCharacter.DecreaseActionPoints(1);
                     
@@ -841,6 +868,45 @@ public class Session
                 return;
             }
             
+            // Handle wilderness movement.
+            if (currentPlace.Wilderness)
+            {
+                targetX = currentPlace.WrapX(playerCharacter.GetX() + dx);
+                targetY = currentPlace.WrapY(playerCharacter.GetY() + dy);
+
+                Console.WriteLine($"[HandlePlayerMove] Wilderness check at ({targetX},{targetY})");
+                var npcParty = currentPlace.GetPartyAt(targetX, targetY);
+                Console.WriteLine($"[HandlePlayerMove] npcParty={npcParty?.GetType().Name}, Members={npcParty?.Size ?? 0}");
+
+                if (npcParty != null)
+                {
+                    Console.WriteLine($"[HandlePlayerMove] Found party, checking hostility...");
+                    // Check hostility between party leaders (both are Beings)
+                    var playerLeader = playerParty?.GetLeader();
+                    var npcLeader = npcParty.GetLeader();
+                    bool hostile = playerLeader != null && npcLeader != null && Behavior.AreHostile(playerLeader, npcLeader);
+                    Console.WriteLine($"[HandlePlayerMove] Hostile={hostile}");
+
+                    if (hostile)
+                    {
+                        Console.WriteLine($"[HandlePlayerMove] INITIATING COMBAT with {npcParty.Size} members");
+                        EnterWildernessCombat(npcParty, dx, dy);
+                        playerCharacter.DecreaseActionPoints(1);
+                        AdvanceTurn();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[HandlePlayerMove] Not hostile, showing Occupied");
+                        ShowMessage("Occupied!");
+                    }
+                    return;  // Don't fall through to Move()
+                }
+                else
+                {
+                    Console.WriteLine($"[HandlePlayerMove] No party found at target");
+                }
+            }
+            
             // Execute the movement.
             if (playerCharacter.Move(dx, dy))
             {
@@ -850,8 +916,27 @@ public class Session
             }
             else
             {
-                ShowMessage("Can't move there!");
-                return;
+                // Check if blocked by a hostile — if so, enter wilderness combat.
+                targetX = currentPlace.WrapX(playerCharacter.GetX() + dx);
+                targetY = currentPlace.WrapY(playerCharacter.GetY() + dy);
+    
+                var npcParty = currentPlace.GetPartyAt(targetX, targetY);
+                if (npcParty != null)
+                {
+                    // Check hostility between party leaders (both are Beings)
+                    var playerLeader = playerParty?.GetLeader();
+                    var npcLeader = npcParty.GetLeader();
+                    if (playerLeader != null && npcLeader != null && Behavior.AreHostile(playerLeader, npcLeader))
+                    {
+                        EnterWildernessCombat(npcParty, dx, dy);
+                        playerCharacter.DecreaseActionPoints(1);
+                        AdvanceTurn();
+                    }
+                }
+                else
+                {
+                    ShowMessage("Can't move there!");
+                }
             }
         }
         
@@ -1340,5 +1425,257 @@ public class Session
                 Console.WriteLine($"[Job Error] {ex.Message}");
             }
         }
+    }
+    
+    // ===================================================================
+    // WILDERNESS COMBAT
+    // ===================================================================
+    
+    public void EnterWildernessCombat(Party enemyParty, int dx, int dy)
+    {
+        var parentPlace = currentPlace;
+
+        // Calculate the COMBAT tile (where the enemy party is - the TARGET)
+        int combatX = parentPlace.WrapX(playerCharacter.GetX() + dx);
+        int combatY = parentPlace.WrapY(playerCharacter.GetY() + dy);
+
+        // Get terrain combat map from the COMBAT tile (not player's current tile)
+        var terrain = currentPlace.GetTerrain(combatX, combatY);
+        var combatTerrainMap = terrain?.CombatMap;
+
+        // Create temporary combat place.
+        int combatW = 32; // COMBAT_MAP_W
+        int combatH = 32; // COMBAT_MAP_H
+
+        var combatPlace = new Place();
+        combatPlace.Tag = "p_wilderness_combat";
+        combatPlace.Name = "Wilderness Combat";
+        combatPlace.Wilderness = false;
+        combatPlace.IsWildernessCombat = true;
+        combatPlace.Width = combatW;
+        combatPlace.Height = combatH;
+        // Combat place's parent location is the COMBAT tile (where the party is)
+        combatPlace.Location = new Location(parentPlace, combatX, combatY);
+        
+        // Fill terrain grid from combat map or solid terrain fallback.
+        combatPlace.TerrainGrid = BuildCombatTerrainGrid(
+            combatTerrainMap, terrain, combatW, combatH, dx, dy,
+            enemyParty);
+        
+        // Switch to combat place.
+        currentPlace = combatPlace;
+        map?.SetPlace(currentPlace);
+
+        // Calculate entry positions based on movement direction.
+        // Player enters from the edge they're moving FROM, enemy on opposite edge.
+        int playerStartX, playerStartY, enemyStartX, enemyStartY;
+        int formationDx, formationDy; // Formation spread direction (perpendicular to movement)
+
+        if (Math.Abs(dx) > Math.Abs(dy))
+        {
+            // Primarily horizontal movement
+            if (dx > 0)
+            {
+                // Moving RIGHT (EAST): Player enters from WEST edge, enemy on EAST edge
+                playerStartX = 2;
+                enemyStartX = combatW - 3;
+            }
+            else
+            {
+                // Moving LEFT (WEST): Player enters from EAST edge, enemy on WEST edge
+                playerStartX = combatW - 3;
+                enemyStartX = 2;
+            }
+            playerStartY = combatH / 2;
+            enemyStartY = combatH / 2;
+            formationDx = 0;  // Spread vertically
+            formationDy = 1;
+        }
+        else
+        {
+            // Primarily vertical movement
+            if (dy > 0)
+            {
+                // Moving DOWN (SOUTH): Player enters from NORTH edge, enemy on SOUTH edge
+                playerStartY = 2;
+                enemyStartY = combatH - 3;
+            }
+            else
+            {
+                // Moving UP (NORTH): Player enters from SOUTH edge, enemy on NORTH edge
+                playerStartY = combatH - 3;
+                enemyStartY = 2;
+            }
+            playerStartX = combatW / 2;
+            enemyStartX = combatW / 2;
+            formationDx = 1;  // Spread horizontally
+            formationDy = 0;
+        }
+
+        // Remove player from wilderness map before entering combat.
+        // DistributeMembersIntoCombatPlace uses SetPosition/RegisterObject directly
+        // and does not remove the player from the wilderness objectsByLocation,
+        // which would leave a stale ghost registration behind.
+        var playerLeaderToRemove = playerParty.GetLeader();
+        if (playerLeaderToRemove != null)
+        {
+            parentPlace.RemoveObject(playerLeaderToRemove);
+        }
+
+        // Place player party members with proper formation spread
+        playerParty.DistributeMembersIntoCombatPlace(
+            combatPlace, playerStartX, playerStartY, formationDx, formationDy);
+
+        // Place enemy party members with proper formation spread
+        enemyParty.DistributeMembersIntoCombatPlace(
+            combatPlace, enemyStartX, enemyStartY, formationDx, formationDy);
+        
+        // Track the enemy party for combat exit cleanup.
+        currentEnemyParty = enemyParty;
+        parentWildernessPlace = parentPlace;
+        // Store the COMBAT tile coordinates (where combat occurred)
+        // When exiting after victory, player returns to this tile
+        wildernessReturnX = combatX;
+        wildernessReturnY = combatY;
+
+        // Initialize combat: Start turns for all combatants
+        playerParty.StartTurn();
+        enemyParty.StartTurn();
+
+        // Set combat state.
+        SetCombatState(CombatState.Fighting);
+        ShowMessage("*** COMBAT ***");
+        LogMessage($"You encounter {enemyParty.GetName()}!");
+    }
+    
+    private (int x, int y) GetCombatStartPosition(int dx, int dy, bool defender)
+    {
+        // Attacker occupies the quarter-point they're walking toward.
+        // Defender occupies the opposite quarter-point.
+        int x, y;
+        int effectiveDx = defender ? -dx : dx;
+        int effectiveDy = defender ? -dy : dy;
+        
+        x = effectiveDx < 0 ? 19 * 3 / 4   // facing west → east quarter
+          : effectiveDx > 0 ? 19 / 4        // facing east → west quarter
+          : 19 / 2;                          // N/S → center horizontally
+        
+        y = effectiveDy < 0 ? 19 * 3 / 4   // facing north → south quarter
+          : effectiveDy > 0 ? 19 / 4        // facing south → north quarter
+          : 19 / 2;                          // E/W → center vertically
+        
+        return (x, y);
+    }
+    
+    public void CheckCombatEnd()
+    {
+        if (combatState != CombatState.Fighting) return;
+        if (!currentPlace.IsWildernessCombat) return;
+
+        // Check if any hostiles remain.
+        bool hostilesRemain = currentPlace.Objects
+            .OfType<Being>()
+            .Any(b => b != playerCharacter &&
+                      !b.IsDead &&
+                      Behavior.AreHostile(playerCharacter, b));
+
+        if (!hostilesRemain)
+        {
+            // Victory! Set to looting state but stay on combat map
+            // Player will exit when they walk off the edge
+            SetCombatState(CombatState.Looting);
+            ShowMessage("*** VICTORY ***");
+            Console.WriteLine("[CheckCombatEnd] Combat won - entering looting state");
+        }
+    }
+    
+    private void ExitWildernessCombat()
+    {
+        if (parentWildernessPlace == null) return;
+
+        // Player has already been moved by edge exit system - don't relocate them.
+        // With the looting system, players ALWAYS exit via edge (either fleeing or after victory).
+        var leader = playerParty.GetLeader();
+        Console.WriteLine($"[ExitWildernessCombat] Player at ({leader?.GetX()}, {leader?.GetY()}) via edge exit");
+
+        // Clean up the combat place.
+        currentPlace = parentWildernessPlace;
+        map?.SetPlace(currentPlace);
+
+        // Clean up any stale player registration at the combat tile
+        // This prevents the "occupied" bug where player appears at both current position and combat tile
+        var staleObject = currentPlace.GetObjectAt(wildernessReturnX, wildernessReturnY, ObjectLayer.Being);
+        if (staleObject == leader)
+        {
+            currentPlace.RemoveObject(staleObject);
+            Console.WriteLine($"[ExitWildernessCombat] Removed stale player registration at combat tile ({wildernessReturnX}, {wildernessReturnY})");
+        }
+
+        // Handle enemy party: remove if dead, re-register if alive
+        if (currentEnemyParty != null)
+        {
+            if (currentEnemyParty.AllDead())
+            {
+                // Remove dead party from wilderness
+                currentPlace.RemoveObject(currentEnemyParty);
+                Console.WriteLine($"[ExitWildernessCombat] Removed dead enemy party from wilderness");
+            }
+            else
+            {
+                // Re-register living enemy party back to wilderness at combat tile
+                // Set position first, then register at that position
+                currentEnemyParty.SetPosition(currentPlace, wildernessReturnX, wildernessReturnY);
+                currentPlace.RegisterObject(currentEnemyParty);
+                Console.WriteLine($"[ExitWildernessCombat] Re-registered living enemy party at ({wildernessReturnX}, {wildernessReturnY})");
+            }
+            currentEnemyParty = null;
+        }
+
+        // Force screen redraw to immediately show defeated parties removed
+        map?.UpdateCamera();
+
+        parentWildernessPlace = null;
+        // Don't set combat state here - CheckCombatEnd() already set it to Looting
+    }
+    
+    private Terrain[,] BuildCombatTerrainGrid(
+        TerrainMap? terrainMap, Terrain? fallbackTerrain, 
+        int w, int h, int dx, int dy, Party enemyParty)
+    {
+        var grid = new Terrain[w, h];
+        
+        if (terrainMap != null && terrainMap.Width == w && terrainMap.Height == h)
+        {
+            // Use the terrain map directly.
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                grid[x, y] = terrainMap.TerrainGrid[x, y];
+        }
+        else if (terrainMap != null)
+        {
+            // Tile the terrain map to fill the combat grid.
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                grid[x, y] = terrainMap.TerrainGrid[
+                    x % terrainMap.Width, y % terrainMap.Height];
+        }
+        else if (fallbackTerrain != null)
+        {
+            // Fill with the terrain type (Nazghul: create_camping_map fallback).
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                grid[x, y] = fallbackTerrain;
+        }
+        else
+        {
+            // Last resort: use a passable default terrain.
+            var defaultTerrain = Phantasma.GetRegisteredObject("t_grass") as Terrain
+                                 ?? new Terrain("grass", true, 1.0f);
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                grid[x, y] = defaultTerrain;
+        }
+        
+        return grid;
     }
 }

@@ -39,6 +39,7 @@ public class Place
     public bool Underground { get; set; } = false;
     public bool Wilderness { get; set; } = false;
     public bool CombatEnabled { get; set; } = true;
+    public bool IsWildernessCombat { get; set; } = false;
     
     // Object Tracking
     public List<Object> Objects;
@@ -478,13 +479,68 @@ public class Place
     public void RegisterObject(Object obj)
     {
         if (obj == null) return;
-        
+
+        // Special handling for Party objects
+        if (obj is Party party)
+        {
+            if (obj.Position?.Place == this)
+            {
+                int x = obj.GetX();
+                int y = obj.GetY();
+
+                if (Wilderness)
+                {
+                    // Wilderness: Add Party to Objects for tracking
+                    if (!Objects.Contains(obj))
+                    {
+                        Objects.Add(obj);
+                    }
+
+                    if (party.IsPlayerParty)
+                    {
+                        // Player party: register leader Character
+                        var leader = party.GetLeader();
+                        if (leader != null)
+                        {
+                            if (!Objects.Contains(leader))
+                            {
+                                Objects.Add(leader);
+                            }
+                            var key = (x, y, leader.Layer);
+                            objectsByLocation[key] = leader;
+                        }
+                    }
+                    else
+                    {
+                        // NPC party: register Party object
+                        var key = (x, y, obj.Layer);
+                        objectsByLocation[key] = obj;
+                    }
+                }
+                else
+                {
+                    // Non-wilderness: register leader Character only, not Party
+                    var leader = party.GetLeader();
+                    if (leader != null)
+                    {
+                        if (!Objects.Contains(leader))
+                        {
+                            Objects.Add(leader);
+                        }
+                        var key = (x, y, leader.Layer);
+                        objectsByLocation[key] = leader;
+                    }
+                }
+            }
+            return;
+        }
+
+        // Standard handling for non-Party objects
         if (!Objects.Contains(obj))
         {
             Objects.Add(obj);
         }
-        
-        // Add to layer lookup if object has valid position.
+
         if (obj.Position?.Place == this)
         {
             var key = (obj.GetX(), obj.GetY(), obj.Layer);
@@ -574,6 +630,45 @@ public class Place
     }
     
     /// <summary>
+    /// Get any Party (NPC or player) at the given coordinates.
+    /// Used on wilderness maps to detect encounters before passability checks.
+    /// On wilderness maps: NPC parties are registered as Party objects at Vehicle layer,
+    /// but player party is registered as the leader Character at Being layer.
+    /// </summary>
+    public Party? GetPartyAt(int x, int y)
+    {
+        // First check Vehicle layer for NPC Party objects
+        var vehicleKey = (x, y, ObjectLayer.Vehicle);
+        if (objectsByLocation.TryGetValue(vehicleKey, out var vehicleObj))
+        {
+            Console.WriteLine($"[GetPartyAt] Found object at Vehicle layer ({x},{y}): Type={vehicleObj?.GetType().Name}");
+
+            if (vehicleObj is Party party)
+            {
+                Console.WriteLine($"[GetPartyAt] Returning Party: IsPlayerParty={party.IsPlayerParty}, Members={party.Size}");
+                return party;
+            }
+        }
+
+        // Then check Being layer for player party (Character with Party)
+        var beingKey = (x, y, ObjectLayer.Being);
+        if (objectsByLocation.TryGetValue(beingKey, out var beingObj))
+        {
+            Console.WriteLine($"[GetPartyAt] Found object at Being layer ({x},{y}): Type={beingObj?.GetType().Name}");
+
+            if (beingObj is Character character)
+            {
+                Console.WriteLine($"[GetPartyAt] Found Character: Name={character.GetName()}, HasParty={character.Party != null}");
+                if (character.Party != null)
+                    return character.Party;
+            }
+        }
+
+        Console.WriteLine($"[GetPartyAt] No party found at ({x},{y})");
+        return null;
+    }
+    
+    /// <summary>
     /// Place an object at a location on its appropriate layer.
     /// </summary>
     public void PlaceObject(Object obj, int x, int y)
@@ -627,17 +722,87 @@ public class Place
     {
         if (obj == null || IsOffMap(x, y))
             return;
-            
-        obj.SetPosition(this, x, y);
-        
+
+        // Special handling for Party objects:
+        // On wilderness: register player leader or NPC party in objectsByLocation
+        // On non-wilderness: register leader Character only (don't add Party to map)
+        if (obj is Party party)
+        {
+            Console.WriteLine($"[AddObject] Adding Party at ({x},{y}): IsPlayerParty={party.IsPlayerParty}, Wilderness={Wilderness}, Members={party.Size}");
+
+            // Only set position if object doesn't already have it set for this place.
+            if (obj.Position?.Place != this || obj.Position.X != x || obj.Position.Y != y)
+            {
+                obj.SetPosition(this, x, y);
+            }
+
+            if (Wilderness)
+            {
+                // Wilderness: Add Party to Objects for tracking
+                if (!Objects.Contains(obj))
+                {
+                    Objects.Add(obj);
+                }
+
+                if (party.IsPlayerParty)
+                {
+                    // Player party: register leader Character in objectsByLocation
+                    var leader = party.GetLeader();
+                    if (leader != null)
+                    {
+                        if (!Objects.Contains(leader))
+                        {
+                            Objects.Add(leader);
+                        }
+                        var key = (x, y, leader.Layer);
+                        objectsByLocation[key] = leader;
+                        Console.WriteLine($"[AddObject] Registered player party leader at ({x},{y})");
+                    }
+                }
+                else
+                {
+                    // NPC party: register Party object in objectsByLocation
+                    var key = (x, y, obj.Layer);
+                    objectsByLocation[key] = obj;
+                    Console.WriteLine($"[AddObject] Registered NPC party at ({x},{y}), Layer={obj.Layer}");
+                }
+            }
+            else
+            {
+                // Non-wilderness: register leader Character only, not the Party
+                var leader = party.GetLeader();
+                if (leader != null)
+                {
+                    if (!Objects.Contains(leader))
+                    {
+                        Objects.Add(leader);
+                    }
+                    var key = (x, y, leader.Layer);
+                    objectsByLocation[key] = leader;
+                }
+                // Don't add Party to Objects on non-wilderness maps
+            }
+            return;
+        }
+
+        // Standard handling for non-Party objects
+        if (obj.Position?.Place != this || obj.Position.X != x || obj.Position.Y != y)
+        {
+            obj.SetPosition(this, x, y);
+        }
+
         if (!Objects.Contains(obj))
         {
             Objects.Add(obj);
         }
-        
-        // Add to layer-based lookup dictionary for collision detection.
-        var key = (x, y, obj.Layer);
-        objectsByLocation[key] = obj;
+
+        var stdKey = (x, y, obj.Layer);
+        objectsByLocation[stdKey] = obj;
+
+        if (obj.Layer == ObjectLayer.Being && Wilderness)
+        {
+            Console.WriteLine($"[AddObject] Registered Being at ({x},{y}): Type={obj.GetType().Name}");
+        }
     }
     
     public void RemoveObject(Object? obj)
@@ -702,6 +867,11 @@ public class Place
     public List<Being> GetAllBeings()
     {
         return Objects.OfType<Being>().ToList();
+    }
+    
+    public List<Party> GetAllParties()
+    {
+        return Objects.OfType<Party>().ToList();
     }
 
     public List<Missile> GetAllMissiles()
@@ -964,6 +1134,7 @@ public class Place
     
     /// <summary>
     /// Check if a location is occupied by a being.
+    /// Parties (Vehicle layer) do not block tiles.
     /// </summary>
     /// <param name="x">X coordinate</param>
     /// <param name="y">Y coordinate</param>
@@ -972,8 +1143,9 @@ public class Place
     {
         if (!IsInBounds(x, y))
             return false;
-        
-        return GetObjectAt(x, y, ObjectLayer.Being) != null;
+
+        var being = GetObjectAt(x, y, ObjectLayer.Being);
+        return being != null;
     }
     
     /// <summary>

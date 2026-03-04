@@ -6,13 +6,13 @@ namespace Phantasma.Models;
 /// <remarks>
 /// CRITICAL: Lower layer numbers render FIRST (on bottom).
 /// Higher layer numbers render LAST (on top).
-/// 
+///
 /// Rendering order (bottom to top):
 ///   Terrain (always first)
 ///   → TerrainFeature (bridges over water)
 ///   → Mechanism (doors, levers)
 ///   → Portal (stairs)
-///   → Vehicle (boats, horses)
+///   → Vehicle (boats, horses, parties)
 ///   → Bed (for sleeping)
 ///   → Container (chests)
 ///   → Item (swords, potions on ground)
@@ -20,7 +20,7 @@ namespace Phantasma.Models;
 ///   → Being (characters - always visible on top)
 ///   → Missile (arrows in flight)
 ///   → Cursor (UI element - topmost)
-/// 
+///
 /// Note from Nazghul: "Proper rendering depends on keeping these in order!"
 /// </remarks>
 public enum ObjectLayer
@@ -29,7 +29,7 @@ public enum ObjectLayer
     /// Invalid/unused layer
     /// </summary>
     Null = 0,
-        
+
     /// <summary>
     /// Terrain features like bridges, doors built into terrain
     /// Renders on top of terrain but under everything else.
@@ -48,6 +48,7 @@ public enum ObjectLayer
         
     /// <summary>
     /// Vehicles: boats, horses, carts
+    /// Also used by Party objects (containers of characters).
     /// Characters can board these.
     /// </summary>
     Vehicle = 4,

@@ -1090,6 +1090,10 @@ public class Character : Being
                 ExitToParentPlace(exitDx, exitDy);
                 
                 return true;
+            
+            case MoveResult.EnterCombat:
+                
+                return false;
                 
             case MoveResult.Ok:
                 // Continue with normal movement below
@@ -1393,7 +1397,12 @@ public class Character : Being
         var leader = Party?.GetLeader();
         if (leader?.Position?.Place == null)
             return;
-    
+
+        // On wilderness maps, don't register individual party members.
+        // The Party object itself is already registered.
+        if (leader.Position.Place.Wilderness)
+            return;
+
         // TODO: Nazghul's putOnMap searches for nearby open spot with radius.
         // For now, just place at leader's position.
         leader.Position.Place.AddObject(this, leader.Position.X, leader.Position.Y);

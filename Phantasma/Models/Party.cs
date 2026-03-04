@@ -11,9 +11,12 @@ namespace Phantasma.Models;
 /// </summary>
 public class Party : Object
 {
-    public override ObjectLayer Layer => ObjectLayer.Being;
+    public override ObjectLayer Layer => ObjectLayer.Vehicle;
 
     private readonly List<Character> members = new List<Character>();
+    
+    private Place? _place;
+    private int _x, _y;
     
     // ====================================================================
     // PLAYER PARTY FEATURES
@@ -113,7 +116,7 @@ public class Party : Object
     /// <summary>
     /// Party's position is the leader's position.
     /// </summary>
-    public Location? Position
+    public new Location? Position
     {
         get => GetLeader()?.Position;
         set
@@ -176,18 +179,53 @@ public class Party : Object
     /// </summary>
     public override void SetPosition(Place place, int x, int y)
     {
-        // Set the party's own position (base class behavior)
-        base.SetPosition(place, x, y);
+        // Set the party object's own position.
+        _place = place;
+        _x = x;
+        _y = y;
     
-        // Propagate to all members (matches Nazghul Party::setPlace/setX/setY)
+        // Propagate position to members.
+        // Only register them in the place when actually being placed on a map.
         foreach (var member in members)
         {
             member.SetPosition(place, x, y);
-            place?.RegisterObject(member);
         }
-    
-        Console.WriteLine($"[Party.SetPosition] Set {members.Count} members to {place?.Name} ({x}, {y})");
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
     }
+    
+    public override int GetX() => _x;
+    public override int GetY() => _y;
+    public override Place? GetPlace() => _place;
     
     // ====================================================================
     // MEMBER MANAGEMENT
@@ -645,17 +683,34 @@ public class Party : Object
             
             if (!place.IsOffMap(targetX, targetY))
             {
-                // Remove leader from old position.
-                place.RemoveObject(leader);
-                
-                // Update leader's position.
-                leader.SetPosition(place, targetX, targetY);
-                
-                // Add to new position.
-                place.AddObject(leader, targetX, targetY);
-                
-                // Update party position to match leader.
-                Position = leader.Position;
+                // On wilderness maps:
+                // - Player party: register leader Character only
+                // - NPC parties: register Party object only
+                if (place.Wilderness)
+                {
+                    if (IsPlayerParty)
+                    {
+                        // Player party: move and register leader Character.
+                        place.RemoveObject(leader);
+                        leader.SetPosition(place, targetX, targetY);
+                        place.RegisterObject(leader);
+                    }
+                    else
+                    {
+                        // NPC party: move and register Party object.
+                        place.RemoveObject(this);
+                        SetPosition(place, targetX, targetY);
+                        place.RegisterObject(this);
+                    }
+                }
+                else
+                {
+                    // Non-wilderness: move leader character.
+                    place.RemoveObject(leader);
+                    leader.SetPosition(place, targetX, targetY);
+                    place.AddObject(leader, targetX, targetY);
+                    Position = leader.Position;
+                }
             }
         }
     }
@@ -752,6 +807,29 @@ public class Party : Object
         y = fleeY;
     }
     
+    /// <summary>
+    /// Register all members in a combat place (called when entering combat).
+    /// </summary>
+    public void DistributeMembersIntoCombatPlace(Place combatPlace, int startX, int startY, int dx, int dy)
+    {
+        int offset = 0;
+        foreach (var member in members)
+        {
+            // Simple formation: stack near the entry point.
+            // TODO: Use proper formation algorithm.
+            int px = startX + (offset % 3) * dx;
+            int py = startY + (offset % 3) * dy;
+            
+            // Clamp to combat map bounds.
+            px = Math.Clamp(px, 0, combatPlace.Width - 1);
+            py = Math.Clamp(py, 0, combatPlace.Height - 1);
+            
+            member.SetPosition(combatPlace, px, py);
+            combatPlace.RegisterObject(member);
+            offset++;
+        }
+    }
+    
     // ====================================================================
     // STATUS & INFO
     // ====================================================================
@@ -777,6 +855,10 @@ public class Party : Object
     /// </summary>
     public Sprite? GetSprite()
     {
+        // On wilderness maps, use the party type's sprite (the wandering monster icon).
+        if (Type?.Sprite != null) 
+            return Type.Sprite;
+        
         return GetLeader()?.CurrentSprite;
     }
     

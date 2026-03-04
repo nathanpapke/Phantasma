@@ -373,6 +373,13 @@ public abstract class Being : Object
             return MoveResult.Impassable;
         }
         
+        // Check for a hostile party at the destination.
+        var occupant = place.GetObjectAt(newX, newY, ObjectLayer.Being) as Being;
+        if (occupant != null && Behavior.AreHostile(this, occupant))
+        {
+            return MoveResult.EnterCombat;
+        }
+        
         // Check if stepping onto a subplace.
         var subplace = place.GetSubplace(newX, newY);
         if (subplace != null)

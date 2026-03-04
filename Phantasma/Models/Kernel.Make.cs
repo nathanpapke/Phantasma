@@ -1367,20 +1367,41 @@ public partial class Kernel
     
     /// <summary>
     /// (kern-mk-party type faction vehicle)
-    /// Creates a party.
+    /// Creates a party from a PartyType, populating it with members.
     /// </summary>
     public static object MakeParty(object[] args)
     {
         var type = args.Length > 0 ? args[0] : null;
         var faction = args.Length > 1 ? args[1] : null;
         var vehicle = args.Length > 2 ? args[2] : null;
-        
-        var party = new Party();
-        // type - PartyType, ignored for now (TODO: implement PartyType)
-        party.Faction = Convert.ToInt32(faction ?? 0);
-        // vehicle - Vehicle the party is in, ignored for now
-        party.IsPlayerParty = false;
-        
+
+        // Resolve the PartyType
+        PartyType? partyType = null;
+        if (type is PartyType pt)
+            partyType = pt;
+        else if (type is string typeTag)
+        {
+            var resolved = Phantasma.GetRegisteredObject(typeTag.TrimStart('\''));
+            partyType = resolved as PartyType;
+        }
+
+        if (partyType == null)
+        {
+            Console.WriteLine($"[kern-mk-party] Error: PartyType not found for {type}");
+            return "#f".Eval();
+        }
+
+        // Resolve vehicle (if provided)
+        Vehicle? vehicleObj = null;
+        if (vehicle is Vehicle v)
+            vehicleObj = v;
+        else if (vehicle is string vTag && !string.IsNullOrEmpty(vTag))
+            vehicleObj = Phantasma.GetRegisteredObject(vTag.TrimStart('\'')) as Vehicle;
+
+        // Use CreateInstance to create and populate the party
+        int factionInt = Convert.ToInt32(faction ?? 0);
+        var party = partyType.CreateInstance(factionInt, vehicleObj);
+
         return party;
     }
     
@@ -2277,9 +2298,32 @@ public partial class Kernel
                         
                         // Get dice string.
                         string dice = diceObj?.ToString()?.Trim('"') ?? "1";
-                        
-                        // Factory is stored as-is (closure).
-                        partyType.AddGroup(species, groupSprite, dice, factoryObj);
+
+                        // Resolve the factory closure - it might be a symbol that needs to be evaluated
+                        object? factory = factoryObj;
+                        Console.WriteLine($"[kern-mk-party-type] Factory object type: {factoryObj?.GetType().Name}, value: {factoryObj}");
+
+                        if (factoryObj != null && !(factoryObj is Callable))
+                        {
+                            // It's likely a symbol - evaluate it to get the actual function
+                            var factorySymbol = factoryObj.ToString();
+                            Console.WriteLine($"[kern-mk-party-type] Evaluating factory symbol: '{factorySymbol}'");
+                            try
+                            {
+                                factory = factorySymbol.Eval();
+                                Console.WriteLine($"[kern-mk-party-type] Resolved to: {factory?.GetType().Name}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[kern-mk-party-type] Warning: Could not resolve factory '{factorySymbol}': {ex.Message}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[kern-mk-party-type] Factory is already callable");
+                        }
+
+                        partyType.AddGroup(species, groupSprite, dice, factory);
                         groupCount++;
                     }
                 }

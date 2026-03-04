@@ -131,6 +131,7 @@ public class PartyType : ObjectType
     
     /// <summary>
     /// Create a new Party instance from this type.
+    /// Populates the party with members from the groups.
     /// </summary>
     public Party CreateInstance(int faction = 0, Vehicle? vehicle = null)
     {
@@ -141,17 +142,78 @@ public class PartyType : ObjectType
             Vehicle = vehicle,
             IsPlayerParty = false
         };
-        
+
         // Set sprite from party type if available.
         if (Sprite != null)
         {
             party.Sprite = Sprite;
         }
-        
-        // Note: Members are created lazily or via CreateMembers().
-        // The Scheme factory functions generate the actual characters.
-        
+
+        // Populate party with members from groups using factory functions.
+        PopulatePartyMembers(party);
+
         return party;
+    }
+
+    /// <summary>
+    /// Populate a party with members from this type's groups.
+    /// </summary>
+    private void PopulatePartyMembers(Party party)
+    {
+        if (groups.Count == 0)
+        {
+            Console.WriteLine($"[PartyType.Populate] Warning: {Tag} has no groups defined");
+            return;
+        }
+
+        Console.WriteLine($"[PartyType.Populate] Populating party from type {Tag} with {groups.Count} groups");
+
+        foreach (var group in groups)
+        {
+            // Roll dice to determine how many members of this group to create
+            int count = Dice.Roll(group.Dice);
+            Console.WriteLine($"[PartyType.Populate] Group {group.Species.Tag}: rolled {group.Dice} = {count} members");
+
+            // Create each member using the factory closure
+            for (int i = 0; i < count; i++)
+            {
+                if (group.Factory == null)
+                {
+                    Console.WriteLine($"[PartyType.Populate] Warning: No factory for group {group.Species.Tag}");
+                    continue;
+                }
+
+                try
+                {
+                    // The factory should be a Callable (resolved in Kernel.Make.cs)
+                    if (!(group.Factory is IronScheme.Runtime.Callable factoryClosure))
+                    {
+                        Console.WriteLine($"[PartyType.Populate] Factory is not callable: {group.Factory?.GetType().Name}");
+                        continue;
+                    }
+
+                    // Call the factory function to create a Character
+                    var characterObj = factoryClosure.Call();
+                    var character = characterObj as Character;
+
+                    if (character != null)
+                    {
+                        party.AddMember(character);
+                        Console.WriteLine($"[PartyType.Populate] Added member: {character.GetName()}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[PartyType.Populate] Factory returned non-Character: {characterObj?.GetType().Name}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PartyType.Populate] Error creating member: {ex.Message}");
+                }
+            }
+        }
+
+        Console.WriteLine($"[PartyType.Populate] Party now has {party.Size} members");
     }
     
     public override string ToString()

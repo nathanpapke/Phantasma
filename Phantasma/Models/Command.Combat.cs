@@ -36,6 +36,13 @@ public partial class Command
         var player = session.Player;
         if (player == null) return;
         
+        // Attack is not valid on wilderness map.
+        if (session.CurrentPlace?.Wilderness == true)
+        {
+            session.LogMessage("Attack-not here!");
+            return;
+        }
+        
         var weapon = player.GetCurrentWeapon();
         int range = weapon?.Range ?? 1;
         

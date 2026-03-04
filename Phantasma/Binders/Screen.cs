@@ -219,6 +219,58 @@ public class Screen
         }
     }
     
+    private void DrawParty(DrawingContext context, int x, int y, Party party)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        var sprite = party.Sprite;
+        
+        if (sprite?.SourceImage != null)
+            DrawSprite(context, sprite, destRect);
+        else
+        {
+            // Fallback: show party marker
+            var text = new FormattedText("P",
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface("Consolas", FontStyle.Normal, FontWeight.Bold),
+                24, Brushes.OrangeRed);
+            context.DrawText(text, new Point(
+                destRect.X + (destRect.Width - text.Width) / 2,
+                destRect.Y + (destRect.Height - text.Height) / 2));
+        }
+    }
+    
+    private void DrawPartyMarker(DrawingContext context, int x, int y, Party party)
+    {
+        var destRect = new Rect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+        
+        // Use party type sprite (the wandering monster icon from kern-mk-partytype).
+        var sprite = party.Type?.Sprite        // set directly on player party
+                     ?? party.Type?.Sprite     // set via PartyType for NPC parties
+                     ?? party.GetLeader()?.CurrentSprite;
+    
+        if (sprite?.SourceImage != null)
+        {
+            DrawSprite(context, sprite, destRect);
+        }
+        else
+        {
+            // ASCII fallback with party's leader initial.
+            var leader = party.GetLeader();
+            char ch = leader?.Species.Tag?.FirstOrDefault() ?? 'e'; // 'e' for enemy
+            var text = new FormattedText(
+                ch.ToString(),
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                new Typeface("Consolas", FontStyle.Normal, FontWeight.Bold),
+                24,
+                new SolidColorBrush(Color.Parse("#FF6600")));
+            context.DrawText(text, new Point(
+                destRect.X + (destRect.Width - text.Width) / 2,
+                destRect.Y + (destRect.Height - text.Height) / 2));
+        }
+    }
+    
     public void DrawVehicle(DrawingContext context, int x, int y, Vehicle vehicle)
     {
         // Invisible objects don't render at all.
@@ -534,7 +586,7 @@ public class Screen
         }
             
         // If sprite has a display char, use it.
-        if (being.CurrentSprite.Tag != null)
+        if (being.CurrentSprite?.Tag != null)
         {
             displayChar = being.CurrentSprite.DisplayChar != '\0' ? 
                 being.CurrentSprite.DisplayChar : displayChar;
@@ -1094,6 +1146,14 @@ public class Screen
         var beings = place.GetAllBeings();
         foreach (var being in beings)
         {
+            // On wilderness, skip NPC party members (rendered as Party markers instead).
+            // But DO render player party members (they show as character sprites).
+            if (place.Wilderness && being is Character wch)
+            {
+                if (wch.Party != null && !wch.Party.IsPlayerParty)
+                    continue;
+            }
+            
             viewX = being.GetX() - viewStartX;
             viewY = being.GetY() - viewStartY;
         
@@ -1106,7 +1166,26 @@ public class Screen
                 }
             }
         }
-    
+        
+        // Layer 10.5: Draw parties in wilderness.
+        if (place.Wilderness)
+        {
+            foreach (var party in place.GetAllParties())
+            {
+                if (party.IsPlayerParty) continue; // Player rendered as Character in layer 10
+        
+                viewX = party.GetX() - viewStartX;
+                viewY = party.GetY() - viewStartY;
+        
+                if (viewX >= 0 && viewX < tilesWide &&
+                    viewY >= 0 && viewY < tilesHigh &&
+                    IsTileVisible(vmask, viewX, viewY))
+                {
+                    DrawPartyMarker(context, viewX, viewY, party);
+                }
+            }
+        }
+        
         // Layer 11: Draw missiles (arrows, spells in flight).
         var missiles = place.GetAllMissiles();
         foreach (var missile in missiles)
