@@ -504,17 +504,19 @@ public class Character : Being
     /// <returns>Next equipped arms, or null if done</returns>
     public ArmsType? GetNextArms()
     {
-        if (readiedArms == null || Species.NSlots == 0)
+        if (readiedArms == null || readiedArms.Length == 0)
         {
             currentArms = null;
             return null;
         }
-        
+
         // Advance to the next slot.
         armsIndex++;
-        
+
         // Search remaining slots for an item.
-        for (; armsIndex < Species.NSlots; armsIndex++)
+        // Use readiedArms.Length, not Species.NSlots — the species slots array may
+        // have been populated after readiedArms was allocated, causing NSlots > Length.
+        for (; armsIndex < readiedArms.Length; armsIndex++)
         {
             // Is anything in this slot?
             if (readiedArms[armsIndex] == null)

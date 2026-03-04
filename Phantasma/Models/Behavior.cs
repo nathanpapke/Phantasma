@@ -70,8 +70,8 @@ public class Behavior
                     message += $" Inner: {ex.InnerException.Message}";
                 
                 // IronScheme exceptions often have useful info in Data or ToString.
-                //Console.WriteLine($"[NpcAI] Custom AI error for {character.GetName()}: {message}");
-                //Console.WriteLine($"[NpcAI] Full exception: {ex}");
+                Console.WriteLine($"[NpcAI] Custom AI error for {character.GetName()}: {message}");
+                Console.WriteLine($"[NpcAI] Full exception: {ex}");
             }
             return;
         }

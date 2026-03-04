@@ -21,12 +21,15 @@ public class AStar
         int width, int height,
         Func<int, int, bool> isWalkable)
     {
-        if (!isWalkable(goalX, goalY))
-            return null;
+        // Do NOT reject the goal if it's occupied — beings (e.g. the player) stand on
+        // the goal tile. We still want a path that reaches it; the final step will be
+        // blocked by movement logic (CheckMoveTo / IsPassable) so the mover ends up
+        // adjacent and can attack. Rejecting the goal here causes A* to return null
+        // immediately, leaving NPCs unable to pathfind toward any living target.
 
         var openSet = new PriorityQueue<AStarNode, int>();
         var visited = new Dictionary<int, AStarNode>();
-        
+
         int Key(int x, int y) => y * width + x;
         int Heuristic(int x, int y) => Math.Abs(x - goalX) + Math.Abs(y - goalY);
 
@@ -52,8 +55,13 @@ public class AStar
                 if (nx < 0 || nx >= width || ny < 0 || ny >= height)
                     continue;
 
-                if (!isWalkable(nx, ny))
-                    continue;
+                // Allow the goal tile even if occupied (by the target being).
+                // All other tiles must be walkable terrain.
+                if (nx != goalX || ny != goalY)
+                {
+                    if (!isWalkable(nx, ny))
+                        continue;
+                }
 
                 int key = Key(nx, ny);
                 int newG = current.G + 1;

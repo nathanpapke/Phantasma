@@ -135,8 +135,12 @@ public abstract class Being : Object
         }
     
         if (cachedPath == null || cachedPath.Count < 2)
+        {
+            // Path depleted or not found — clear so A* reruns next call.
+            cachedPath = null;
             return false;
-    
+        }
+
         // First node is current position, remove it.
         cachedPath.RemoveFirst();
     

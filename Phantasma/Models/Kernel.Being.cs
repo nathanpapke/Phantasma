@@ -95,14 +95,14 @@ public partial class Kernel
         int visionRadius = being is Character ch ? ch.GetVisionRadius() : 10;
         int myX = being.GetX();
         int myY = being.GetY();
-        
+
         var hostiles = new List<object>();
-        
+
         foreach (var obj in place.Objects)
         {
             if (obj is not Being other || other == being)
                 continue;
-            
+
             // Check hostility.
             int otherFaction = other.GetCurrentFaction();
             bool isHostile;
@@ -116,12 +116,11 @@ public partial class Kernel
                 // This matches the behavior default AI already uses.
                 isHostile = (myFaction != otherFaction);
             }
-            
+
             if (!isHostile)
                 continue;
-            
+
             // Check visibility.
-            bool visible = other.IsVisible();
             if (!other.IsVisible())
                 continue;
 
@@ -131,7 +130,6 @@ public partial class Kernel
                 continue;
 
             // Check line of sight.
-            bool inLos = place.IsInLineOfSight(myX, myY, other.GetX(), other.GetY());
             if (!place.IsInLineOfSight(myX, myY, other.GetX(), other.GetY()))
                 continue;
             

@@ -971,18 +971,18 @@ public class Session
         {
             if (npc.IsDead)
                 continue;
-            
+
             npc.StartTurn();
-            
+
             if (npc.HasAI)
             {
-                // Scheme AI is called ONCE per turn — it manages its own action.
-                // This matches Nazghul's place_exec: one exec() call per object.
+                // Scheme AI is called ONCE per turn — it manages its own AP internally
+                // (attack loops, movement loops, etc. are handled in the Scheme code).
                 Behavior.Execute(npc);
             }
             else
             {
-                // C# default AI loops until AP exhausted.
+                // C# default AI: loop until AP exhausted.
                 int maxIterations = 20;
                 int iterations = 0;
                 while (!npc.IsTurnEnded() && npc.ActionPoints > 0 && iterations < maxIterations)
@@ -1471,20 +1471,24 @@ public class Session
         int playerStartX, playerStartY, enemyStartX, enemyStartY;
         int formationDx, formationDy; // Formation spread direction (perpendicular to movement)
 
+        // Place combatants at 1/3 and 2/3 of the map (~11 tiles apart on a 32x32 map).
+        // The original edge placement (~27 tiles apart) exceeded every species'
+        // VisionRadius, so NPCs could never find a target and just wandered.
+        // At 1/3-2/3 the gap is ~10-11 tiles — within sp_human's VisionRadius of 13.
         if (Math.Abs(dx) > Math.Abs(dy))
         {
             // Primarily horizontal movement
             if (dx > 0)
             {
-                // Moving RIGHT (EAST): Player enters from WEST edge, enemy on EAST edge
-                playerStartX = 2;
-                enemyStartX = combatW - 3;
+                // Moving RIGHT (EAST): Player on west third, enemy on east third
+                playerStartX = combatW / 3;
+                enemyStartX = combatW * 2 / 3;
             }
             else
             {
-                // Moving LEFT (WEST): Player enters from EAST edge, enemy on WEST edge
-                playerStartX = combatW - 3;
-                enemyStartX = 2;
+                // Moving LEFT (WEST): Player on east third, enemy on west third
+                playerStartX = combatW * 2 / 3;
+                enemyStartX = combatW / 3;
             }
             playerStartY = combatH / 2;
             enemyStartY = combatH / 2;
@@ -1496,15 +1500,15 @@ public class Session
             // Primarily vertical movement
             if (dy > 0)
             {
-                // Moving DOWN (SOUTH): Player enters from NORTH edge, enemy on SOUTH edge
-                playerStartY = 2;
-                enemyStartY = combatH - 3;
+                // Moving DOWN (SOUTH): Player on north third, enemy on south third
+                playerStartY = combatH / 3;
+                enemyStartY = combatH * 2 / 3;
             }
             else
             {
-                // Moving UP (NORTH): Player enters from SOUTH edge, enemy on NORTH edge
-                playerStartY = combatH - 3;
-                enemyStartY = 2;
+                // Moving UP (NORTH): Player on south third, enemy on north third
+                playerStartY = combatH * 2 / 3;
+                enemyStartY = combatH / 3;
             }
             playerStartX = combatW / 2;
             enemyStartX = combatW / 2;
