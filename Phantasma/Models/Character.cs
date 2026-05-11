@@ -108,14 +108,6 @@ public class Character : Being
     /// Sound played when this character takes damage (overrides species).
     /// </summary>
     public Sound? DamageSound { get; set; }
-    
-    public enum ReadyResult
-    {
-        Readied,
-        NoAvailableSlot,
-        WrongType,
-        TooHeavy
-    }
 
     public Character() : base()
     {
@@ -1097,7 +1089,7 @@ public class Character : Being
                 
                 return false;
                 
-            case MoveResult.Ok:
+            case MoveResult.Okay:
                 // Continue with normal movement below
                 break;
                 

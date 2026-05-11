@@ -222,7 +222,7 @@ public partial class Kernel
         }
         
         var result = ch.Ready(arms);
-        return result == Character.ReadyResult.Readied ? "#t".Eval() : "#f".Eval();
+        return result == ReadyResult.Readied ? "#t".Eval() : "#f".Eval();
     }
     
     /// <summary>

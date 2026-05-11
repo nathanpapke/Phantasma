@@ -370,7 +370,7 @@ public abstract class Being : Object
             if (place.Wraps)
             {
                 // Coordinates will be wrapped in actual movement.
-                return MoveResult.Ok;
+                return MoveResult.Okay;
             }
             
             // Can't go off edge of non-wrapping map with no parent.
@@ -391,7 +391,7 @@ public abstract class Being : Object
             return MoveResult.EnterSubplace;
         }
         
-        return MoveResult.Ok;
+        return MoveResult.Okay;
     }
 
     /// <summary>
@@ -425,7 +425,7 @@ public abstract class Being : Object
         // Relocate to the subplace.
         Relocate(subplace, newX, newY);
         
-        return MoveResult.Ok;
+        return MoveResult.Okay;
     }
 
     /// <summary>
@@ -470,6 +470,6 @@ public abstract class Being : Object
         currentPlace.Exit();
         Relocate(parentPlace, exitX, exitY);
         
-        return MoveResult.Ok;
+        return MoveResult.Okay;
     }
 }

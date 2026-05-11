@@ -17,5 +17,6 @@ public enum Direction
     South = 7,
     SouthEast = 8,
     Up = 9,
-    Down = 10
+    Down = 10,
+    Nil = None
 }
